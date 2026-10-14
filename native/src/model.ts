@@ -7,8 +7,8 @@ export const DEFAULT_FOLDERS:Folder[]=[
   {id:'study',name:'学習',parentId:null},
   {id:'other',name:'その他',parentId:null}
 ];
-export type Workspace = {folders:Folder[];folderId:string|null;tab:'board'|'calendar'|'puzzle'|'settings'};
-export const DEFAULT_WORKSPACE:Workspace={folders:DEFAULT_FOLDERS,folderId:null,tab:'board'};
+export type Workspace = {folders:Folder[];folderId:string|null;tab:'board'|'calendar'|'puzzle'|'settings';recentFolderIds?:string[]};
+export const DEFAULT_WORKSPACE:Workspace={folders:DEFAULT_FOLDERS,folderId:null,tab:'board',recentFolderIds:[]};
 export function folderForTask(t:Task){return t.folderId===undefined?({'仕事':'work','プライベート':'personal','学習':'study','その他':'other'}[t.group]||null):t.folderId;}
 export function folderGroup(folders:Folder[],id:string|null):Group{
   let node=folders.find(f=>f.id===id),guard=0;
