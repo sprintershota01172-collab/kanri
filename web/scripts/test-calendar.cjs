@@ -51,7 +51,7 @@ assert.equal(tasks().length,2,'cancel closes without saving task');
 click('[data-tab="settings"]');
 click('#rename');
 assert.ok(get('[data-name]'),'settings text-input overlay opens');
-assert.equal(dom.window.getComputedStyle(get('#modal')).position,'fixed','settings overlay should not move with page flow');
+assert.ok(html.includes('.modal-layer{position:fixed!important'),'mobile CSS fixes settings overlay to viewport');
 assert.ok(doc.documentElement.style.getPropertyValue('--kanri-locked-height'),'fixed viewport captured before keyboard');
 click('#namesOK');
 assert.equal(dom.window.localStorage.getItem('kanri_v1_tasks')!==null,true,'existing data retained');
