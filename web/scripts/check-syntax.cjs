@@ -25,4 +25,14 @@ for(const key of ['/* v1.6 - dense, content-first UI','board-foot[hidden]','head
 }
 assert.ok(html.includes("$('#boardScreen .board-foot').hidden=!tasks.some(t=>t.pin)"),'Unneeded ranking controls should be hidden');
 assert.doesNotMatch(html,/(?<!\$)\$\([^()\n]+\)\.forEach\(/,'Do not use querySelector on collection loops');
+assert.ok(html.includes('calendar is a clean, read-only view'),'Read-only calendar visual policy missing');
+assert.ok(html.includes('data-caldate'),'Calendar day selection must remain possible');
+assert.ok(!html.includes('data-caladd='),'PLAN must not offer task creation actions');
+assert.ok(html.includes('week-day')&&html.includes('week-cards'),'Restore compact weekly cards');
+assert.ok(html.includes('body::after')&&html.includes('z-index:0'),'Standalone bottom edge must have paint layer behind controls');
+assert.ok(html.includes('.device{height:var(--kanri-standalone-height,100dvh)!important;z-index:1}'),'App remains above safe-area background');
+assert.ok(!html.includes('document.documentElement.clientHeight||0,window.screen.height'),'Do not size standalone viewport using screen.height');
+const manifest=JSON.parse(fs.readFileSync(require('node:path').join(__dirname,'..','manifest.webmanifest'),'utf8'));
+assert.equal(manifest.display,'standalone');
+assert.equal(manifest.background_color,'#0D1626','PWA bottom fallback must be navy');
 console.log('Web syntax, full Gantt grid, viewport, and compact UI checks passed');
