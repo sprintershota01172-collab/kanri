@@ -482,6 +482,15 @@ body,button,input,select{font-synthesis:none}
 .trash-remove{color:var(--red);background:transparent}
 .trash-empty{text-align:center;color:var(--muted);font-size:12px;padding:25px 0}
 @media(max-height:745px){.gantt-excel .gantt-label-complete-row{height:calc((100% - 42px) / var(--display-rows));flex-basis:calc((100% - 42px) / var(--display-rows))}}
+/* Scrollable Gantt with a twenty-row viewport. */
+.gantt-excel .gantt-names,.gantt-excel .gantt-scroll-table{height:100%;min-height:0;display:flex;flex-direction:column}
+.gantt-excel .gantt-name-body,.gantt-excel .gantt-day-body{flex:1 1 auto;min-height:0;height:100%;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.gantt-excel .gantt-name-body::-webkit-scrollbar,.gantt-excel .gantt-day-body::-webkit-scrollbar{display:none}
+.gantt-excel .gantt-name-body .gantt-label-row,.gantt-excel .gantt-day-body .gantt-task-row,.gantt-excel .gantt-name-body .gantt-label-complete-row{height:calc(100% / var(--display-rows));flex:0 0 calc(100% / var(--display-rows))}
+.gantt-excel .gantt-name-body .gantt-label-complete-row .gantt-label-row{height:100%;flex:1 1 0}
+.gantt-excel .gantt-scroll{touch-action:auto}
+.gantt-excel .gantt-day-body,.gantt-excel .gantt-name-body{touch-action:pan-y}
+.gantt-scroll-help{color:var(--muted);font-size:10px;font-weight:700}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div></div><button class="small-btn" id="sortButton" style="font-size:10px;font-weight:800">↕ 自動整理</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
@@ -722,11 +731,9 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
   const ganttRoom=$('#calendarContent').clientHeight||window.innerHeight-230;
   const rowCount=20;
   const list=sorted(tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)));
-  const maxPages=Math.max(1,Math.ceil(list.length/rowCount));
-  ganttPage=Math.max(0,Math.min(ganttPage,maxPages-1));
-  const view=list.slice(ganttPage*rowCount,(ganttPage+1)*rowCount);
+  const view=list; // All active rows remain rendered; the viewport fits twenty.
   const header=`<div class="gantt-grid-row gantt-days-header" style="--days:${days}">${Array.from({length:days},(_,i)=>{const d=new Date(base.getFullYear(),base.getMonth(),i+1);return `<div class="gantt-date-cell ${d.getDay()===0?'sun':d.getDay()===6?'sat':''} ${dateKey(d)===dateKey(new Date())?'today-cell':''}"><b>${i+1}</b><small>${'日月火水木金土'[d.getDay()]}</small></div>`}).join('')}</div>`;
-  let names=`<div class="gantt-label-head">タスク / LT</div>`;
+  let names='';
   let rows='';
   for(const t of view){
     const lt=t.event?1:Math.max(1,Math.min(90,Number(t.leadDays)||1));
@@ -750,16 +757,16 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
   }
   html+=`<div class="gantt gantt-excel" style="--display-rows:${rowCount}">
     <div class="gantt-sheet">
-      <div class="gantt-names">${names}</div>
+      <div class="gantt-names"><div class="gantt-label-head">タスク / LT</div><div class="gantt-name-body" id="ganttNameBody">${names}</div></div>
       <div class="gantt-scroll" id="ganttScroll" role="region" aria-label="ガント日付" tabindex="0">
-        <div class="gantt-scroll-table">${header}${rows}</div>
+        <div class="gantt-scroll-table">${header}<div class="gantt-day-body" id="ganttDayBody">${rows}</div></div>
       </div>
     </div>
     <div class="gantt-controls"><span class="gantt-count">${list.length}件</span>
-      <div class="pager"><button id="gprev" aria-label="前のタスク">‹</button><span>${ganttPage+1}/${maxPages}</span><button id="gnext" aria-label="次のタスク">›</button></div>
+      <span class="gantt-scroll-help">${list.length>20?'上下にスクロール':'20行表示'} ↕</span>
     </div>
   </div>`;
-}$('#calendarContent').innerHTML=html;$('#prevDate').onclick=()=>{ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(base.getFullYear(),base.getMonth()-1,Math.min(base.getDate(),28)):addDays(base,-7))};$('#nextDate').onclick=()=>{ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(base.getFullYear(),base.getMonth()+1,Math.min(base.getDate(),28)):addDays(base,7))};$$('[data-caldate]').forEach(el=>el.onclick=()=>changeDay(parseLocal(el.dataset.caldate)));$$('[data-edit]').forEach(el=>el.onclick=()=>openEdit(el.dataset.edit));$$('[data-gantt-done]').forEach(el=>el.onclick=()=>completeTask(el.dataset.ganttDone));$$('[data-gantt]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.gantt);if(!t)return;if(t.event){openEdit(t.id);return}const before=t.ganttStart||null;t.ganttStart=el.dataset.day;save();renderCalendar();haptic();setUndo('ガント開始日を設定しました',()=>{t.ganttStart=before;save();renderCalendar()})});if(calMode==='gantt'){const scroll=$('#ganttScroll');if(scroll){scroll.scrollLeft=ganttScrollX;scroll.addEventListener('scroll',()=>{ganttScrollX=scroll.scrollLeft},{passive:true})}}$('#gprev')?.addEventListener('click',()=>{ganttPage=Math.max(0,ganttPage-1);renderCalendar()});$('#gnext')?.addEventListener('click',()=>{const size=20;ganttPage=Math.min(Math.max(0,Math.ceil(tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)).length/size)-1),ganttPage+1);renderCalendar()})}
+}$('#calendarContent').innerHTML=html;$('#prevDate').onclick=()=>{ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(base.getFullYear(),base.getMonth()-1,Math.min(base.getDate(),28)):addDays(base,-7))};$('#nextDate').onclick=()=>{ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(base.getFullYear(),base.getMonth()+1,Math.min(base.getDate(),28)):addDays(base,7))};$$('[data-caldate]').forEach(el=>el.onclick=()=>changeDay(parseLocal(el.dataset.caldate)));$$('[data-edit]').forEach(el=>el.onclick=()=>openEdit(el.dataset.edit));$$('[data-gantt-done]').forEach(el=>el.onclick=()=>completeTask(el.dataset.ganttDone));$$('[data-gantt]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.gantt);if(!t)return;if(t.event){openEdit(t.id);return}const before=t.ganttStart||null;t.ganttStart=el.dataset.day;save();renderCalendar();haptic();setUndo('ガント開始日を設定しました',()=>{t.ganttStart=before;save();renderCalendar()})});if(calMode==='gantt'){const scroll=$('#ganttScroll'),names=$('#ganttNameBody'),days=$('#ganttDayBody');if(scroll&&names&&days){scroll.scrollLeft=ganttScrollX;const initialY=Math.max(0,Math.min(ganttScrollY,Math.max(0,names.scrollHeight-names.clientHeight)));names.scrollTop=initialY;days.scrollTop=initialY;const sync=(source,target)=>{if(Math.abs(target.scrollTop-source.scrollTop)>1)target.scrollTop=source.scrollTop;ganttScrollY=source.scrollTop};names.addEventListener('scroll',()=>sync(names,days),{passive:true});days.addEventListener('scroll',()=>sync(days,names),{passive:true});scroll.addEventListener('scroll',()=>{ganttScrollX=scroll.scrollLeft},{passive:true})}}}
 function agendaHtml(day){const k=dateKey(day),items=sorted(tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||t.scheduled?.slice(0,10)===k))).sort((a,b)=>Number(!!b.event)-Number(!!a.event)||(a.scheduled||'').localeCompare(b.scheduled||'')).slice(0,4);return `<div class="agenda"><div class="agenda-head"><strong style="font-size:12px">${dayName(day)} の予定</strong><span class="sub">${items.length}件を表示</span></div><div class="agenda-list">${items.length?items.map(t=>`<button class="agenda-task ${t.event?'event-entry':''}" data-edit="${t.id}"><div class="line" style="background:${palette[quadrant(t)]}"></div><div style="text-align:left;flex:1;min-width:0"><strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.title)}</strong><span>${t.event?'予定 · ':''}${t.scheduled?`${t.scheduled.slice(11,16)} 開始`:'未配置'} · ${t.duration}分${t.event?'':' · '+dueLabel(t.due)}</span></div><span style="font-size:12px">›</span></button>`).join(''):'<div class="agenda-none">予定なし</div>'}</div></div>`}
 function startWeek(d){return addDays(d,-d.getDay())}function addDays(d,n){let r=new Date(d);r.setDate(r.getDate()+n);return r}
 function slotMinute(col,row){return (col===0?8:14)*60+row*30}function hhmm(m){return `${pad(Math.floor(m/60))}:${pad(m%60)}`}function isConflict(start,end,omit){return tasks.some(t=>t.id!==omit&&!t.done&&t.scheduled?.slice(0,10)===dateKey(puzzleDay)&&(()=>{let x=+t.scheduled.slice(11,13)*60+(+t.scheduled.slice(14,16));return start<x+t.duration&&end>x})())}function trySchedule(id,minutes){let task=tasks.find(t=>t.id===id);if(!task)return;const dur=task.duration;const day=dateKey(puzzleDay);if(minutes+dur>(minutes<14*60?14*60:20*60)){flash('ブロックがこの時間枠に収まりません');return}if(isConflict(minutes,minutes+dur,id)){flash('ほかの予定と重なっています');return}let old=task.scheduled;task.scheduled=`${day}T${hhmm(minutes)}`;activePuzzle=null;save();render();haptic();flash('予定を配置しました');setUndo('予定を配置しました',()=>mutate(id,{scheduled:old}))}
