@@ -14,4 +14,10 @@ for(const keyword of required) assert.ok(html.includes(keyword),'Missing '+keywo
 assert.ok(html.includes('const days=new Date(base.getFullYear(),base.getMonth()+1,0).getDate()'),'Gantt must account for real month lengths');
 assert.ok(html.includes('grid-template-columns:repeat(var(--days),36px)'),'Date cells must have uniform width');
 assert.ok(!html.includes('YOUR FLOW, IN ORDER.'),'Remove decorative slogans');
-console.log('Web syntax and spreadsheet Gantt smoke checks passed');
+assert.ok(html.includes('ganttBlankCount')===false || html.includes('gantt-blank-row'),'Gantt empty grid must be drawn');
+assert.ok(html.includes('gantt-blank-row'),'Gantt should render fully bordered rows without tasks');
+assert.ok(html.includes('for(let blank=view.length;blank<rowCount;blank++)'),'Gantt should fill remaining rows');
+assert.ok(html.includes("Array.from({length:days},(_,i)=>"),'Gantt should show all days in selected month');
+assert.ok(html.includes('gantt-empty-square'),'Gantt blank cells must retain borders');
+assert.ok(html.includes('--kanri-standalone-height'),'PWA should correct standalone viewport height');
+console.log('Web syntax, empty Gantt spreadsheet, and viewport smoke checks passed');
