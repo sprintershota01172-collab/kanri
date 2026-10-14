@@ -100,6 +100,37 @@ body{min-height:0;height:100%;height:100dvh;overflow:hidden;background:#101d32}
 .gantt-excel .pager button{padding:4px 10px;font-size:18px}
 @media(max-width:375px){.gantt-names{width:90px;min-width:90px;flex-basis:90px}.gantt-excel{padding:8px}}
 @media(max-height:745px){.gantt-label-row,.gantt-task-row,.gantt-square{height:43px}.gantt-label-head,.gantt-days-header,.gantt-date-cell{height:42px}}
+
+/* v1.5: bottom-anchored navigation; avoid double safe-area / PWA letterboxing */
+@media(max-width:499px) {
+ html, body { min-height:0; background:var(--bg); }
+ body { height:100dvh; margin:0; }
+ .device { top:0;left:0;right:0;bottom:auto;height:100dvh;min-height:0;padding-bottom:calc(64px + env(safe-area-inset-bottom,0px)); }
+ .nav { position:absolute;left:0;right:0;bottom:0;z-index:20;height:calc(64px + env(safe-area-inset-bottom,0px));min-height:64px;padding-bottom:env(safe-area-inset-bottom,0px); }
+ .main { min-height:0; }
+}
+@media(max-width:499px) and (display-mode:standalone) {
+ html,body {height:100lvh;}
+ .device {height:100lvh;}
+}
+/* Full-height spreadsheet; empty rows and columns always have visible borders */
+.gantt-excel{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.gantt-excel .gantt-sheet{flex:1 1 auto;min-height:0;max-height:none;height:auto;overflow:hidden;border:1px solid #A8B4C4}
+.gantt-excel .gantt-names{height:100%;display:flex;flex-direction:column;min-height:0}
+.gantt-excel .gantt-scroll{height:100%;min-height:0;flex:1}
+.gantt-excel .gantt-scroll-table{height:100%;min-height:0;display:flex;flex-direction:column}
+.gantt-excel .gantt-label-head,.gantt-excel .gantt-days-header{height:46px;flex:0 0 46px}
+.gantt-excel .gantt-label-row,.gantt-excel .gantt-task-row{height:calc((100% - 46px) / var(--display-rows));flex:0 0 calc((100% - 46px) / var(--display-rows));min-height:0;box-sizing:border-box}
+.gantt-excel .gantt-square{height:100%;min-height:0;box-sizing:border-box;border-right:1px solid #BCC5D1;border-bottom:1px solid #BCC5D1}
+.gantt-excel .gantt-label-row{border-right:1px solid #A8B4C4;border-bottom:1px solid #BCC5D1}
+.gantt-excel .gantt-date-cell{border-right:1px solid #A8B4C4;border-bottom:1px solid #A8B4C4}
+.gantt-excel .gantt-label-head{border-color:#A8B4C4}
+.gantt-excel .gantt-blank{background:var(--card)}
+.gantt-excel .gantt-empty-square{pointer-events:none}
+@media(max-height:745px){
+ .gantt-excel .gantt-label-head,.gantt-excel .gantt-days-header{height:42px;flex-basis:42px}
+ .gantt-excel .gantt-label-row,.gantt-excel .gantt-task-row{height:calc((100% - 42px) / var(--display-rows));flex-basis:calc((100% - 42px) / var(--display-rows))}
+}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div style="text-align:right"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head"><div><div class="screen-title">TODO</div></div><button class="small-btn" id="sortButton" style="font-size:10px;font-weight:800">↕ 自動整理</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
@@ -119,7 +150,8 @@ function setupDrag(el){let sx=0,sy=0,dragged=false,timer=null,armed=false;el.onp
 function changeDay(d,forPuzzle=false){if(forPuzzle)puzzleDay=d;else focusDay=d;render()}
 function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><button id="prevDate">‹</button><strong>${calMode==='month'?`${base.getFullYear()}年 ${base.getMonth()+1}月`:calMode==='week'?`${dayName(startWeek(base))} – ${dayName(addDays(startWeek(base),6))}`:`${base.getFullYear()}年 ${base.getMonth()+1}月`}</strong><button id="nextDate">›</button></div>`;let html=nav;if(calMode==='month'){let first=new Date(base.getFullYear(),base.getMonth(),1),start=addDays(first,-first.getDay());html+='<div class="month-box"><div class="week-labels">'+[...'日月火水木金土'].map(x=>`<div>${x}</div>`).join('')+'</div><div class="month-grid">';for(let i=0;i<42;i++){let d=addDays(start,i),k=dateKey(d),dayTasks=tasks.filter(t=>!t.done&&(t.due===k||t.scheduled?.slice(0,10)===k));html+=`<button class="day ${d.getMonth()!==base.getMonth()?'outside':''} ${sameDay(d,base)?'sel':''} ${sameDay(d,new Date())?'today':''}" data-caldate="${k}">${d.getDate()}<div class="day-dots">${dayTasks.slice(0,3).map(()=>'<i class="dot"></i>').join('')}</div></button>`}html+='</div></div>'+agendaHtml(base)}else if(calMode==='week'){let start=startWeek(base);html+='<div class="week-cards">';for(let i=0;i<7;i++){let d=addDays(start,i),k=dateKey(d);let n=tasks.filter(t=>t.due===k||t.scheduled?.slice(0,10)===k).length;html+=`<button class="week-day ${sameDay(d,base)?'active':''}" data-caldate="${k}"><span>${'日月火水木金土'[d.getDay()]}</span><b>${d.getDate()}</b><em>${n}件</em></button>`}html+='</div>'+agendaHtml(base)}else{
   const days=new Date(base.getFullYear(),base.getMonth()+1,0).getDate();
-  const rowCount=window.innerHeight<740?5:window.innerHeight<850?6:7;
+  const ganttRoom=$('#calendarContent').clientHeight||window.innerHeight-230;
+  const rowCount=Math.max(6,Math.min(15,Math.floor((ganttRoom-106)/46)));
   const list=sorted(tasks.filter(t=>!t.done));
   const maxPages=Math.max(1,Math.ceil(list.length/rowCount));
   ganttPage=Math.max(0,Math.min(ganttPage,maxPages-1));
@@ -143,8 +175,11 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
     }
     rows+='</div>';
   }
-  if(!view.length){names+='<div class="gantt-label-row gantt-empty">タスクなし</div>';}
-  html+=`<div class="gantt gantt-excel">
+  for(let blank=view.length;blank<rowCount;blank++){
+    names+='<div class="gantt-label-row gantt-blank" aria-hidden="true"></div>';
+    rows+=`<div class="gantt-grid-row gantt-task-row gantt-blank-row" style="--days:${days}" aria-hidden="true">${Array.from({length:days},(_,i)=>{const d=new Date(base.getFullYear(),base.getMonth(),i+1);return `<div class="gantt-square gantt-empty-square ${d.getDay()===0?'sun':d.getDay()===6?'sat':''}"></div>`}).join('')}</div>`;
+  }
+  html+=`<div class="gantt gantt-excel" style="--display-rows:${rowCount}">
     <div class="gantt-sheet">
       <div class="gantt-names">${names}</div>
       <div class="gantt-scroll" id="ganttScroll" role="region" aria-label="ガント日付" tabindex="0">
@@ -155,7 +190,7 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
       <div class="pager"><button id="gprev" aria-label="前のタスク">‹</button><span>${ganttPage+1}/${maxPages}</span><button id="gnext" aria-label="次のタスク">›</button></div>
     </div>
   </div>`;
-}$('#calendarContent').innerHTML=html;$('#prevDate').onclick=()=>{ganttScrollX=0;changeDay(calMode!=='week'?new Date(base.getFullYear(),base.getMonth()-1,Math.min(base.getDate(),28)):addDays(base,-7))};$('#nextDate').onclick=()=>{ganttScrollX=0;changeDay(calMode!=='week'?new Date(base.getFullYear(),base.getMonth()+1,Math.min(base.getDate(),28)):addDays(base,7))};$('[data-caldate]').forEach(el=>el.onclick=()=>changeDay(parseLocal(el.dataset.caldate)));$$('[data-edit]').forEach(el=>el.onclick=()=>openEdit(el.dataset.edit));$$('[data-gantt]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.gantt);if(!t)return;const before=t.ganttStart||null;t.ganttStart=el.dataset.day;save();renderCalendar();haptic();setUndo('ガント開始日を設定しました',()=>{t.ganttStart=before;save();renderCalendar()})});if(calMode==='gantt'){const scroll=$('#ganttScroll');if(scroll){scroll.scrollLeft=ganttScrollX;scroll.addEventListener('scroll',()=>{ganttScrollX=scroll.scrollLeft},{passive:true})}}$('#gprev')?.addEventListener('click',()=>{ganttPage=Math.max(0,ganttPage-1);renderCalendar()});$('#gnext')?.addEventListener('click',()=>{const size=window.innerHeight<740?5:window.innerHeight<850?6:7;ganttPage=Math.min(Math.max(0,Math.ceil(tasks.filter(t=>!t.done).length/size)-1),ganttPage+1);renderCalendar()})}
+}$('#calendarContent').innerHTML=html;$('#prevDate').onclick=()=>{ganttScrollX=0;changeDay(calMode!=='week'?new Date(base.getFullYear(),base.getMonth()-1,Math.min(base.getDate(),28)):addDays(base,-7))};$('#nextDate').onclick=()=>{ganttScrollX=0;changeDay(calMode!=='week'?new Date(base.getFullYear(),base.getMonth()+1,Math.min(base.getDate(),28)):addDays(base,7))};$('[data-caldate]').forEach(el=>el.onclick=()=>changeDay(parseLocal(el.dataset.caldate)));$$('[data-edit]').forEach(el=>el.onclick=()=>openEdit(el.dataset.edit));$$('[data-gantt]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.gantt);if(!t)return;const before=t.ganttStart||null;t.ganttStart=el.dataset.day;save();renderCalendar();haptic();setUndo('ガント開始日を設定しました',()=>{t.ganttStart=before;save();renderCalendar()})});if(calMode==='gantt'){const scroll=$('#ganttScroll');if(scroll){scroll.scrollLeft=ganttScrollX;scroll.addEventListener('scroll',()=>{ganttScrollX=scroll.scrollLeft},{passive:true})}}$('#gprev')?.addEventListener('click',()=>{ganttPage=Math.max(0,ganttPage-1);renderCalendar()});$('#gnext')?.addEventListener('click',()=>{const room=$('#calendarContent').clientHeight||window.innerHeight-230;const size=Math.max(6,Math.min(15,Math.floor((room-106)/46)));ganttPage=Math.min(Math.max(0,Math.ceil(tasks.filter(t=>!t.done).length/size)-1),ganttPage+1);renderCalendar()})}
 function agendaHtml(day){const k=dateKey(day),items=sorted(tasks.filter(t=>!t.done&&(t.due===k||t.scheduled?.slice(0,10)===k))).slice(0,3);return `<div class="agenda"><div class="agenda-head"><strong style="font-size:12px">${dayName(day)} の予定</strong><span class="sub">${items.length}件を表示</span></div><div class="agenda-list">${items.length?items.map(t=>`<button class="agenda-task" data-edit="${t.id}"><div class="line" style="background:${palette[quadrant(t)]}"></div><div style="text-align:left;flex:1;min-width:0"><strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.title)}</strong><span>${t.scheduled?`${t.scheduled.slice(11,16)} 開始`:'未配置'} · ${t.duration}分 · ${dueLabel(t.due)}</span></div><span style="font-size:12px">›</span></button>`).join(''):'<div class="empty">予定なし</div>'}</div></div>`}
 function startWeek(d){return addDays(d,-d.getDay())}function addDays(d,n){let r=new Date(d);r.setDate(r.getDate()+n);return r}
 function slotMinute(col,row){return (col===0?8:14)*60+row*30}function hhmm(m){return `${pad(Math.floor(m/60))}:${pad(m%60)}`}function isConflict(start,end,omit){return tasks.some(t=>t.id!==omit&&!t.done&&t.scheduled?.slice(0,10)===dateKey(puzzleDay)&&(()=>{let x=+t.scheduled.slice(11,13)*60+(+t.scheduled.slice(14,16));return start<x+t.duration&&end>x})())}function trySchedule(id,minutes){let task=tasks.find(t=>t.id===id);if(!task)return;const dur=task.duration;const day=dateKey(puzzleDay);if(minutes+dur>(minutes<14*60?14*60:20*60)){flash('ブロックがこの時間枠に収まりません');return}if(isConflict(minutes,minutes+dur,id)){flash('ほかの予定と重なっています');return}let old=task.scheduled;task.scheduled=`${day}T${hhmm(minutes)}`;activePuzzle=null;save();render();haptic();flash('予定を配置しました');setUndo('予定を配置しました',()=>mutate(id,{scheduled:old}))}
