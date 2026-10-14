@@ -60,5 +60,17 @@ assert.equal(JSON.parse(dom.window.localStorage.getItem('kanri_v1_tasks')).lengt
 click(d,'[data-task-trash]');
 click(d,'#confirmDelete');
 assert.equal(JSON.parse(dom.window.localStorage.getItem('kanri_v1_tasks')).length,0,'confirm deletes task');
+click(d,'[data-folder-path="work"]');
+const nested=q(d,'[data-folder-open="'+child.id+'"]');
+pointer(dom.window,nested,'pointerdown',170,220);
+pointer(dom.window,nested,'pointermove',100,221);
+pointer(dom.window,nested,'pointerup',100,221);
+click(d,'[data-folder-trash="'+child.id+'"]');
+assert.ok(q(d,'#confirmDelete'),'folder deletion confirmation');
+click(d,'#confirmCancel');
+assert.ok(JSON.parse(dom.window.localStorage.getItem('kanri_v2_folders')).some(f=>f.id===child.id),'cancel keeps folder');
+click(d,'[data-folder-trash="'+child.id+'"]');
+click(d,'#confirmDelete');
+assert.ok(!JSON.parse(dom.window.localStorage.getItem('kanri_v2_folders')).some(f=>f.id===child.id),'confirmed folder deletion');
 dom.window.close();
-console.log('PASS folder create / assign / restore / dark / tab swipe / confirmed deletion');
+console.log('PASS folder create / assign / restore / dark / tab swipe / confirmed task and folder deletion');
