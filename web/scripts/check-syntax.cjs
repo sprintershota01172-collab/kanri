@@ -19,7 +19,7 @@ assert.ok(html.includes('gantt-blank-row'),'Gantt should render fully bordered r
 assert.ok(html.includes('for(let blank=view.length;blank<rowCount;blank++)'),'Gantt should fill remaining rows');
 assert.ok(html.includes("Array.from({length:days},(_,i)=>"),'Gantt should show all days in selected month');
 assert.ok(html.includes('gantt-empty-square'),'Gantt blank cells must retain borders');
-assert.ok(html.includes('v1.9.5 — iPhone PWA layout'),'Standalone PWA must use unified flex layout');
+assert.ok(html.includes('v1.9.6 — iPhone layout adapted from tabi'),'Standalone PWA must use tabi-based viewport layout');
 assert.ok(html.includes('flex:1 1 0%!important'),'Main content fills remaining screen space');
 assert.ok(html.includes('position:relative!important'),'Navigation stays in app flex flow');
 for(const key of ['/* v1.6 - dense, content-first UI','board-foot[hidden]','header-actions','month-grid{flex:1','sheet-actions .primary{min-height:44px']) {
@@ -31,8 +31,10 @@ assert.ok(html.includes('calendar is a clean, read-only view'),'Read-only calend
 assert.ok(html.includes('data-caldate'),'Calendar day selection must remain possible');
 assert.ok(!html.includes('data-caladd='),'PLAN must not offer task creation actions');
 assert.ok(html.includes('week-day')&&html.includes('week-cards'),'Restore compact weekly cards');
-assert.ok(html.includes('body::after')&&html.includes('z-index:0'),'Standalone bottom edge must have paint layer behind controls');
-assert.ok(html.includes('.device{height:var(--kanri-standalone-height,100dvh)!important;z-index:1}'),'App remains above safe-area background');
+assert.ok(html.includes('body::after{content:none!important;display:none!important}'),'No overlays allowed above navigation');
+assert.ok(html.includes('height:var(--vh,100svh)!important'),'App must use viewport height from same strategy as tabi');
+assert.ok(html.includes('padding:4px max(12px,env(safe-area-inset-left,0px)) calc(4px + var(--safe-bottom,env(safe-area-inset-bottom,0px)))!important'),'Navigation reserves and pads safe area correctly');
+assert.ok(html.includes('<script src="./mobile-viewport.js"></script>'),'Viewport helper is loaded');
 assert.ok(!html.includes('document.documentElement.clientHeight||0,window.screen.height'),'Do not size standalone viewport using screen.height');
 const manifest=JSON.parse(fs.readFileSync(require('node:path').join(__dirname,'..','manifest.webmanifest'),'utf8'));
 assert.equal(manifest.display,'standalone');
