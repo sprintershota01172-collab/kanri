@@ -92,6 +92,18 @@ async function checkLongGantt(browser){
  assert.ok(Math.abs(initial.rightVisible-initial.leftVisible)<3,'dates and names have equal viewport heights: '+JSON.stringify(initial));
  assert.ok(initial.leftTotal>initial.leftVisible,'task names must scroll vertically');
  assert.ok(initial.rightTotal>initial.rightVisible,'date grid must scroll vertically');
+ const horizontal=await page.evaluate(()=>{
+  const scroller=document.querySelector('#ganttScroll'),table=document.querySelector('.gantt-scroll-table'),name=document.querySelector('.gantt-names');
+  const strong=document.querySelector('.gantt-label-complete-row strong'),lt=document.querySelector('.gantt-lt');
+  const initialX=scroller.scrollLeft;
+  scroller.scrollLeft=180;
+  return {initialX,scrollLeft:scroller.scrollLeft,scrollWidth:scroller.scrollWidth,clientWidth:scroller.clientWidth,tableWidth:table.getBoundingClientRect().width,nameWidth:name.getBoundingClientRect().width,titleWidth:strong.getBoundingClientRect().width,ltWidth:lt.getBoundingClientRect().width};
+ });
+ assert.ok(horizontal.scrollWidth>horizontal.clientWidth+150,'horizontal scrollable content must exceed viewport '+JSON.stringify(horizontal));
+ assert.ok(horizontal.scrollLeft>90,'horizontal scrolling must work with all twenty-six rows '+JSON.stringify(horizontal));
+ assert.ok(horizontal.nameWidth>=210,'task labels need room for approximately fifteen Japanese characters '+JSON.stringify(horizontal));
+ assert.ok(horizontal.titleWidth>=145,'title column should hold approximately fifteen characters '+JSON.stringify(horizontal));
+ assert.ok(horizontal.ltWidth<=34,'LT column must remain compact '+JSON.stringify(horizontal));
  const scrolled=await page.evaluate(()=>{
   const left=document.querySelector('#ganttNameBody'),right=document.querySelector('#ganttDayBody');
   left.scrollTop=left.scrollHeight-left.clientHeight;
