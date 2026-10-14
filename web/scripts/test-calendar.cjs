@@ -29,6 +29,8 @@ click('#saveTask');
 assert.equal(tasks().length,1);
 assert.equal(tasks()[0].due,date,'calendar selection persists to task');
 click('[data-tab="calendar"]');
+assert.ok(get('[data-mode="gantt"]').classList.contains('selected'),'Gantt is the default PLAN mode');
+assert.ok(get('.gantt-excel'),'Gantt displays before selecting the monthly calendar');
 click('[data-mode="month"]');
 for(let i=0;i<20&&!doc.querySelector('[data-caldate="'+date+'"]');i++)click('#nextDate');
 assert.ok(get('[data-caldate="'+date+'"]'),'task date is visible on calendar');
