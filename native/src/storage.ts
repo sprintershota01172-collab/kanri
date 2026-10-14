@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { DEFAULT_PREFS, DEFAULT_WORKSPACE, Preferences, Task, Workspace } from './model';
+import { DEFAULT_PREFS, DEFAULT_WORKSPACE, Preferences, Task, Workspace, completedTaskExpired } from './model';
 
 // SQLite is the source of truth. Every task is stored locally, including notification IDs.
 export async function migrate(db: SQLiteDatabase) {
@@ -15,7 +15,21 @@ export async function migrate(db: SQLiteDatabase) {
 }
 export async function readTasks(db: SQLiteDatabase): Promise<Task[]> {
   const rows = await db.getAllAsync<{payload:string}>('SELECT payload FROM tasks ORDER BY updated_at DESC');
-  return rows.flatMap(row=>{try{return [JSON.parse(row.payload) as Task]}catch{return []}});
+  const result:Task[]=[];
+  const now=Date.now();
+  for(const row of rows){
+    let task:Task;
+    try{task=JSON.parse(row.payload) as Task}catch{continue}
+    // Old completed tasks have no timestamp. Retain them for seven days from upgrade.
+    if(task.completed && (!task.completedAt || !Number.isFinite(Date.parse(task.completedAt)))){
+      task={...task,completedAt:new Date(now).toISOString()};
+      await saveTask(db,task);
+    }
+    if(completedTaskExpired(task,now)){
+      await deleteTask(db,task.id);
+    }else result.push(task);
+  }
+  return result;
 }
 export async function saveTask(db: SQLiteDatabase,task: Task) {
   await db.runAsync('INSERT INTO tasks(id,payload,updated_at) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at',
