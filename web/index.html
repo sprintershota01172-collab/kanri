@@ -627,7 +627,7 @@ function openDuePicker(value,onChoose){
       '<div class="due-picker-actions"><button id="dueClear">納期なし</button><button id="dueToday">今日</button><button id="dueBack">戻る</button></div>';
     $('#datePrev').onclick=()=>{viewing=new Date(year,month-1,1);renderPicker()};
     $('#dateNext').onclick=()=>{viewing=new Date(year,month+1,1);renderPicker()};
-    $('[data-due-date]').forEach(el=>el.onclick=()=>{value=el.dataset.dueDate;onChoose(value);popup.remove()});
+    $$('[data-due-date]').forEach(el=>el.onclick=()=>{value=el.dataset.dueDate;onChoose(value);popup.remove()});
     $('#dueClear').onclick=()=>{onChoose('');popup.remove()};
     $('#dueToday').onclick=()=>{onChoose(dateKey(new Date()));popup.remove()};
     $('#dueBack').onclick=()=>popup.remove();
