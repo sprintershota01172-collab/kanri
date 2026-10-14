@@ -240,7 +240,7 @@ function AppInner(){
               <View style={{height:3,width:21,borderRadius:2,backgroundColor:COLORS[q],marginTop:5}}/>
               <View style={{flex:1,minHeight:0,justifyContent:'flex-start',gap:7,marginTop:9}}>
                 <Pressable onPress={()=>addInQuadrant(q)} accessibilityLabel={`${prefs.names[q]}に新しいタスクを追加`} style={StyleSheet.absoluteFill}/>
-                {items.slice(page*pageSize,page*pageSize+pageSize).map(t=><DragTask key={t.id} task={t} theme={theme} onDrop={boardDrop} onOpen={()=>setEditor(t)} onComplete={()=>{void updateTask({...t,completed:true});void Haptics.selectionAsync();remember('完了しました',()=>{void updateTask(t)})}} onPin={()=>topPin(t.id)}/>)}
+                {items.slice(page*pageSize,page*pageSize+pageSize).map(t=><DragTask key={t.id} task={t} theme={theme} onDrop={boardDrop} onOpen={()=>setEditor(t)} onComplete={()=>{void updateTask({...t,completed:true});void Haptics.selectionAsync();remember('完了しました',()=>{void updateTask(t)})}} onPin={()=>topPin(t.id)} onRequestDelete={()=>Alert.alert('タスクを削除',t.title+' を削除しますか？',[{text:'キャンセル',style:'cancel'},{text:'削除',style:'destructive',onPress:()=>void removeTask(t)}])}/>)}
                 {!items.length&&<Pressable onPress={()=>addInQuadrant(q)} style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text style={typeStyle(theme.muted,10)}>＋</Text></Pressable>}
               </View>
               <View style={styles.pager}><Pressable disabled={!page} onPress={()=>setBoardPages(old=>old.map((v,i)=>i===q?v-1:v))}><Text style={typeStyle(theme.muted,16)}>‹</Text></Pressable><Text style={typeStyle(theme.muted,9)}>{page+1}/{count}</Text><Pressable disabled={page>=count-1} onPress={()=>setBoardPages(old=>old.map((v,i)=>i===q?v+1:v))}><Text style={typeStyle(theme.muted,16)}>›</Text></Pressable></View>
@@ -303,14 +303,27 @@ function AppInner(){
     {renaming&&<RenameSheet prefs={prefs} theme={theme} insetTop={insets.top} onClose={()=>setRenaming(false)} onSave={names=>{setRenaming(false);void updatePreferences({...prefs,names})}}/>}
   </View>;
 }
-function DragTask({task,theme,onDrop,onOpen,onComplete,onPin}:{task:Task,theme:Theme,onDrop:(id:string,x:number,y:number)=>void,onOpen:()=>void,onComplete:()=>void,onPin:()=>void}){
-  const dx=useSharedValue(0),dy=useSharedValue(0);
-  const gesture=useMemo(()=>Gesture.Pan().activateAfterLongPress(180).onUpdate(e=>{dx.value=e.translationX;dy.value=e.translationY}).onEnd(e=>{scheduleOnRN(onDrop,task.id,e.absoluteX,e.absoluteY);dx.value=withSpring(0);dy.value=withSpring(0)}).onFinalize(()=>{dx.value=withSpring(0);dy.value=withSpring(0)}),[task.id,onDrop]);
-  const motion=useAnimatedStyle(()=>({transform:[{translateX:dx.value},{translateY:dy.value}],zIndex:dx.value||dy.value?8:0}));
-  return <GestureDetector gesture={gesture}><Animated.View style={[styles.taskTile,{backgroundColor:theme.bg,borderColor:theme.line},motion]}>
-    <View style={{flexDirection:'row',gap:6,alignItems:'flex-start'}}><Pressable accessibilityLabel="タスクを完了" onPress={onComplete} style={[styles.check,{borderColor:theme.muted}]}/><Pressable style={{flex:1}} onPress={onOpen}><Text numberOfLines={2} style={typeStyle(theme.ink,11,'700')}>{task.title}</Text></Pressable><Pressable accessibilityLabel="最上位に固定" onPress={onPin}><Text style={typeStyle(task.pinned?'#C7A876':theme.muted,11)}>{task.pinned?'◆':'◇'}</Text></Pressable></View>
-    <Pressable style={{marginLeft:20,marginTop:5}} onPress={onOpen}><Text numberOfLines={1} style={typeStyle(theme.muted,9)}>{dueLabel(task.dueDate)} · {task.durationMin}分 · {priorityScore(task)}pt</Text></Pressable>
-  </Animated.View></GestureDetector>;
+function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{task:Task,theme:Theme,onDrop:(id:string,x:number,y:number)=>void,onOpen:()=>void,onComplete:()=>void,onPin:()=>void,onRequestDelete:()=>void}){
+  const dx=useSharedValue(0),dy=useSharedValue(0),swipeX=useSharedValue(0);
+  const gesture=useMemo(()=>{
+    const drag=Gesture.Pan().activateAfterLongPress(200)
+      .onUpdate(e=>{dx.value=e.translationX;dy.value=e.translationY})
+      .onEnd(e=>{scheduleOnRN(onDrop,task.id,e.absoluteX,e.absoluteY);dx.value=withSpring(0);dy.value=withSpring(0)})
+      .onFinalize(()=>{dx.value=withSpring(0);dy.value=withSpring(0)});
+    const swipe=Gesture.Pan().activeOffsetX([-19,19]).failOffsetY([-26,26])
+      .onUpdate(e=>{swipeX.value=Math.max(-88,Math.min(0,e.translationX))})
+      .onEnd(e=>{if(e.translationX< -68)scheduleOnRN(onRequestDelete);swipeX.value=withSpring(0)})
+      .onFinalize(()=>{swipeX.value=withSpring(0)});
+    return Gesture.Race(drag,swipe);
+  },[task.id,onDrop,onRequestDelete]);
+  const motion=useAnimatedStyle(()=>({transform:[{translateX:dx.value+swipeX.value},{translateY:dy.value}],zIndex:dx.value||dy.value?8:0}));
+  return <View style={{position:'relative',borderRadius:10,overflow:'hidden',backgroundColor:'#B94756'}}>
+    <View pointerEvents="none" style={{position:'absolute',right:0,top:0,bottom:0,width:72,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle('#FFFFFF',12,'800')}>削除</Text></View>
+    <GestureDetector gesture={gesture}><Animated.View onTouchStart={e=>e.stopPropagation()} style={[styles.taskTile,{backgroundColor:theme.bg,borderColor:theme.line},motion]}>
+      <View style={{flexDirection:'row',gap:6,alignItems:'flex-start'}}><Pressable accessibilityLabel="タスクを完了" onPress={onComplete} style={[styles.check,{borderColor:theme.muted}]}/><Pressable style={{flex:1}} onPress={onOpen}><Text numberOfLines={2} style={typeStyle(theme.ink,11,'700')}>{task.title}</Text></Pressable><Pressable accessibilityLabel="最上位に固定" onPress={onPin}><Text style={typeStyle(task.pinned?'#C7A876':theme.muted,11)}>{task.pinned?'◆':'◇'}</Text></Pressable></View>
+      <Pressable style={{marginLeft:20,marginTop:5}} onPress={onOpen}><Text numberOfLines={1} style={typeStyle(theme.muted,9)}>{dueLabel(task.dueDate)} · {task.durationMin}分 · {priorityScore(task)}pt</Text></Pressable>
+    </Animated.View></GestureDetector>
+  </View>;
 }
 function PuzzleTile({task,selected,onSelect,onDrop}:{task:Task,selected:boolean,onSelect:()=>void,onDrop:(id:string,x:number,y:number)=>void}){
   const x=useSharedValue(0),y=useSharedValue(0);
