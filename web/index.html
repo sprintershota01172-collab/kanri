@@ -380,102 +380,80 @@ body,button,input,select{font-synthesis:none}
  .nav{position:absolute;bottom:0!important;z-index:100;height:calc(58px + env(safe-area-inset-bottom,0px));min-height:58px;padding-bottom:env(safe-area-inset-bottom,0px);background:var(--nav);pointer-events:auto}
 }
 
-/* v1.9.2 — iPhone physical aspect ratio is authoritative in standalone mode.
-   The full-height device owns BOTH content and home-indicator/nav area.
-   Avoid shrinking content to innerHeight, which can omit ~60 iOS CSS px. */
-@media (max-width:499px) and (display-mode:standalone){
-  html,body{
-    height:var(--kanri-standalone-height,100lvh)!important;
-    min-height:var(--kanri-standalone-height,100lvh)!important;
-    max-height:var(--kanri-standalone-height,100lvh)!important;
-    overflow:hidden!important;
-  }
-  .device{
-    position:fixed!important;
-    top:0!important;bottom:auto!important;left:0!important;right:0!important;
-    width:100vw!important;
-    height:var(--kanri-standalone-height,100lvh)!important;
-    max-height:none!important;
-    padding-bottom:calc(58px + env(safe-area-inset-bottom,0px))!important;
-  }
-  .nav{
-    position:absolute!important;
-    left:0!important;right:0!important;bottom:0!important;
-    height:calc(58px + env(safe-area-inset-bottom,0px))!important;
-    padding-bottom:env(safe-area-inset-bottom,0px)!important;
-    background:var(--nav)!important;
-  }
-  .main{flex:1!important;min-height:0!important}
-}
 
-/* v1.9.3 — SAFETY: iPhone home-screen webview is the positioning boundary.
-   Do not use screen.height, fixed-height pseudo layers, or viewport overflow.
-   The 5 navigation buttons must always remain fully inside the visible viewport. */
-@media(max-width:499px){
-  html,body{
-    height:100dvh!important;
-    max-height:100dvh!important;
-    min-height:0!important;
-    margin:0!important;
-    overflow:hidden!important;
-  }
-  body::after{content:none!important;display:none!important}
-  .device{
-    position:fixed!important;
-    inset:0!important;
-    width:100vw!important;
-    max-width:none!important;
-    height:100dvh!important;
-    min-height:0!important;
-    max-height:100dvh!important;
-    padding-bottom:calc(58px + env(safe-area-inset-bottom,0px))!important;
-    overflow:hidden!important;
-    background:var(--bg);
-  }
-  .main{flex:1;min-height:0!important;overflow:hidden}
-  .nav{
-    position:absolute!important;
-    bottom:0!important;
-    left:0!important;
-    right:0!important;
-    z-index:100!important;
-    width:100%!important;
-    height:calc(58px + env(safe-area-inset-bottom,0px))!important;
-    min-height:58px!important;
-    padding:0 0 env(safe-area-inset-bottom,0px)!important;
-    display:grid!important;
-    pointer-events:auto!important;
-    background:var(--nav)!important;
-    overflow:visible!important;
-  }
-  .nav-btn{min-height:48px;position:relative;z-index:101;pointer-events:auto!important}
-}
-@media(max-width:499px) and (display-mode:standalone){
-  /* Standalone does not authorize extending the app under inaccessible OS UI. */
-  html,body,.device{height:100dvh!important;max-height:100dvh!important}
-}
-
-/* v1.9.4 — seamless iPhone bottom edge.
-   Match the real iOS home-indicator color to the nav, while keeping
-   touch targets INSIDE the visible WebKit viewport. */
+/* v1.9.5 — iPhone PWA layout modeled on a conventional three-row app shell.
+   Header, flexing content and the bottom bar participate in one layout.
+   Inset-bound sizing avoids disagreement between dvh and the iOS window.
+   A navy page background paints any OS-owned home-indicator area. */
 :root{--nav:#0D1626}
 .device.dark{--nav:#0D1626}
 @media(max-width:499px){
-  html,body{background:#0D1626!important}
-  .nav{background:#0D1626!important;border-bottom:0!important;box-shadow:none!important}
-  .device{background:var(--bg)}
+ html,body{
+   position:fixed!important;
+   inset:0!important;
+   width:100%!important;
+   height:auto!important;
+   min-height:0!important;
+   max-height:none!important;
+   padding:0!important;
+   margin:0!important;
+   overflow:hidden!important;
+   background:#0D1626!important;
+ }
+ body::after{content:none!important;display:none!important}
+ .device{
+   position:fixed!important;
+   inset:0!important;
+   top:0!important;bottom:0!important;left:0!important;right:0!important;
+   width:100%!important;height:auto!important;
+   min-height:0!important;max-height:none!important;
+   margin:0!important;padding:0!important;
+   display:flex!important;flex-direction:column!important;
+   border:0!important;border-radius:0!important;
+   overflow:hidden!important;
+   background:var(--bg);
+ }
+ .top{flex:0 0 auto}
+ .main{
+   flex:1 1 0%!important;
+   min-height:0!important;
+   max-height:none!important;
+   overflow:hidden!important;
+ }
+ .nav{
+   position:relative!important;
+   inset:auto!important;
+   top:auto!important;bottom:auto!important;left:auto!important;right:auto!important;
+   flex:0 0 calc(63px + env(safe-area-inset-bottom,0px))!important;
+   width:100%!important;
+   height:calc(63px + env(safe-area-inset-bottom,0px))!important;
+   min-height:63px!important;
+   max-height:none!important;
+   display:grid!important;
+   grid-template-columns:repeat(5,minmax(0,1fr))!important;
+   align-items:center!important;
+   margin:0!important;
+   padding:0 0 env(safe-area-inset-bottom,0px)!important;
+   border:0!important;
+   border-radius:17px 17px 0 0!important;
+   box-shadow:none!important;
+   background:#0D1626!important;
+   z-index:20!important;
+   overflow:visible!important;
+   pointer-events:auto!important;
+ }
+ .nav-btn{
+   position:relative!important;
+   z-index:1!important;
+   height:100%!important;
+   min-height:48px!important;
+   transform:none!important;
+   pointer-events:auto!important;
+ }
+ .add-main{transform:translateY(-3px)!important}
 }
 @media(max-width:499px) and (display-mode:standalone){
-  /* Save four usable pixels for FOCUS/PLAN without touching the OS area. */
-  .device{padding-bottom:calc(54px + env(safe-area-inset-bottom,0px))!important}
-  .nav{
-    bottom:0!important;
-    height:calc(54px + env(safe-area-inset-bottom,0px))!important;
-    min-height:54px!important;
-    padding-bottom:env(safe-area-inset-bottom,0px)!important;
-    border-radius:16px 16px 0 0;
-  }
-  .nav-btn{min-height:48px!important;transform:translateY(2px)}
+ html,body,.device{height:auto!important;max-height:none!important}
 }
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
@@ -487,21 +465,6 @@ body,button,input,select{font-synthesis:none}
 <script src="./xlsx-export.js"></script>
 <script>
 (()=>{'use strict';
-/* iOS home-screen PWA: lock the app to the physical portrait viewport.
-   Safari may report a shorter dynamic viewport below the bottom toolbar;
-   keep keyboard opening from changing the background layout. */
-function syncStandAloneHeight(){
-  // Keep the entire interface INSIDE the WebKit visible viewport.
-  // screen.height includes iOS regions that may be outside the PWA webview;
-  // positioning the nav there clips it and makes its buttons untappable.
-  const root=document.documentElement;
-  const height=Math.max(root.clientHeight||0,window.innerHeight||0);
-  if(height>0)root.style.setProperty('--kanri-visible-height',height+'px');
-}
-syncStandAloneHeight();
-window.addEventListener('orientationchange',syncStandAloneHeight);
-window.addEventListener('pageshow',syncStandAloneHeight);
-
 const KEY='kanri_v1_tasks',PREF='kanri_v1_prefs',FOLDERS_KEY='kanri_v2_folders',VIEW_KEY='kanri_v2_view';const defaults={mode:'priority',names:['重要・緊急','重要・余裕あり','緊急・軽め','あとで考える'],dark:false,notify:true,lead:60};let prefs={...defaults,...read(PREF,{})};let tasks=read(KEY,[]);if(!Array.isArray(tasks))tasks=[];let tab='board',calMode='month',focusDay=new Date(),puzzleDay=new Date(),qpages=[0,0,0,0],ganttPage=0,ganttScrollX=0,inboxPage=0,activePuzzle=null,undoState=null,undoTimer=null,toastTimer=null,sortingManual=false;const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];const palette=['#c78086','#6381bd','#c7aa74','#719a91'];
 const initialFolders=[{id:'work',name:'業務',parentId:null},{id:'personal',name:'プライベート',parentId:null},{id:'study',name:'学習',parentId:null},{id:'other',name:'その他',parentId:null}];
 let folders=read(FOLDERS_KEY,null);
