@@ -558,6 +558,82 @@ function DueCalendarPicker({value,theme,onSelect,onClose}:{value:string,theme:Th
     </View>
   </View>;
 }
+
+function VehicleEditor({theme,insetTop,onClose,onSave}:{theme:Theme,insetTop:number,onClose:()=>void,onSave:(name:string)=>void}){
+  const [name,setName]=useState('');
+  return <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={onClose}>
+    <View style={styles.overlay}><Pressable onPress={onClose} style={StyleSheet.absoluteFill}/>
+      <Animated.View entering={FadeInDown.springify().damping(18)} style={[styles.editorSheet,{top:insetTop+25,backgroundColor:theme.card}]}>
+        <View style={styles.flexBetween}><Text style={typeStyle(theme.ink,16,'800')}>車種を追加</Text><Pressable accessibilityLabel="閉じる" onPress={onClose} style={{minWidth:44,minHeight:44,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.ink,22)}>×</Text></Pressable></View>
+        <Text style={[styles.formLabel,{color:theme.muted}]}>車種名</Text>
+        <TextInput value={name} onChangeText={setName} placeholder="例：ヤリスクロス・型式" placeholderTextColor={theme.muted} maxLength={40} returnKeyType="done" onSubmitEditing={()=>onSave(name)} style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
+        <Text style={[typeStyle(theme.muted,11),{marginTop:8}]}>保存先：業務 / 車種名</Text>
+        <View style={{flexDirection:'row',gap:8,marginTop:12}}>
+          <Pressable onPress={onClose} style={{minHeight:44,justifyContent:'center',paddingHorizontal:14,borderRadius:11,backgroundColor:theme.bg}}><Text style={typeStyle(theme.ink,12,'800')}>キャンセル</Text></Pressable>
+          <Pressable onPress={()=>onSave(name)} style={[styles.primaryButton,{minHeight:44,backgroundColor:theme.navy}]}><Text style={typeStyle('#FFFFFF',12,'800')}>車種を登録</Text></Pressable>
+        </View>
+      </Animated.View>
+    </View>
+  </Modal>;
+}
+function EventEditor({entry,theme,insetTop,folders,initialFolderId,initialDate,onClose,onSave,onDelete}:{entry:Task|'new',theme:Theme,insetTop:number,folders:Folder[],initialFolderId:string|null,initialDate:string,onClose:()=>void,onSave:(task:Task)=>void,onDelete:(task:Task)=>void}){
+  const original=entry==='new'?null:entry;
+  const [title,setTitle]=useState(original?.title||'');
+  const [day,setDay]=useState(original?.scheduledStart?.slice(0,10)||initialDate);
+  const [time,setTime]=useState(original?.scheduledStart?.slice(11,16)||'10:00');
+  const [duration,setDuration]=useState(original?.durationMin||60);
+  const [folderId,setFolderId]=useState<string|null>(original?folderForTask(original):(initialFolderId||'work'));
+  const [datePicker,setDatePicker]=useState(false);
+  const folderList:{id:string,name:string}[]=[];
+  function addFolder(parent:string|null,depth:number){
+    if(depth>16)return;
+    for(const folder of folders.filter(x=>x.parentId===parent)){
+      folderList.push({id:folder.id,name:'　'.repeat(depth)+folder.name});
+      addFolder(folder.id,depth+1);
+    }
+  }
+  addFolder(null,0);
+  function commit(){
+    const text=title.trim();
+    if(!text){Alert.alert('予定名を入力してください');return}
+    if(!parseDateKey(day)){Alert.alert('予定日が正しくありません');return}
+    if(!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(time)){Alert.alert('時刻が正しくありません','HH:mm 形式で入力してください');return}
+    const group=folderId?folderGroup(folders,folderId):'その他';
+    const item=original?{...original}:createTask(text,null,duration,false,false,group);
+    Object.assign(item,{title:text,event:true,folderId,group,scheduledStart:day+'T'+time,durationMin:duration,dueDate:null,ganttStart:null,leadDays:1,important:false,urgent:false,pinned:false,manualOrder:null,completed:false});
+    onSave(item);
+  }
+  return <Modal transparent visible statusBarTranslucent animationType="fade" onRequestClose={onClose}>
+    <View style={styles.overlay}><Pressable style={StyleSheet.absoluteFill} onPress={onClose}/>
+      <Animated.View entering={FadeInDown.springify().damping(18)} style={[styles.editorSheet,{top:insetTop+12,maxHeight:'85%',backgroundColor:theme.card}]}>
+        <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View style={styles.flexBetween}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><Pressable onPress={onClose} accessibilityLabel="保存せず戻る" style={{minHeight:44,minWidth:44,alignItems:'center',justifyContent:'center',borderWidth:1,borderRadius:11,borderColor:theme.line}}><Text style={typeStyle(theme.ink,24)}>×</Text></Pressable><Text style={typeStyle(theme.ink,16,'800')}>{original?'予定を編集':'会議・予定を追加'}</Text></View><Pressable onPress={commit} hitSlop={8}><Text style={typeStyle('#5879B5',12,'800')}>保存 ✓</Text></Pressable></View>
+          <Text style={[styles.formLabel,{color:theme.muted}]}>予定名</Text>
+          <TextInput value={title} onChangeText={setTitle} maxLength={70} placeholder="例：定例会議・取引先打ち合わせ" placeholderTextColor={theme.muted} style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
+          <Text style={[styles.formLabel,{color:theme.muted}]}>開催日</Text>
+          <Pressable onPress={()=>{Keyboard.dismiss();setDatePicker(true)}} accessibilityLabel="日付を選択" style={[styles.input,{backgroundColor:theme.bg,borderColor:theme.line,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}]}><Text style={typeStyle(theme.ink,14,'700')}>{day}</Text><Text style={typeStyle(theme.ink,18)}>▦</Text></Pressable>
+          <Text style={[styles.formLabel,{color:theme.muted}]}>開始時刻（HH:mm）</Text>
+          <TextInput value={time} onChangeText={setTime} maxLength={5} autoCorrect={false} placeholder="10:00" placeholderTextColor={theme.muted} style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
+          <Text style={[styles.formLabel,{color:theme.muted}]}>所要時間</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}} contentContainerStyle={{flexDirection:'row',gap:5}}>
+            {[30,60,90,120,180,240].map(n=><Pressable key={n} onPress={()=>setDuration(n)} style={{minHeight:40,paddingHorizontal:10,justifyContent:'center',borderRadius:9,borderWidth:1,borderColor:duration===n?'#8FAADD':theme.line,backgroundColor:duration===n?theme.tint:theme.bg}}><Text style={typeStyle(theme.ink,10,'700')}>{n}分</Text></Pressable>)}
+          </ScrollView>
+          <Text style={[styles.formLabel,{color:theme.muted}]}>業務・車種・フォルダ</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}} contentContainerStyle={{flexDirection:'row',gap:5}}>
+            <Pressable onPress={()=>setFolderId(null)} style={{minHeight:40,paddingHorizontal:10,justifyContent:'center',borderRadius:9,backgroundColor:folderId===null?theme.tint:theme.bg}}><Text style={typeStyle(theme.ink,10,'700')}>すべて</Text></Pressable>
+            {folderList.map(f=><Pressable key={f.id} onPress={()=>setFolderId(f.id)} style={{minHeight:40,paddingHorizontal:10,justifyContent:'center',borderRadius:9,borderWidth:1,borderColor:folderId===f.id?'#8FAADD':theme.line,backgroundColor:folderId===f.id?theme.tint:theme.bg}}><Text style={typeStyle(theme.ink,10,'700')}>{f.name}</Text></Pressable>)}
+          </ScrollView>
+          <View style={{flexDirection:'row',alignItems:'center',gap:9,marginTop:15}}>
+            {original&&<Pressable onPress={()=>Alert.alert('予定を削除','この予定を削除しますか？',[{text:'キャンセル',style:'cancel'},{text:'削除',style:'destructive',onPress:()=>onDelete(original)}])} style={{minHeight:44,justifyContent:'center'}}><Text style={typeStyle('#C98087',12,'700')}>削除</Text></Pressable>}
+            <Pressable onPress={onClose} style={{minHeight:44,paddingHorizontal:12,justifyContent:'center',borderRadius:10,backgroundColor:theme.bg}}><Text style={typeStyle(theme.ink,12,'800')}>キャンセル</Text></Pressable>
+            <Pressable onPress={commit} style={[styles.primaryButton,{minHeight:44,backgroundColor:theme.navy}]}><Text style={typeStyle('#FFFFFF',12,'800')}>予定を保存</Text></Pressable>
+          </View>
+        </ScrollView>
+        {datePicker&&<DueCalendarPicker value={day} theme={theme} onSelect={value=>{if(value)setDay(value);setDatePicker(false)}} onClose={()=>setDatePicker(false)}/>}
+      </Animated.View>
+    </View>
+  </Modal>;
+}
 function TaskEditor({entry,initialQuadrant,initialDueDate,prefs,theme,insetTop,height,folders,initialFolderId,onClose,onSave,onDelete}:{entry:Task|'new',initialQuadrant:number|null,initialDueDate:string|null,prefs:Preferences,theme:Theme,insetTop:number,height:number,folders:Folder[],initialFolderId:string|null,onClose:()=>void,onSave:(item:Task)=>void,onDelete:(task:Task)=>void}){
   const original=entry==='new'?null:entry;
   const [title,setTitle]=useState(original?.title??'');const [important,setImportant]=useState(original?.important??(initialQuadrant===null?true:initialQuadrant<=1));const [urgent,setUrgent]=useState(original?.urgent??(initialQuadrant===null?false:initialQuadrant===0||initialQuadrant===2));
