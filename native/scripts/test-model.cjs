@@ -51,4 +51,17 @@ test('schedule rejects cross-daypart and invalid grid precision',()=>{
  assert.equal(m.canSchedule([],'2026-10-14',605,30).ok,false);
  assert.equal(m.canSchedule([],'2026-10-14',840,180).ok,true);
 });
+test('Gantt lead time fills one day square per day across month boundary',()=>{
+ const task={...base,leadDays:5,ganttStart:'2026-10-29'};
+ assert.equal(m.ganttCellFilled(task,'2026-10-28'),false);
+ assert.equal(m.ganttCellFilled(task,'2026-10-29'),true);
+ assert.equal(m.ganttCellFilled(task,'2026-10-31'),true);
+ assert.equal(m.ganttCellFilled(task,'2026-11-02'),true);
+ assert.equal(m.ganttCellFilled(task,'2026-11-03'),false);
+});
+test('Gantt falls back to scheduled start and tolerates old tasks without LT',()=>{
+ const task={...base,scheduledStart:'2026-10-14T10:00'};
+ assert.equal(m.ganttCellFilled(task,'2026-10-14'),true);
+ assert.equal(m.ganttCellFilled(task,'2026-10-15'),false);
+});
 console.log('Model tests completed.');
