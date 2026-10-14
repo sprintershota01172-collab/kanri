@@ -7,6 +7,8 @@ export type Task = {
   urgent: boolean;
   group: Group;
   durationMin: number;
+  leadDays?: number; // calendar-day lead time, 1..90
+  ganttStart?: string | null; // manually selected Gantt start date
   dueDate: string | null; // YYYY-MM-DD, local date, deadline 23:59
   scheduledStart: string | null; // YYYY-MM-DDTHH:mm, local wall time
   completed: boolean;
@@ -102,9 +104,19 @@ export function canSchedule(tasks: Task[], day: string, startMinute: number, dur
 export function createTask(title: string, dueDate: string|null, durationMin: number, important: boolean, urgent: boolean, group: Group): Task {
   const now = new Date().toISOString();
   return {id:`t_${Date.now()}_${Math.random().toString(36).slice(2,9)}`,title,dueDate,durationMin,important,urgent,group,
-    scheduledStart:null,completed:false,pinned:false,manualOrder:null,notificationIds:[],createdAt:now,updatedAt:now};
+    leadDays:1,ganttStart:null,scheduledStart:null,completed:false,pinned:false,manualOrder:null,notificationIds:[],createdAt:now,updatedAt:now};
 }
 export function dueLabel(date: string|null) {
   const d=daysUntil(date);
   return d===null?'期限なし':d<0?`${-d}日超過`:d===0?'今日まで':d===1?'明日まで':`${d}日後`;
+}
+
+/** True when day lies within the task's LT, starting from the selected Gantt day. */
+export function ganttCellFilled(task: Task, day: string): boolean {
+  const start = parseDateKey(task.ganttStart || task.scheduledStart?.slice(0,10) || task.dueDate || '');
+  const target = parseDateKey(day);
+  if (!start || !target) return false;
+  const calendarDay = (d: Date) => Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());
+  const diff = Math.round((calendarDay(target)-calendarDay(start))/86400000);
+  return diff>=0 && diff<Math.max(1,Math.min(90,task.leadDays||1));
 }
