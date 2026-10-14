@@ -987,22 +987,6 @@ function openModal(){
   $('#modal').classList.add('open');
 }function closeModal(){const active=document.activeElement;if(active&&$('#sheet').contains(active)&&typeof active.blur==='function')active.blur();$('#modal').classList.remove('open');$('#sheet').innerHTML=''}$('#modal').addEventListener('pointerdown',e=>{if(e.target===$('#modal'))closeModal()});$('#addButton').onclick=()=>openEdit();$('#addEventTop').onclick=()=>openEdit(null,null,dateKey(focusDay),'event');$('#trashCalendar').onclick=openTrash;$('#themeQuick').onclick=()=>{prefs.dark=!prefs.dark;savePrefs();render()};$('#undoBtn').onclick=undo;$('#undoTop').onclick=undo;$('#sortButton').onclick=()=>{let candidates=sorted(tasks.filter(t=>!t.done));let index=0;candidates.forEach(t=>{if(!t.pin){t.rank=null}else t.rank=index++});save();render();flash('優先順位を更新しました')};$('#resetRank').onclick=()=>{tasks.forEach(t=>{t.pin=false;t.rank=null});save();render();flash('すべて自動順位に戻しました')};$$('.nav-btn[data-tab]').forEach(el=>el.onclick=()=>navigateTab(el.dataset.tab));
 
-// Swipe over empty board space or panel background to switch groups, without changing bottom tabs.
-let boardGroupSwipe=null;
-$('#board').addEventListener('pointerdown',e=>{
-  if(tab!=='board'||$('#modal').classList.contains('open')||e.target.closest('button,.task-wrap,.task-card')){boardGroupSwipe=null;return}
-  boardGroupSwipe={x:e.clientX,y:e.clientY,t:Date.now()};
-},{passive:true});
-$('#board').addEventListener('pointerup',e=>{
-  if(!boardGroupSwipe)return;
-  const from=boardGroupSwipe;boardGroupSwipe=null;
-  const dx=e.clientX-from.x,dy=e.clientY-from.y;
-  if(Math.abs(dx)<65||Math.abs(dx)<Math.abs(dy)*1.2||Date.now()-from.t>1200)return;
-  const entries=visibleGroupEntries();
-  const pos=entries.findIndex(x=>x.id===currentFolderId),next=pos+(dx<0?1:-1);
-  if(next>=0&&next<entries.length){setFolder(entries[next].id);haptic()}
-},{passive:true});
-$('#board').addEventListener('pointercancel',()=>{boardGroupSwipe=null},{passive:true});
 const tabOrder=['board','calendar','puzzle','settings'];
 let tabGesture=null;
 $('.main').addEventListener('pointerdown',e=>{
