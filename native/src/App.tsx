@@ -320,6 +320,8 @@ function AppInner(){
     {!!toast&&<Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(140)} style={[styles.toast,{top:insets.top+149}]}><Text style={typeStyle('#FFFFFF',11)}>{toast}</Text></Animated.View>}
     {folderMenuOpen&&<FolderBrowserSheet theme={theme} insetTop={insets.top} folders={workspace.folders} selectedFolderId={workspace.folderId} onClose={()=>setFolderMenuOpen(false)} onSelect={selectFolder} onCreate={()=>{setFolderMenuOpen(false);setNewFolderOpen(true)}} onDelete={deleteFolder}/>}
     {newFolderOpen&&<FolderSheet theme={theme} insetTop={insets.top} parentName={folderPath.map(f=>f.name).join(' / ')||'すべて'} onClose={()=>setNewFolderOpen(false)} onCreate={createFolder}/>}{editor&&<TaskEditor key={editor==='new'?'new':editor.id} entry={editor} initialQuadrant={newQuadrant} initialDueDate={calendarDraftDate} prefs={prefs} folders={workspace.folders} initialFolderId={workspace.folderId} theme={theme} insetTop={insets.top} height={stableEditorHeight.current} onClose={()=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null)}} onSave={data=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null);void updateTask(data);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('保存しました')}} onDelete={t=>{Keyboard.dismiss();setEditor(null);void removeTask(t);remember('タスクを削除しました',()=>{void updateTask(t,null)})}}/>}
+    {vehicleEditorOpen&&<VehicleEditor theme={theme} insetTop={insets.top} onClose={()=>{Keyboard.dismiss();setVehicleEditorOpen(false)}} onSave={createVehicle}/>}
+    {eventEditor&&<EventEditor key={eventEditor==='new'?'new':eventEditor.id} entry={eventEditor} theme={theme} insetTop={insets.top} folders={workspace.folders} initialFolderId={workspace.folderId} initialDate={dateKey(focus)} onClose={()=>{Keyboard.dismiss();setEventEditor(null)}} onSave={item=>{Keyboard.dismiss();setEventEditor(null);void updateTask(item);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('予定を保存しました')}} onDelete={item=>{Keyboard.dismiss();setEventEditor(null);void removeTask(item)}}/>}
     {leadEditor&&<LeadTimeSheet theme={theme} insetTop={insets.top} current={prefs.leadMinutes} onClose={()=>{Keyboard.dismiss();setLeadEditor(false)}} onSave={minutes=>{Keyboard.dismiss();setLeadEditor(false);void updatePreferences({...prefs,leadMinutes:minutes})}}/>}
     {renaming&&<RenameSheet prefs={prefs} theme={theme} insetTop={insets.top} onClose={()=>setRenaming(false)} onSave={names=>{setRenaming(false);void updatePreferences({...prefs,names})}}/>}
   </View>;
@@ -353,17 +355,18 @@ function PuzzleTile({task,selected,onSelect,onDrop}:{task:Task,selected:boolean,
   const animated=useAnimatedStyle(()=>({transform:[{translateX:x.value},{translateY:y.value}],zIndex:10}));
   return <GestureDetector gesture={gesture}><Animated.View style={[styles.puzzleTile,{height:45+Math.round(Math.min(task.durationMin,180)/180*24)},selected&&{borderColor:'#C7DBFF',borderWidth:2},animated]}><Pressable onPress={onSelect} style={{flex:1,justifyContent:'center'}}><Text numberOfLines={1} style={typeStyle('#FFFFFF',11,'700')}>{task.title}</Text><Text style={typeStyle('#C0CCDF',9)}>{task.durationMin}分 · {dueLabel(task.dueDate)}</Text></Pressable></Animated.View></GestureDetector>;
 }
-function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGanttPage,onOpen,onGanttStart}:{theme:Theme,mode:Mode,focus:Date,setFocus:(date:Date)=>void,tasks:Task[],prefs:Preferences,ganttPage:number,setGanttPage:(n:number)=>void,onOpen:(task:Task)=>void,onGanttStart:(task:Task,date:string)=>void}){
+function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGanttPage,folderId,folders,onOpen,onGanttStart}:{theme:Theme,mode:Mode,focus:Date,setFocus:(date:Date)=>void,tasks:Task[],prefs:Preferences,ganttPage:number,setGanttPage:(n:number)=>void,folderId:string|null,folders:Folder[],onOpen:(task:Task)=>void,onGanttStart:(task:Task,date:string)=>void}){
+  const shownTasks=tasks.filter(t=>belongsToFolder(t,folderId,folders));
   const first=new Date(focus.getFullYear(),focus.getMonth(),1);
   const weekStart=addDays(focus,-focus.getDay());
   const title=mode==='gantt'?`${focus.getFullYear()}年 ${focus.getMonth()+1}月`:mode==='month'?`${focus.getFullYear()}年 ${focus.getMonth()+1}月`:mode==='week'?`${weekStart.getMonth()+1}/${weekStart.getDate()} – ${addDays(weekStart,6).getMonth()+1}/${addDays(weekStart,6).getDate()}`:`${focus.getMonth()+1}/${focus.getDate()}から7日間`;
   const selectedDate=dateKey(focus);
-  const agenda=sortTasks(tasks.filter(t=>!t.completed&&(t.dueDate===selectedDate||t.scheduledStart?.slice(0,10)===selectedDate))).slice(0,3);
-  const ganttItems=sortTasks(tasks.filter(t=>!t.completed));
+  const agenda=sortTasks(shownTasks.filter(t=>!t.completed&&(t.dueDate===selectedDate||t.scheduledStart?.slice(0,10)===selectedDate))).sort((a,b)=>Number(!!b.event)-Number(!!a.event)||(a.scheduledStart||'').localeCompare(b.scheduledStart||'')).slice(0,4);
+  const ganttItems=sortTasks(shownTasks.filter(t=>!t.completed));
   const daysInMonth=new Date(focus.getFullYear(),focus.getMonth()+1,0).getDate();
   const [ganttHeight,setGanttHeight]=useState(540);
-  const ganttRows=Math.max(6,Math.min(18,Math.floor((ganttHeight-100)/44)));
-  const ganttRowHeight=Math.max(30,(ganttHeight-100)/ganttRows);
+  const ganttRows=20;
+  const ganttRowHeight=Math.max(1,(ganttHeight-100)/ganttRows);
   const ganttVisible=ganttItems.slice(ganttPage*ganttRows,(ganttPage+1)*ganttRows);
   const ganttBlankCount=Math.max(0,ganttRows-ganttVisible.length);
   return <View style={{flex:1,minHeight:0}}>
@@ -372,7 +375,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
       <View style={styles.weekHeading}>{'日月火水木金土'.split('').map((x,i)=><Text key={i} style={[styles.weekLabel,{color:theme.muted}]}>{x}</Text>)}</View>
       <View style={{flexDirection:'row',flexWrap:'wrap',flex:1,minHeight:0}}>{Array.from({length:42},(_,i)=>{
         const day=addDays(first,-first.getDay()+i),key=dateKey(day);
-        const dayTasks=sortTasks(tasks.filter(t=>!t.completed&&(t.dueDate===key||t.scheduledStart?.slice(0,10)===key)));
+        const dayTasks=sortTasks(shownTasks.filter(t=>!t.completed&&(t.dueDate===key||t.scheduledStart?.slice(0,10)===key)));
         const active=key===selectedDate;
         return <Pressable key={key} onPress={()=>setFocus(day)} accessibilityLabel={key+' '+dayTasks.length+'件'} style={[styles.monthDay,{backgroundColor:active?'#5879B5':key===dateKey(new Date())?theme.tint:'transparent',opacity:day.getMonth()===focus.getMonth()?1:.3,justifyContent:'center',alignItems:'center',paddingVertical:2,paddingHorizontal:2}]}>
           <Text style={typeStyle(active?'#FFFFFF':theme.ink,11,'700')}>{day.getDate()}</Text>
@@ -384,7 +387,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
     </View>}
     {mode==='week'&&<View style={{flexDirection:'row',gap:4,paddingVertical:8}}>{Array.from({length:7},(_,i)=>{
       const day=addDays(weekStart,i),key=dateKey(day);
-      const count=tasks.filter(t=>!t.completed&&(t.dueDate===key||t.scheduledStart?.slice(0,10)===key)).length;
+      const count=shownTasks.filter(t=>!t.completed&&(t.dueDate===key||t.scheduledStart?.slice(0,10)===key)).length;
       return <Pressable key={i} onPress={()=>setFocus(day)} accessibilityLabel={key+' '+count+'件'} style={[styles.weekTile,{backgroundColor:key===selectedDate?theme.tint:theme.card,borderColor:key===selectedDate?'#8AABD9':theme.line}]}>
         <Text style={typeStyle(theme.muted,9)}>{'日月火水木金土'[day.getDay()]}</Text>
         <Text style={typeStyle(theme.ink,17,'800')}>{day.getDate()}</Text>
@@ -415,9 +418,9 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
               })}
             </View>
             {ganttVisible.map(t=>{
-              const lt=Math.max(1,Math.min(90,t.leadDays||1));
+              const lt=t.event?1:Math.max(1,Math.min(90,t.leadDays||1));
               const fallbackDue=t.dueDate?parseDateKey(t.dueDate):null;
-              const start=t.ganttStart||t.scheduledStart?.slice(0,10)||(fallbackDue?dateKey(addDays(fallbackDue,1-lt)):null);
+              const start=t.event?t.scheduledStart?.slice(0,10):(t.ganttStart||t.scheduledStart?.slice(0,10)||(fallbackDue?dateKey(addDays(fallbackDue,1-lt)):null));
               const startDate=start?parseDateKey(start):null;
               return <View key={t.id} style={{flexDirection:'row',height:ganttRowHeight}}>
                 {Array.from({length:daysInMonth},(_,i)=>{
@@ -445,7 +448,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
         <Pressable onPress={()=>setGanttPage(Math.min(Math.max(0,Math.ceil(ganttItems.length/ganttRows)-1),ganttPage+1))} hitSlop={10}><Text style={typeStyle(theme.muted,18)}>›</Text></Pressable>
       </View>
     </View>:<View style={{flex:mode==='month'?0:1,minHeight:0,marginTop:mode==='month'?5:8}}><View style={styles.flexBetween}><Text style={typeStyle(theme.ink,12,'800')}>{focus.getMonth()+1}/{focus.getDate()} の予定</Text><Text style={typeStyle(theme.muted,10)}>{agenda.length}件表示</Text></View>
-      <View style={{gap:7,marginTop:9,flex:1,minHeight:0}}>{agenda.length?agenda.map(t=><Pressable key={t.id} onPress={()=>onOpen(t)} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line}]}><View style={{height:28,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/><View style={{flex:1}}><Text numberOfLines={1} style={typeStyle(theme.ink,12,'800')}>{t.title}</Text><Text numberOfLines={1} style={typeStyle(theme.muted,10)}>{t.scheduledStart?.slice(11,16)??'未配置'} · {t.durationMin}分 · {dueLabel(t.dueDate)}</Text></View><Text style={typeStyle(theme.muted,17)}>›</Text></Pressable>):<View style={{flex:1,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>予定なし</Text></View>}</View>
+      <View style={{gap:7,marginTop:9,flex:1,minHeight:0}}>{agenda.length?agenda.map(t=><Pressable key={t.id} onPress={()=>onOpen(t)} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line}]}><View style={{height:28,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/><View style={{flex:1}}><Text numberOfLines={1} style={typeStyle(theme.ink,12,'800')}>{t.title}</Text><Text numberOfLines={1} style={typeStyle(theme.muted,10)}>{t.event?'予定 · ':''}{t.scheduledStart?.slice(11,16)??'未配置'} · {t.durationMin}分 {t.event?'':' · '+dueLabel(t.dueDate)}</Text></View><Text style={typeStyle(theme.muted,17)}>›</Text></Pressable>):<View style={{flex:1,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>予定なし</Text></View>}</View>
     </View>}
   </View>;
 }
