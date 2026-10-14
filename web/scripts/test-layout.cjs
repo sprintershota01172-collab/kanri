@@ -101,8 +101,8 @@ async function checkLongGantt(browser){
  });
  assert.ok(horizontal.scrollWidth>horizontal.clientWidth+150,'horizontal scrollable content must exceed viewport '+JSON.stringify(horizontal));
  assert.ok(horizontal.scrollLeft>90,'horizontal scrolling must work with all twenty-six rows '+JSON.stringify(horizontal));
- assert.ok(horizontal.nameWidth>=210,'task labels need room for approximately fifteen Japanese characters '+JSON.stringify(horizontal));
- assert.ok(horizontal.titleWidth>=145,'title column should hold approximately fifteen characters '+JSON.stringify(horizontal));
+ assert.ok(horizontal.nameWidth>=140&&horizontal.nameWidth<=160,'Gantt task label column should be roughly eight Japanese characters wide '+JSON.stringify(horizontal));
+ assert.ok(horizontal.titleWidth>=68&&horizontal.titleWidth<=104,'Gantt title should fit approximately eight Japanese characters and leave room for dates '+JSON.stringify(horizontal));
  assert.ok(horizontal.ltWidth<=34,'LT column must remain compact '+JSON.stringify(horizontal));
  // Emulate a real finger swipe on the date header, not only programmatic scrollLeft.
  await page.evaluate(()=>{document.querySelector('#ganttScroll').scrollLeft=0});
