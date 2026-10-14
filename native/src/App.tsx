@@ -512,7 +512,7 @@ function DueCalendarPicker({value,theme,onSelect,onClose}:{value:string,theme:Th
   const year=visibleMonth.getFullYear(),month=visibleMonth.getMonth();
   const shift=(n:number)=>setVisibleMonth(new Date(year,month+n,1));
   const initialOffset=visibleMonth.getDay();
-  return <View style={{...StyleSheet.absoluteFillObject,zIndex:120,backgroundColor:theme.card,borderRadius:16,padding:10,justifyContent:'flex-start'}}>
+  return <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:120,backgroundColor:theme.card,borderRadius:16,padding:10,justifyContent:'flex-start'}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',minHeight:44}}>
       <Pressable onPress={()=>shift(-1)} accessibilityLabel="前月" style={{width:44,minHeight:44,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.ink,23)}>‹</Text></Pressable>
       <Text style={typeStyle(theme.ink,15,'800')}>{year}年 {month+1}月</Text>
