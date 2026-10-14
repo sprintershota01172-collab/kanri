@@ -1,1 +1,16 @@
-const CACHE='kanri-web-v1_2';const ASSETS=['./','./index.html','./icon.png','./manifest.webmanifest'];self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)))})
+const CACHE='kanri-web-v1_2_1';
+const ASSETS=['./','./index.html','./icon.png','./manifest.webmanifest'];
+self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
+self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
+self.addEventListener('fetch',event=>{
+  if(event.request.method!=='GET')return;
+  // Prefer the latest page when online; preserve offline operation from cache.
+  if(event.request.mode==='navigate'){
+    event.respondWith(fetch(event.request).then(response=>{
+      if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy)).catch(()=>{});}
+      return response;
+    }).catch(()=>caches.match(event.request).then(cached=>cached||caches.match('./index.html'))));
+    return;
+  }
+  event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request)));
+});
