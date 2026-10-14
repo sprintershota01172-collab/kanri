@@ -45,8 +45,8 @@ assert.equal(JSON.parse(dom.window.localStorage.getItem('kanri_v2_view')).tab,'s
 click(d,'#darkToggle');
 assert.ok(q(d,'.device').classList.contains('dark'),'dark mode toggled');
 const main=q(d,'.main');
-pointer(dom.window,main,'pointerdown',290,450);
-pointer(dom.window,main,'pointerup',115,460);
+pointer(dom.window,main,'pointerdown',115,450);
+pointer(dom.window,main,'pointerup',290,460);
 assert.ok(q(d,'#puzzleScreen').classList.contains('active'),'horizontal swipe switches tab');
 click(d,'[data-tab="board"]');
 const card=q(d,'.task-card');
