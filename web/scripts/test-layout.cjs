@@ -67,6 +67,42 @@ async function check(browser,width,height,safe,physicalHeight=height){
  await context.close();
  return label+': nav '+data.nav.top.toFixed(1)+'–'+data.nav.bottom.toFixed(1)+'; '+data.buttons.length+' tappable tabs';
 }
+
+async function checkLongGantt(browser){
+ const context=await browser.newContext({viewport:{width:393,height:852},deviceScaleFactor:3,isMobile:true,hasTouch:true});
+ const page=await context.newPage();
+ const url='http://127.0.0.1:'+server.address().port+'/index.html';
+ await page.goto(url,{waitUntil:'load'});
+ await page.evaluate(()=>{
+  const tasks=Array.from({length:26},(_,i)=>({id:'long-gantt-'+i,title:'縦スクロール '+i,important:true,urgent:true,group:'仕事',folderId:'work',duration:60,due:null,scheduled:null,leadDays:1,ganttStart:null,pin:false,rank:null,done:false,created:'2026-10-15T00:00:00.000Z'}));
+  localStorage.setItem('kanri_v1_tasks',JSON.stringify(tasks));
+ });
+ await page.reload({waitUntil:'load'});
+ await page.locator('[data-tab="calendar"]').click();
+ await page.locator('[data-mode="gantt"]').click();
+ const initial=await page.evaluate(()=>{
+  const left=document.querySelector('#ganttNameBody'),right=document.querySelector('#ganttDayBody');
+  const row=left.querySelector('.gantt-label-complete-row');
+  return {leftVisible:left.clientHeight,leftTotal:left.scrollHeight,rightVisible:right.clientHeight,rightTotal:right.scrollHeight,rows:left.querySelectorAll('.gantt-label-row').length,dayRows:right.querySelectorAll('.gantt-task-row').length,rowHeight:row.getBoundingClientRect().height,header:document.querySelector('.gantt-label-head').getBoundingClientRect().height};
+ });
+ assert.equal(initial.rows,26,'long Gantt must mount all 26 name rows');
+ assert.equal(initial.dayRows,26,'long Gantt must mount all 26 date rows');
+ assert.ok(initial.leftVisible>200,'long Gantt has usable height: '+JSON.stringify(initial));
+ assert.ok(Math.abs(initial.leftVisible-20*initial.rowHeight)<4,'Gantt fits exactly 20 rows without changing height: '+JSON.stringify(initial));
+ assert.ok(Math.abs(initial.rightVisible-initial.leftVisible)<3,'dates and names have equal viewport heights: '+JSON.stringify(initial));
+ assert.ok(initial.leftTotal>initial.leftVisible,'task names must scroll vertically');
+ assert.ok(initial.rightTotal>initial.rightVisible,'date grid must scroll vertically');
+ const scrolled=await page.evaluate(()=>{
+  const left=document.querySelector('#ganttNameBody'),right=document.querySelector('#ganttDayBody');
+  left.scrollTop=left.scrollHeight-left.clientHeight;
+  left.dispatchEvent(new Event('scroll'));
+  return {names:left.scrollTop,days:right.scrollTop};
+ });
+ assert.ok(scrolled.names>0,'scrolled to task 26');
+ assert.ok(Math.abs(scrolled.names-scrolled.days)<2,'name/date scroll synchronization '+JSON.stringify(scrolled));
+ await context.close();
+ return '26 tasks rendered, 20-row viewport, synced vertical scrolling';
+}
 (async()=>{
  await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
@@ -78,5 +114,6 @@ async function check(browser,width,height,safe,physicalHeight=height){
   // Only the lower shell extends; all five button hit targets must remain usable.
   console.log('PASS',await check(browser,393,780,34,852));
   console.log('PASS',await check(browser,402,800,34,874));
+  console.log('PASS',await checkLongGantt(browser));
  }finally{await browser.close();await new Promise(ok=>server.close(ok))}
 })().catch(error=>{console.error(error);process.exitCode=1;server.close()});
