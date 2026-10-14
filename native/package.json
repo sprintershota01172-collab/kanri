@@ -1,0 +1,32 @@
+{
+  "name": "kanri",
+  "version": "1.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo start --ios",
+    "android": "expo start --android",
+    "check": "tsc --noEmit",
+    "doctor": "expo-doctor",
+    "test": "node scripts/test-model.cjs"
+  },
+  "dependencies": {
+    "expo": "~57.0.23",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "expo-sqlite": "~57.0.4",
+    "expo-notifications": "~57.0.22",
+    "expo-haptics": "~57.0.3",
+    "expo-build-properties": "~57.0.22",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-reanimated": "4.5.1",
+    "react-native-worklets": "~0.10.2",
+    "react-native-safe-area-context": "~5.7.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.2",
+    "@types/react": "~19.2.0",
+    "expo-doctor": "^1.18.0"
+  }
+}

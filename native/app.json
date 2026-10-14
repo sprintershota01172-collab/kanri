@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "kanri",
+    "slug": "kanri",
+    "scheme": "kanri",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.kanri.todo",
+      "infoPlist": {}
+    },
+    "android": {
+      "package": "com.kanri.todo",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#101A2D"
+      }
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "enableSceneSupport": true
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "tsconfigPaths": true
+    }
+  }
+}
