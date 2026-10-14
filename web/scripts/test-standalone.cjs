@@ -16,6 +16,12 @@ assert.ok(v9.includes('padding:4px max(12px,env(safe-area-inset-left,0px)) calc(
 assert.ok(v9.includes('min-height:44px!important'),'nav stays tappable');
 assert.ok(v9.includes('background:#0D1626!important'),'iPhone exterior and menu have matching navy color');
 assert.ok(html.includes('<script src="./mobile-viewport.js"></script>'),'viewport script loads ahead of app');
+const corrected=css.slice(css.indexOf('/* v1.9.7 — iOS standalone height correction'));
+assert.ok(corrected.length>200,'iOS full-height override exists');
+assert.ok(corrected.includes('height:100vh!important'),'standalone screen grows to full viewport');
+assert.ok(corrected.includes('max-height:100vh!important'),'standalone viewport has a bounded height');
+assert.ok(corrected.includes('.device{'),'override targets actual kanri app container');
+assert.ok(corrected.includes('.nav{')&&corrected.includes('flex-shrink:0!important'),'nav stays fully visible when screen expands');
 assert.ok(!html.includes('function syncStandAloneHeight'),'no legacy viewport heights');
 const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'..','manifest.webmanifest'),'utf8'));
 assert.equal(manifest.display,'standalone');
