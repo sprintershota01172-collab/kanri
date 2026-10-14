@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { DEFAULT_PREFS, Preferences, Task } from './model';
+import { DEFAULT_PREFS, DEFAULT_WORKSPACE, Preferences, Task, Workspace } from './model';
 
 // SQLite is the source of truth. Every task is stored locally, including notification IDs.
 export async function migrate(db: SQLiteDatabase) {
@@ -34,4 +34,19 @@ export async function readPreferences(db: SQLiteDatabase): Promise<Preferences> 
 }
 export async function savePreferences(db: SQLiteDatabase,prefs: Preferences) {
   await db.runAsync('INSERT INTO meta(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value','preferences',JSON.stringify(prefs));
+}
+
+export async function readWorkspace(db:SQLiteDatabase):Promise<Workspace>{
+  const row=await db.getFirstAsync<{value:string}>('SELECT value FROM meta WHERE key=?','workspace');
+  if(!row)return {...DEFAULT_WORKSPACE,folders:DEFAULT_WORKSPACE.folders.map(f=>({...f}))};
+  try{
+    const source=JSON.parse(row.value) as Partial<Workspace>;
+    const folders=Array.isArray(source.folders)?source.folders.filter(f=>f&&typeof f.id==='string'&&typeof f.name==='string'):DEFAULT_WORKSPACE.folders.map(f=>({...f}));
+    const folderId=source.folderId&&folders.some(f=>f.id===source.folderId)?source.folderId:null;
+    const tab=['board','calendar','puzzle','settings'].includes(String(source.tab))?source.tab as Workspace['tab']:'board';
+    return {folders,folderId,tab};
+  }catch{return {...DEFAULT_WORKSPACE,folders:DEFAULT_WORKSPACE.folders.map(f=>({...f}))}}
+}
+export async function saveWorkspace(db:SQLiteDatabase,workspace:Workspace){
+  await db.runAsync('INSERT INTO meta(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value','workspace',JSON.stringify(workspace));
 }
