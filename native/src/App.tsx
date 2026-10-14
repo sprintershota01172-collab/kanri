@@ -18,6 +18,12 @@ type Theme = {bg:string,card:string,ink:string,muted:string,line:string,tint:str
 const LIGHT:Theme={bg:'#F3F5F7',card:'#FFFFFF',ink:'#152238',muted:'#8591A3',line:'#E7EBF0',tint:'#E8EDF8',navy:'#101D32',inverse:'#FFFFFF'};
 const DARK:Theme={bg:'#0F1727',card:'#213048',ink:'#FFFFFF',muted:'#D0D8E7',line:'#50617C',tint:'#334D71',navy:'#08111F',inverse:'#FFFFFF'};
 function typeStyle(color:string,size=12,weight:'400'|'500'|'600'|'700'|'800'='600') {return {color,fontSize:size,fontWeight:weight,fontFamily:Platform.OS==='ios'?'HiraginoSans-W3':'sans-serif',letterSpacing:size<=11?0.03:-0.12} as const;}
+function belongsToFolder(task:Task,folderId:string|null,folders:Folder[]):boolean{
+  if(!folderId)return true;
+  let id=folderForTask(task),guard=0;
+  while(id&&guard++<30){if(id===folderId)return true;id=folders.find(f=>f.id===id)?.parentId||null}
+  return false;
+}
 function Chip({title,selected,onPress,theme,flex=1}:{title:string,selected?:boolean,onPress:()=>void,theme:Theme,flex?:number}){
   return <Pressable onPress={onPress} style={[styles.chip,{flex,backgroundColor:selected?theme.tint:theme.bg,borderColor:selected?'#8FAADD':theme.line}]}><Text numberOfLines={1} style={typeStyle(selected?(theme===DARK?'#E6EFFF':'#5475B6'):theme.ink,10,'700')}>{title}</Text></Pressable>;
 }
@@ -31,6 +37,8 @@ function AppInner(){
   const [workspace,setWorkspace]=useState<Workspace>({...DEFAULT_WORKSPACE,folders:DEFAULT_WORKSPACE.folders.map(f=>({...f}))});
   const [newFolderOpen,setNewFolderOpen]=useState(false);
   const [folderMenuOpen,setFolderMenuOpen]=useState(false);
+  const [vehicleEditorOpen,setVehicleEditorOpen]=useState(false);
+  const [eventEditor,setEventEditor]=useState<Task|'new'|null>(null);
   const swipeStart=useRef<{x:number;y:number;time:number}|null>(null);
   const [editor,setEditor]=useState<Task|'new'|null>(null);const [newQuadrant,setNewQuadrant]=useState<number|null>(null);const [calendarDraftDate,setCalendarDraftDate]=useState<string|null>(null);
   const [renaming,setRenaming]=useState(false);
@@ -72,6 +80,14 @@ function AppInner(){
     const id='folder_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
     setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId:p.folderId}],folderId:id,recentFolderIds:[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4)}));
     setNewFolderOpen(false);setBoardPages([0,0,0,0]);
+  }
+  function createVehicle(name:string){
+    const trimmed=name.trim();
+    if(!trimmed){Alert.alert('車種名を入力してください');return}
+    if(workspace.folders.some(f=>f.parentId==='work'&&f.name===trimmed)){Alert.alert('同じ車種名があります');return}
+    const id='vehicle_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+    setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId:'work',kind:'vehicle'}],folderId:id,recentFolderIds:[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4)}));
+    setVehicleEditorOpen(false);setBoardPages([0,0,0,0]);
   }
   function deleteFolder(id:string){
     const f=workspace.folders.find(x=>x.id===id);if(!f)return;
@@ -192,8 +208,8 @@ function AppInner(){
     if(!granted){Alert.alert('通知を有効にできません','端末の設定からkanriの通知を許可してください');return}
     await updatePreferences({...prefs,remindersEnabled:true});
   }
-  const n=tasks.length,completed=tasks.filter(t=>t.completed).length,percentage=n?Math.round(completed/n*100):0;
-  const top=sortTasks(tasks.filter(t=>!t.completed))[0];
+  const n=tasks.filter(t=>!t.event).length,completed=tasks.filter(t=>!t.event&&t.completed).length,percentage=n?Math.round(completed/n*100):0;
+  const top=sortTasks(tasks.filter(t=>!t.event&&!t.completed))[0];
   const folderPath:Folder[]=[];
   {let cursor=workspace.folders.find(f=>f.id===workspace.folderId),guard=0;
    while(cursor&&guard++<20){folderPath.unshift(cursor);cursor=workspace.folders.find(f=>f.id===cursor?.parentId)}}
@@ -212,7 +228,7 @@ function AppInner(){
       onTouchStart={event=>{const t=event.nativeEvent.touches?.[0];if(t)swipeStart.current={x:t.pageX,y:t.pageY,time:Date.now()}}}
       onTouchEnd={event=>{
         const start=swipeStart.current;swipeStart.current=null;
-        const t=event.nativeEvent.changedTouches?.[0];if(!start||!t||editor||newFolderOpen)return;
+        const t=event.nativeEvent.changedTouches?.[0];if(!start||!t||editor||eventEditor||vehicleEditorOpen||newFolderOpen)return;
         const dx=t.pageX-start.x,dy=t.pageY-start.y;
         if(Math.abs(dx)<95||Math.abs(dx)<Math.abs(dy)*1.5||Date.now()-start.time>175)return;
         const order:Tab[]=['board','calendar','puzzle','settings'];
@@ -229,12 +245,14 @@ function AppInner(){
               </Pressable>
             )}
             {(workspace.recentFolderIds||[]).filter(id=>!['work','personal','study','other'].includes(id)&&workspace.folders.some(f=>f.id===id)).slice(0,3).map(id=><Pressable key={'recent-'+id} accessibilityRole="button" accessibilityLabel={(workspace.folders.find(f=>f.id===id)?.name||'フォルダ')+'を開く'} onPress={()=>selectFolder(id)} style={{minHeight:36,paddingHorizontal:8,justifyContent:'center',borderWidth:1,borderColor:id===workspace.folderId?'#8FAADD':theme.line,borderRadius:10,backgroundColor:id===workspace.folderId?theme.tint:theme.card}}><Text numberOfLines={1} style={typeStyle(id===workspace.folderId?theme.ink:theme.muted,10,'700')}>{workspace.folders.find(f=>f.id===id)?.name||'フォルダ'}</Text></Pressable>)}
+            {folderPath[0]?.id==='work'&&workspace.folders.filter(f=>f.parentId==='work'&&f.kind==='vehicle'&&!(workspace.recentFolderIds||[]).slice(0,3).includes(f.id)).map(f=><Pressable key={'car-'+f.id} onPress={()=>selectFolder(f.id)} style={{minHeight:36,paddingHorizontal:8,justifyContent:'center',borderRadius:10,backgroundColor:workspace.folderId===f.id?theme.tint:theme.card,borderWidth:1,borderColor:theme.line}}><Text numberOfLines={1} style={typeStyle(theme.muted,10,'700')}>{f.name}</Text></Pressable>)}
+            {folderPath[0]?.id==='work'&&<Pressable onPress={()=>setVehicleEditorOpen(true)} style={{minHeight:36,justifyContent:'center',paddingHorizontal:8,backgroundColor:theme.tint,borderRadius:10}}><Text style={typeStyle(theme.ink,10,'800')}>＋ 車種</Text></Pressable>}
           </ScrollView>
           <IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/>
         </View>
         <View ref={boardRef} style={{flex:1,minHeight:0}}><View style={styles.board}>
           {[0,1,2,3].map(q=>{
-            const items=sortTasks(tasks.filter(t=>!t.completed&&quadrant(t,prefs)===q&&(workspace.folderId===null||folderForTask(t)===workspace.folderId)));
+            const items=sortTasks(tasks.filter(t=>!t.completed&&!t.event&&quadrant(t,prefs)===q&&belongsToFolder(t,workspace.folderId,workspace.folders)));
             const pageSize=winHeight>=820?4:winHeight>=690?3:2;const count=Math.max(1,Math.ceil(items.length/pageSize));const page=Math.min(boardPages[q],count-1);
             return <View key={q} style={[styles.quad,winHeight<720&&{padding:7},{backgroundColor:theme.card,borderColor:theme.line,padding:winHeight>=740?12:8}]}>
               <Pressable accessibilityRole="button" accessibilityLabel={`${prefs.names[q]}にタスクを追加`} onPress={()=>addInQuadrant(q)} style={styles.quadHead}><Text style={typeStyle(theme.ink,11,'800')} numberOfLines={1}>{prefs.names[q]}</Text><Text style={typeStyle(theme.muted,10,'800')}>{pad(items.length)}</Text></Pressable>
@@ -251,18 +269,18 @@ function AppInner(){
         {tasks.some(t=>t.pinned)&&<View style={styles.bottomHint}><View/><Pressable onPress={()=>{tasks.forEach(t=>{if(t.pinned)void updateTask({...t,pinned:false,manualOrder:null})});toastMessage('自動順位に戻しました')}}><Text style={typeStyle('#5578BB',11,'800')}>固定を解除 ↺</Text></Pressable></View>}
       </>}
       {tab==='calendar'&&<>
-        <View style={styles.screenHead}><Text style={typeStyle(theme.ink,18,'800')}>SCHEDULE</Text><View style={[styles.seg,{backgroundColor:theme.line}]}>{(['month','week','gantt'] as Mode[]).map((m,i)=><Pressable key={m} onPress={()=>{setCalMode(m);setGanttPage(0)}} style={[styles.segItem,calMode===m&&{backgroundColor:theme.card}]}><Text style={typeStyle(calMode===m?theme.ink:theme.muted,11,'700')}>{['月','週','ガント'][i]}</Text></Pressable>)}</View></View>
-        <CalendarPanel theme={theme} mode={calMode} focus={focus} setFocus={setFocus} tasks={tasks} prefs={prefs} ganttPage={ganttPage} setGanttPage={setGanttPage} onOpen={setEditor} onGanttStart={(task,date)=>{const before={...task};void updateTask({...task,ganttStart:date});void Haptics.selectionAsync();remember('ガント開始日を設定しました',()=>{void updateTask(before)});}}/>
+        <View style={styles.screenHead}><View style={{flexDirection:'row',alignItems:'center',gap:5}}><Text style={typeStyle(theme.ink,17,'800')}>予定</Text><Pressable accessibilityRole="button" accessibilityLabel="会議や予定を追加" onPress={()=>setEventEditor('new')} style={{paddingVertical:7,paddingHorizontal:7,backgroundColor:theme.tint,borderRadius:9}}><Text style={typeStyle(theme.ink,10,'800')}>＋予定</Text></Pressable></View><View style={[styles.seg,{backgroundColor:theme.line}]}>{(['month','week','gantt'] as Mode[]).map((m,i)=><Pressable key={m} onPress={()=>{setCalMode(m);setGanttPage(0)}} style={[styles.segItem,calMode===m&&{backgroundColor:theme.card}]}><Text style={typeStyle(calMode===m?theme.ink:theme.muted,11,'700')}>{['月','週','ガント'][i]}</Text></Pressable>)}</View></View>
+        <CalendarPanel theme={theme} mode={calMode} focus={focus} setFocus={setFocus} tasks={tasks} prefs={prefs} ganttPage={ganttPage} setGanttPage={setGanttPage} folderId={workspace.folderId} folders={workspace.folders} onOpen={task=>task.event?setEventEditor(task):setEditor(task)} onGanttStart={(task,date)=>{if(task.event){setEventEditor(task);return}const before={...task};void updateTask({...task,ganttStart:date});void Haptics.selectionAsync();remember('ガント開始日を設定しました',()=>{void updateTask(before)});}}/>
       </>}
       {tab==='puzzle'&&<>
         <View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>TIME PUZZLE</Text></View><IconButton label="↶ 戻す" theme={theme} onPress={undoAction}/></View>
         <View style={{flex:1,minHeight:0}}><View style={[styles.puzzleInbox,{backgroundColor:theme.navy}]}>
-          <View style={styles.flexBetween}><Text style={typeStyle('#F3F7FF',11,'800')}>UNPLACED TASKS</Text><Text style={typeStyle('#A3B5D0',10)}>{tasks.filter(t=>!t.completed&&!t.scheduledStart).length} 待機中</Text></View>
+          <View style={styles.flexBetween}><Text style={typeStyle('#F3F7FF',11,'800')}>UNPLACED TASKS</Text><Text style={typeStyle('#A3B5D0',10)}>{tasks.filter(t=>!t.event&&!t.completed&&!t.scheduledStart).length} 待機中</Text></View>
           <View style={{flexDirection:'row',gap:7,marginTop:8,minHeight:70,alignItems:'flex-start'}}> 
-            {sortTasks(tasks.filter(t=>!t.completed&&!t.scheduledStart)).slice(inboxPage*2,inboxPage*2+2).map(t=><PuzzleTile key={t.id} task={t} selected={selectedBlock===t.id} onSelect={()=>setSelectedBlock(t.id)} onDrop={puzzleDrop}/>)}
+            {sortTasks(tasks.filter(t=>!t.event&&!t.completed&&!t.scheduledStart)).slice(inboxPage*2,inboxPage*2+2).map(t=><PuzzleTile key={t.id} task={t} selected={selectedBlock===t.id} onSelect={()=>setSelectedBlock(t.id)} onDrop={puzzleDrop}/>)}
             {!tasks.some(t=>!t.completed&&!t.scheduledStart)&&<Text style={typeStyle('#AAB9D0',11)}>すべて配置済みです</Text>}
           </View>
-          <View style={[styles.pager,{marginTop:2}]}><Pressable onPress={()=>setInboxPage(n=>Math.max(0,n-1))}><Text style={typeStyle('#B7C6DB',16)}>‹</Text></Pressable><Text style={typeStyle('#B7C6DB',9)}>{inboxPage+1}/{Math.max(1,Math.ceil(tasks.filter(t=>!t.completed&&!t.scheduledStart).length/2))}</Text><Pressable onPress={()=>setInboxPage(n=>Math.min(Math.max(0,Math.ceil(tasks.filter(t=>!t.completed&&!t.scheduledStart).length/2)-1),n+1))}><Text style={typeStyle('#B7C6DB',16)}>›</Text></Pressable></View>
+          <View style={[styles.pager,{marginTop:2}]}><Pressable onPress={()=>setInboxPage(n=>Math.max(0,n-1))}><Text style={typeStyle('#B7C6DB',16)}>‹</Text></Pressable><Text style={typeStyle('#B7C6DB',9)}>{inboxPage+1}/{Math.max(1,Math.ceil(tasks.filter(t=>!t.event&&!t.completed&&!t.scheduledStart).length/2))}</Text><Pressable onPress={()=>setInboxPage(n=>Math.min(Math.max(0,Math.ceil(tasks.filter(t=>!t.event&&!t.completed&&!t.scheduledStart).length/2)-1),n+1))}><Text style={typeStyle('#B7C6DB',16)}>›</Text></Pressable></View>
         </View>
           <View style={[styles.dateNav,{height:43}]}><Pressable onPress={()=>setPuzzleDate(d=>addDays(d,-1))}><Text style={typeStyle('#5578BB',11,'800')}>‹ 前日</Text></Pressable><Text style={typeStyle(theme.ink,12,'800')}>{puzzleDate.getMonth()+1}月{puzzleDate.getDate()}日 {'日月火水木金土'[puzzleDate.getDay()]}曜日</Text><Pressable onPress={()=>setPuzzleDate(d=>addDays(d,1))}><Text style={typeStyle('#5578BB',11,'800')}>翌日 ›</Text></Pressable></View>
           <View style={{flex:1,flexDirection:'row',gap:8,minHeight:0}}>
@@ -278,6 +296,7 @@ function AppInner(){
                   const top=(minute-base)/360*(panelHeight-12);
                   const high=t.durationMin/360*(panelHeight-12);
                   return <Animated.View entering={FadeInDown.springify().damping(18)} key={t.id} style={[styles.scheduledBar,{top:5+top,height:Math.min(high,panelHeight-top-10),backgroundColor:COLORS[quadrant(t,prefs)]}]}><Pressable style={{flex:1,justifyContent:'center'}} onPress={()=>{
+                      if(t.event){setEventEditor(t);return}
                       const old={...t};void updateTask({...t,scheduledStart:null});remember('配置を解除しました',()=>{void updateTask(old)});
                     }}><Text numberOfLines={1} style={typeStyle('#FFFFFF',10,'800')}>{t.title}</Text><Text numberOfLines={1} style={typeStyle('#EEF4FF',8)}>{timeText(minute)}–{timeText(minute+t.durationMin)}</Text></Pressable></Animated.View>;
                 })}
@@ -285,7 +304,7 @@ function AppInner(){
             })}
           </View>
           <View style={styles.bottomHint}><Text style={typeStyle(theme.muted,10)}>選択→枠をタップ ／ ドラッグ</Text><Pressable onPress={()=>{
-            const onDay=tasks.filter(t=>!t.completed&&t.scheduledStart?.slice(0,10)===dateKey(puzzleDate));
+            const onDay=tasks.filter(t=>!t.event&&!t.completed&&t.scheduledStart?.slice(0,10)===dateKey(puzzleDate));
             if(!onDay.length){toastMessage('配置済みの予定はありません');return}
             const backup=onDay.map(t=>({...t}));onDay.forEach(t=>void updateTask({...t,scheduledStart:null}));
             remember('この日の配置を解除しました',()=>backup.forEach(t=>void updateTask(t)));
