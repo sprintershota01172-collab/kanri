@@ -85,6 +85,8 @@ click(doc,'#childQuickAdd');
 element(doc,'#folderName').value='工程の詳細';
 click(doc,'#folderSave');
 const thirdLevel=JSON.parse(dom.window.localStorage.getItem('kanri_v2_folders')).find(f=>f.name==='工程の詳細');
+assert.ok(element(doc,'#childQuickAdd'),'child tree add is always available at fixed position outside the scrolling group selector');
+assert.equal(element(doc,'#groupQuickSwitch').querySelector('#childQuickAdd'),null,'tree add must not require scrolling groups');
 assert.equal(thirdLevel.parentId,nested.id,'three-level tree can be created');
 click(doc,'[data-quick-folder="work"]');
 click(doc,'#folderMenuButton');
@@ -100,7 +102,12 @@ assert.equal(tasks(dom.window).find(t=>t.id===meeting.id).folderId,'work','linke
 dom.window.close();
 // One-tap completion from FOCUS and Gantt, with a recoverable 7-day trash.
 dom=launch();doc=dom.window.document;
-click(doc,'#addButton');element(doc,'#fTitle').value='完了と復元の検証タスク';click(doc,'#saveTask');
+click(doc,'#addButton');
+assert.equal(doc.querySelectorAll('[data-priority]').length,4,'new task offers all four priority combinations');
+for(const q of [0,1,2,3]){click(doc,'[data-priority="'+q+'"]');assert.equal(doc.querySelectorAll('[data-priority].sel').length,1,'priority is mutually exclusive');assert.equal(element(doc,'[data-priority="'+q+'"]').getAttribute('aria-pressed'),'true');}
+click(doc,'[data-priority="2"]');element(doc,'#fTitle').value='完了と復元の検証タスク';click(doc,'#saveTask');
+assert.equal(tasks(dom.window)[0].important,false,'priority 3 is not important');
+assert.equal(tasks(dom.window)[0].urgent,true,'priority 3 remains urgent');
 let sample=tasks(dom.window).find(t=>t.title==='完了と復元の検証タスク');
 assert.ok(sample,'test task created');
 click(doc,'[data-done="'+sample.id+'"]');
