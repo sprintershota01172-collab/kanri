@@ -25,7 +25,11 @@ assert.ok(corrected.includes('.nav{')&&corrected.includes('flex-shrink:0!importa
 assert.ok(!html.includes('function syncStandAloneHeight'),'no legacy viewport heights');
 const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'..','manifest.webmanifest'),'utf8'));
 assert.equal(manifest.display,'standalone');
-assert.equal(manifest.background_color,'#0D1626');
+assert.equal(manifest.background_color,'#F4F5F6');
+assert.equal(manifest.theme_color,'#F4F5F6');
+assert.ok(html.includes('name="apple-mobile-web-app-status-bar-style" content="default"'),'iOS status bar should use light default mode');
+assert.ok(html.includes('name="theme-color" content="#F4F5F6"'),'HTML theme must match light header');
+assert.ok(html.includes('v1.9.8: Match tabi'), 'light iPhone status area styling exists');
 function viewportTest(){
  const vars=new Map(),classes=new Set(),documentEvents={},viewportEvents={},windowEvents={};
  const viewport={height:844,offsetTop:0,addEventListener(type,fn){viewportEvents[type]=fn}};
