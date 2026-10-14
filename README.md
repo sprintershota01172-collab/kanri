@@ -6,7 +6,7 @@ iPhone / Android向け TODOアプリのソース一式と、手軽に操作で�
 
 - `native/` — Expo SDK 57 / React Native 0.86.3 によるネイティブ実装。SQLite、通知アクション、触覚、ドラッグ＆スナップ、テーマ切替。
 - `web/` — ブラウザで動くオフライン対応PWAのプレビュー。ローカルストレージ利用。通知アクションは**非対応**。
-- `icons/` — アイコン3案。推奨は **A: Folded K**。`native/assets/icon.png` に設定済み。
+- `icons/` — アイコンA（PNG）とB・C（SVG）を収録。推奨は **A: Folded K**。`native/assets/icon.png` に設定済み。
 
 ## 画面
 
@@ -97,3 +97,14 @@ Score = round(45U + 35P + 20T + B)
 - パズル未配置ブロックの高さを所要時間によって変化させ、配置時にスプリングアニメーション。
 - 納期通知を0〜10080分前で自由指定。画面背景を動かさない専用モーダルを採用。
 - `canSchedule` で日付・30分グリッド・時間帯のはみ出し・予定重複を一括判定。
+
+
+## GitHub Pages で Web 版を公開
+
+このリポジトリは `web/` を GitHub Pages に自動デプロイする GitHub Actions を同梱しています。
+GitHub の **Settings → Pages → Build and deployment → Source** で **GitHub Actions** を選択すると、`main` の更新後に Web 版を配信できます。
+設定後のURLは `https://sprintershota01172-collab.github.io/kanri/` です。GitHub Actions のデプロイが成功するまでは公開URLを動作確認済みと扱わないでください。
+
+GitHub Actions では `native/scripts/test-model.cjs` のモデルテストも実行します。ネイティブアプリの実機ビルド・通知試験まで自動確認されるわけではありません。
+
+**注意:** GitHub にソースコードを公開しても、端末に保存されたタスクデータが公開されることはありません。公開リポジトリへパスワードやAPIキーをコミットしないでください。
