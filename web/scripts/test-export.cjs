@@ -38,7 +38,7 @@ assert.ok(t.includes('=2+2'),'text starting with formula marker must remain text
 assert.ok(t.includes('t="inlineStr"'),'strings stored as literal cells');
 assert.ok(g.includes('name')===false||g.includes('ガント')===false||g.includes('<worksheet'),'Gantt workbook XML exists');
 assert.equal((g.match(/ s="2" t="inlineStr"/g)||[]).length,3,'gantt lead days colored exactly three cells');
-assert.ok(g.includes('AG1')===false,'October 31 ends at AG? verify below');
+assert.ok(g.includes('r="AG1"'),'31st date column exists');
 assert.equal(buildSheets(sample)[2].headers.length,33,'two static columns plus 31 date columns');
 assert.ok(files.get('xl/workbook.xml').includes('フォルダ'),'multiple sheets included');
 console.log('PASS: Excel XLSX: valid package parts, XML, literal text and 31-day Gantt coloration');
