@@ -23,6 +23,9 @@ async function check(browser,width,height,safe){
  },safe);
  const page=await context.newPage();
  await page.goto('http://127.0.0.1:'+server.address().port+'/index.html',{waitUntil:'load'});
+ await page.evaluate(bottom=>document.documentElement.style.setProperty('--safe-bottom',bottom+'px'),safe);
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(resolve)));
+
  await page.waitForFunction(()=>getComputedStyle(document.querySelector('.nav')).display==='grid');
  const data=await page.evaluate(()=>{
    const rect=sel=>{let r=document.querySelector(sel).getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height}};
@@ -44,7 +47,7 @@ async function check(browser,width,height,safe){
  assert.equal(data.buttons.length,5,label+' has exactly 5 tabs');
  assert.ok(data.nav.top>=0&&data.nav.bottom<=height+1,label+' nav within viewport: '+JSON.stringify(data));
  assert.ok(data.nav.bottom>=height-2,label+' nav reaches bottom: '+JSON.stringify(data.nav));
- assert.ok(data.nav.height>=64+safe-2,label+' nav has room for safe area');
+ assert.ok(data.nav.height>=64+safe-2,label+' nav has room for safe area: '+JSON.stringify(data));
  assert.ok(data.main.bottom<=data.nav.top+2,label+' content must not overlap the tab bar');
  assert.ok(data.device.bottom<=height+2,label+' shell must not overrun screen');
  for(const b of data.buttons){
