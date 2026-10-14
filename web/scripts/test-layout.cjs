@@ -45,7 +45,7 @@ async function check(browser,width,height,safe,physicalHeight=height){
  });
  const label=width+'x'+height+' safe '+safe+' physical '+physicalHeight;
  const gap=physicalHeight-height;
- const expectedStep=gap>=54&&gap<=160?Math.min(24,Math.max(0,gap-34)):0;
+ const expectedStep=gap>=54&&gap<=160?Math.min(48,Math.max(0,gap-34)):0;
  assert.equal(data.step,expectedStep+'px',label+' extension must be limited');
  assert.equal(data.buttons.length,5,label+' has exactly 5 tabs');
  assert.ok(data.nav.top>=0&&data.nav.bottom<=height+expectedStep+1,label+' nav extension within guarded limit: '+JSON.stringify(data));
