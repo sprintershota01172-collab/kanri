@@ -65,12 +65,12 @@ function AppInner(){
 
   useEffect(()=>{if(loaded){void saveWorkspace(db,{...workspace,tab}).catch(e=>console.warn('folder state persistence',e))}},[db,workspace,tab,loaded]);
   function selectTab(next:Tab){setTab(next)}
-  function selectFolder(id:string|null){setWorkspace(p=>({...p,folderId:id}));setBoardPages([0,0,0,0])}
+  function selectFolder(id:string|null){setWorkspace(p=>({...p,folderId:id,recentFolderIds:id?[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4):p.recentFolderIds}));setBoardPages([0,0,0,0])}
   function createFolder(name:string){
     const trimmed=name.trim();if(!trimmed){Alert.alert('フォルダ名を入力してください');return}
     if(workspace.folders.some(f=>f.parentId===workspace.folderId&&f.name===trimmed)){Alert.alert('同じ名前のフォルダがあります');return}
     const id='folder_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-    setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId:p.folderId}],folderId:id}));
+    setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId:p.folderId}],folderId:id,recentFolderIds:[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4)}));
     setNewFolderOpen(false);setBoardPages([0,0,0,0]);
   }
   function deleteFolder(id:string){
@@ -80,7 +80,7 @@ function AppInner(){
       {text:'キャンセル',style:'cancel'},
       {text:'削除',style:'destructive',onPress:()=>{
         for(const task of linked)void updateTask({...task,folderId:f.parentId,group:f.parentId?folderGroup(workspace.folders,f.parentId):task.group});
-        setWorkspace(p=>({...p,folderId:p.folderId===id?f.parentId:p.folderId,folders:p.folders.filter(x=>x.id!==id).map(x=>x.parentId===id?{...x,parentId:f.parentId}:x)}));
+        setWorkspace(p=>({...p,folderId:p.folderId===id?f.parentId:p.folderId,folders:p.folders.filter(x=>x.id!==id).map(x=>x.parentId===id?{...x,parentId:f.parentId}:x),recentFolderIds:(p.recentFolderIds||[]).filter(x=>x!==id)}));
       }}
     ]);
   }
@@ -228,7 +228,7 @@ function AppInner(){
                 <Text style={typeStyle(workspace.folderId===g.id?(prefs.dark?'#F4F7FF':'#456DAA'):theme.muted,10,'700')}>{g.name}</Text>
               </Pressable>
             )}
-            {workspace.folderId&&!['work','personal','study','other'].includes(workspace.folderId)&&<Pressable onPress={()=>setFolderMenuOpen(true)} style={{minHeight:36,paddingHorizontal:8,justifyContent:'center',borderWidth:1,borderColor:'#8FAADD',borderRadius:10,backgroundColor:theme.tint}}><Text numberOfLines={1} style={typeStyle(theme.ink,10,'700')}>{workspace.folders.find(f=>f.id===workspace.folderId)?.name||'フォルダ'}</Text></Pressable>}
+            {(workspace.recentFolderIds||[]).filter(id=>!['work','personal','study','other'].includes(id)&&workspace.folders.some(f=>f.id===id)).slice(0,3).map(id=><Pressable key={'recent-'+id} accessibilityRole="button" accessibilityLabel={(workspace.folders.find(f=>f.id===id)?.name||'フォルダ')+'を開く'} onPress={()=>selectFolder(id)} style={{minHeight:36,paddingHorizontal:8,justifyContent:'center',borderWidth:1,borderColor:id===workspace.folderId?'#8FAADD':theme.line,borderRadius:10,backgroundColor:id===workspace.folderId?theme.tint:theme.card}}><Text numberOfLines={1} style={typeStyle(id===workspace.folderId?theme.ink:theme.muted,10,'700')}>{workspace.folders.find(f=>f.id===id)?.name||'フォルダ'}</Text></Pressable>)}
           </ScrollView>
           <IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/>
         </View>
