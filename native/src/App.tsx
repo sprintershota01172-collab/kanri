@@ -394,10 +394,17 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
   const agenda=sortTasks(shownTasks.filter(t=>!t.completed&&(t.dueDate===selectedDate||t.scheduledStart?.slice(0,10)===selectedDate))).sort((a,b)=>Number(!!b.event)-Number(!!a.event)||(a.scheduledStart||'').localeCompare(b.scheduledStart||'')).slice(0,4);
   const ganttItems=sortTasks(shownTasks.filter(t=>!t.completed));
   const daysInMonth=new Date(focus.getFullYear(),focus.getMonth()+1,0).getDate();
-  const [ganttHeight,setGanttHeight]=useState(540);
+  const [ganttBodyHeight,setGanttBodyHeight]=useState(400);
   const ganttRows=20;
-  const ganttRowHeight=Math.max(1,(ganttHeight-100)/ganttRows);
-  const ganttVisible=ganttItems.slice(ganttPage*ganttRows,(ganttPage+1)*ganttRows);
+  const ganttRowHeight=Math.max(1,ganttBodyHeight/ganttRows);
+  const ganttVisible=ganttItems;
+  const ganttNamesRef=useRef<ScrollView>(null),ganttDaysRef=useRef<ScrollView>(null);
+  const ganttPositions=useRef({names:0,days:0});
+  const syncGanttY=(source:'names'|'days',y:number)=>{
+    const target=source==='names'?'days':'names';
+    ganttPositions.current[source]=y;
+    if(Math.abs(ganttPositions.current[target]-y)>1){ganttPositions.current[target]=y;(target==='names'?ganttNamesRef:ganttDaysRef).current?.scrollTo({y,animated:false})}
+  };
   const ganttBlankCount=Math.max(0,ganttRows-ganttVisible.length);
   return <View style={{flex:1,minHeight:0}}>
     <View style={[styles.dateNav,{minHeight:47}]}><Pressable onPress={()=>setFocus(mode==='week'?addDays(focus,-7):new Date(focus.getFullYear(),focus.getMonth()-1,Math.min(28,focus.getDate())))}><Text style={typeStyle(theme.ink,21)}>‹</Text></Pressable><Text style={typeStyle(theme.ink,15,'800')}>{title}</Text><Pressable onPress={()=>setFocus(mode==='week'?addDays(focus,7):new Date(focus.getFullYear(),focus.getMonth()+1,Math.min(28,focus.getDate())))}><Text style={typeStyle(theme.ink,21)}>›</Text></Pressable></View>
@@ -424,12 +431,13 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
         <Text style={typeStyle(theme===DARK?'#C8DAFF':'#5879B5',9,'700')}>{count}件</Text>
       </Pressable>;
     })}</View>}
-    {mode==='gantt'?<View onLayout={event=>{const next=event.nativeEvent.layout.height;if(next>150&&Math.abs(next-ganttHeight)>1)setGanttHeight(next)}} style={[styles.ganttBox,{backgroundColor:theme.card,borderColor:theme.line,padding:9}]}>
-      <View style={{flexDirection:'row',alignSelf:'stretch',borderWidth:1,borderColor:theme.line,borderRadius:9,overflow:'hidden'}}>
-        <View style={{width:104,flexShrink:0,backgroundColor:theme.card,zIndex:2}}>
+    {mode==='gantt'?<View style={[styles.ganttBox,{backgroundColor:theme.card,borderColor:theme.line,padding:9}]}>
+      <View style={{flexDirection:'row',flex:1,minHeight:0,alignSelf:'stretch',borderWidth:1,borderColor:theme.line,borderRadius:9,overflow:'hidden'}}>
+        <View style={{width:104,flexShrink:0,backgroundColor:theme.card,zIndex:2,height:'100%'}}>
           <View style={{height:46,justifyContent:'center',paddingLeft:7,backgroundColor:theme.tint,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line}}>
             <Text style={typeStyle(theme.ink,10,'800')}>タスク / LT</Text>
           </View>
+          <ScrollView ref={ganttNamesRef} nestedScrollEnabled scrollEventThrottle={16} bounces={false} showsVerticalScrollIndicator={ganttItems.length>20} onScroll={e=>syncGanttY('names',e.nativeEvent.contentOffset.y)} onLayout={e=>{const h=e.nativeEvent.layout.height;if(h>0&&Math.abs(ganttBodyHeight-h)>1)setGanttBodyHeight(h)}} style={{flex:1,minHeight:0}}>
           {ganttVisible.map(t=><View key={t.id} style={{height:ganttRowHeight,flexDirection:'row',alignItems:'stretch',borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line}}>
             {!t.event&&<Pressable onPress={()=>onGanttComplete(t)} accessibilityRole="button" accessibilityLabel={t.title+'を完了'} style={{width:24,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint}}><Text style={typeStyle('#70A094',14,'800')}>✓</Text></Pressable>}
             <Pressable onPress={()=>onOpen(t)} style={{flex:1,minWidth:0,justifyContent:'center',paddingHorizontal:4}}>
@@ -437,9 +445,10 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
             </Pressable>
           </View>)}
           {Array.from({length:ganttBlankCount},(_,i)=><View key={'blank-name-'+i} style={{height:ganttRowHeight,backgroundColor:theme.card,borderBottomWidth:1,borderRightWidth:1,borderColor:theme.line}}/>)}
+          </ScrollView>
         </View>
-        <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={true} bounces={false} keyboardShouldPersistTaps="always" style={{flex:1,minWidth:0}}>
-          <View style={{width:daysInMonth*36}}>
+        <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={true} bounces={false} keyboardShouldPersistTaps="always" style={{flex:1,minWidth:0}} contentContainerStyle={{height:'100%'}}>
+          <View style={{width:daysInMonth*36,height:'100%'}}>
             <View style={{flexDirection:'row',height:46,backgroundColor:theme.tint}}>
               {Array.from({length:daysInMonth},(_,i)=>{
                 const d=new Date(focus.getFullYear(),focus.getMonth(),i+1);
@@ -449,6 +458,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
                 </View>
               })}
             </View>
+            <ScrollView ref={ganttDaysRef} nestedScrollEnabled bounces={false} scrollEventThrottle={16} showsVerticalScrollIndicator={ganttItems.length>20} onScroll={e=>syncGanttY('days',e.nativeEvent.contentOffset.y)} style={{flex:1,minHeight:0}}>
             {ganttVisible.map(t=>{
               const lt=t.event?1:Math.max(1,Math.min(90,t.leadDays||1));
               const fallbackDue=t.dueDate?parseDateKey(t.dueDate):null;
@@ -471,13 +481,13 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
             {Array.from({length:ganttBlankCount},(_,i)=><View key={'blank-grid-'+i} style={{flexDirection:'row',height:ganttRowHeight}}>
               {Array.from({length:daysInMonth},(_,j)=>{const day=new Date(focus.getFullYear(),focus.getMonth(),j+1);const weekend=day.getDay()===0||day.getDay()===6;return <View key={j} style={{width:36,height:ganttRowHeight,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,backgroundColor:weekend?theme.bg:theme.card}}/>;})}
             </View>)}
+            </ScrollView>
           </View>
         </ScrollView>
       </View>
-      <View style={[styles.pager,{marginTop:11}]}>
-        <Pressable onPress={()=>setGanttPage(Math.max(0,ganttPage-1))} hitSlop={10}><Text style={typeStyle(theme.muted,18)}>‹</Text></Pressable>
-        <Text style={typeStyle(theme.muted,10)}>{ganttPage+1}/{Math.max(1,Math.ceil(ganttItems.length/ganttRows))}</Text>
-        <Pressable onPress={()=>setGanttPage(Math.min(Math.max(0,Math.ceil(ganttItems.length/ganttRows)-1),ganttPage+1))} hitSlop={10}><Text style={typeStyle(theme.muted,18)}>›</Text></Pressable>
+      <View style={[styles.pager,{marginTop:11,justifyContent:'space-between'}]}>
+        <Text style={typeStyle(theme.muted,10)}>{ganttItems.length}件</Text>
+        <Text style={typeStyle(theme.muted,10)}>{ganttItems.length>20?'上下スクロールで全件表示':'20行表示'} ↕</Text>
       </View>
     </View>:<View style={{flex:mode==='month'?0:1,minHeight:0,marginTop:mode==='month'?5:8}}><View style={styles.flexBetween}><Text style={typeStyle(theme.ink,12,'800')}>{focus.getMonth()+1}/{focus.getDate()} の予定</Text><Text style={typeStyle(theme.muted,10)}>{agenda.length}件表示</Text></View>
       <View style={{gap:7,marginTop:9,flex:1,minHeight:0}}>{agenda.length?agenda.map(t=><Pressable key={t.id} onPress={()=>onOpen(t)} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line}]}><View style={{height:28,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/><View style={{flex:1}}><Text numberOfLines={1} style={typeStyle(theme.ink,12,'800')}>{t.title}</Text><Text numberOfLines={1} style={typeStyle(theme.muted,10)}>{t.event?'予定 · ':''}{t.scheduledStart?.slice(11,16)??'未配置'} · {t.durationMin}分 {t.event?'':' · '+dueLabel(t.dueDate)}</Text></View><Text style={typeStyle(theme.muted,17)}>›</Text></Pressable>):<View style={{flex:1,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>予定なし</Text></View>}</View>
