@@ -440,6 +440,30 @@ body,button,input,select{font-synthesis:none}
 @media(max-width:499px) and (display-mode:standalone){
   .device{height:var(--vh,100svh)!important;min-height:0!important}
 }
+
+/* v1.9.7 — iOS standalone height correction.
+   black-translucent + viewport-fit=cover reports a shortened innerHeight;
+   var(--vh) and height:100% therefore end before the iPhone's bottom edge.
+   CSS 100vh is the full standalone viewport for this status-bar mode. */
+@media(max-width:499px) and (display-mode:standalone){
+  html,body{
+    height:100vh!important;
+    min-height:100vh!important;
+    max-height:100vh!important;
+    overflow:hidden!important;
+  }
+  .device{
+    height:100vh!important;
+    min-height:100vh!important;
+    max-height:100vh!important;
+    bottom:auto!important;
+  }
+  .nav{
+    flex-shrink:0!important;
+    border-bottom-left-radius:0!important;
+    border-bottom-right-radius:0!important;
+  }
+}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div></div><button class="small-btn" id="sortButton" style="font-size:10px;font-weight:800">↕ 自動整理</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
