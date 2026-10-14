@@ -624,17 +624,17 @@ function openGroupAddMenu(){
 }
 function wireGroupChip(el){
   const id=el.dataset.quickFolder==='__all__'?null:el.dataset.quickFolder;
-  let timer=null,long=false,moved=false,down=null,lastX=0,scrolled=false;
+  let timer=null,long=false,moved=false,down=null,scrolled=false,suppressClick=false;
   const strip=$('#groupQuickSwitch');
   const clear=()=>{if(timer){clearTimeout(timer);timer=null}};
   el.onpointerdown=e=>{
     if(e.pointerType==='mouse'&&e.button!==0)return;
-    down={x:e.clientX,y:e.clientY,scroll:strip.scrollLeft,time:Date.now()};lastX=e.clientX;long=false;moved=false;scrolled=false;
-    if(id)timer=setTimeout(()=>{long=true;el.classList.add('reordering');haptic()},430);
+    down={x:e.clientX,y:e.clientY,scroll:strip.scrollLeft,time:Date.now()};long=false;moved=false;scrolled=false;suppressClick=false;
+    if(id)timer=setTimeout(()=>{long=true;el.classList.add('reordering');try{el.setPointerCapture?.(e.pointerId)}catch{}haptic()},430);
   };
   el.onpointermove=e=>{
     if(!down)return;
-    const dx=e.clientX-down.x,dy=e.clientY-down.y;lastX=e.clientX;
+    const dx=e.clientX-down.x,dy=e.clientY-down.y;
     if(!long&&Math.max(Math.abs(dx),Math.abs(dy))>9)clear();
     if(long){
       moved=moved||Math.abs(dx)>21;
@@ -650,6 +650,7 @@ function wireGroupChip(el){
     const dx=e.clientX-down.x;const wasLong=long;down=null;
     el.classList.remove('reordering');el.style.transform='';
     if(wasLong){
+      suppressClick=true;
       if(moved||Math.abs(dx)>28){
         const siblings=$('[data-quick-folder]').filter(x=>{const other=getFolder(x.dataset.quickFolder);return other&&getFolder(id)&&other.parentId===getFolder(id).parentId});
         let destination=siblings.filter(x=>x!==el).reduce((near,x)=>{
@@ -660,11 +661,11 @@ function wireGroupChip(el){
       }else openGroupActions(id);
       return;
     }
-    if(!scrolled&&Math.abs(dx)<10)setFolder(id);
+    if(!scrolled&&Math.abs(dx)<10){suppressClick=true;setFolder(id)}
   };
   el.onpointercancel=()=>{clear();down=null;el.classList.remove('reordering');el.style.transform=''};
-  el.onclick=e=>{e.preventDefault()}; // Tap and long press are dispatched by pointer handlers above.
-  el.oncontextmenu=e=>{e.preventDefault();if(id)openGroupActions(id)};
+  el.onclick=e=>{e.preventDefault();if(suppressClick){suppressClick=false;return}if(!long)setFolder(id)}; // click fallback preserves keyboard and programmatic taps
+  el.oncontextmenu=e=>{e.preventDefault();if(id&&!long){suppressClick=true;openGroupActions(id)}};
 }
 function renderQuickGroups(){
   const entries=visibleGroupEntries();
@@ -985,6 +986,23 @@ function openModal(){
   if(height>0)document.documentElement.style.setProperty('--kanri-locked-height',height+'px');
   $('#modal').classList.add('open');
 }function closeModal(){const active=document.activeElement;if(active&&$('#sheet').contains(active)&&typeof active.blur==='function')active.blur();$('#modal').classList.remove('open');$('#sheet').innerHTML=''}$('#modal').addEventListener('pointerdown',e=>{if(e.target===$('#modal'))closeModal()});$('#addButton').onclick=()=>openEdit();$('#addEventTop').onclick=()=>openEdit(null,null,dateKey(focusDay),'event');$('#trashCalendar').onclick=openTrash;$('#themeQuick').onclick=()=>{prefs.dark=!prefs.dark;savePrefs();render()};$('#undoBtn').onclick=undo;$('#undoTop').onclick=undo;$('#sortButton').onclick=()=>{let candidates=sorted(tasks.filter(t=>!t.done));let index=0;candidates.forEach(t=>{if(!t.pin){t.rank=null}else t.rank=index++});save();render();flash('優先順位を更新しました')};$('#resetRank').onclick=()=>{tasks.forEach(t=>{t.pin=false;t.rank=null});save();render();flash('すべて自動順位に戻しました')};$$('.nav-btn[data-tab]').forEach(el=>el.onclick=()=>navigateTab(el.dataset.tab));
+
+// Swipe over empty board space or panel background to switch groups, without changing bottom tabs.
+let boardGroupSwipe=null;
+$('#board').addEventListener('pointerdown',e=>{
+  if(tab!=='board'||$('#modal').classList.contains('open')||e.target.closest('button,.task-wrap,.task-card')){boardGroupSwipe=null;return}
+  boardGroupSwipe={x:e.clientX,y:e.clientY,t:Date.now()};
+},{passive:true});
+$('#board').addEventListener('pointerup',e=>{
+  if(!boardGroupSwipe)return;
+  const from=boardGroupSwipe;boardGroupSwipe=null;
+  const dx=e.clientX-from.x,dy=e.clientY-from.y;
+  if(Math.abs(dx)<65||Math.abs(dx)<Math.abs(dy)*1.2||Date.now()-from.t>1200)return;
+  const entries=visibleGroupEntries();
+  const pos=entries.findIndex(x=>x.id===currentFolderId),next=pos+(dx<0?1:-1);
+  if(next>=0&&next<entries.length){setFolder(entries[next].id);haptic()}
+},{passive:true});
+$('#board').addEventListener('pointercancel',()=>{boardGroupSwipe=null},{passive:true});
 const tabOrder=['board','calendar','puzzle','settings'];
 let tabGesture=null;
 $('.main').addEventListener('pointerdown',e=>{
