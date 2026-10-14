@@ -418,16 +418,38 @@ function SettingsPanel({theme,prefs,tasks,onMode,onRename,onDark,onReminder,onLe
 function SettingRow({theme,title,value,onPress,last=false}:{theme:Theme,title:string,value:string,onPress:()=>void,last?:boolean}){
   return <Pressable onPress={onPress} style={[styles.settingRow,!last&&{borderBottomWidth:1,borderColor:theme.line}]}><Text style={typeStyle(theme.ink,12,'700')}>{title}</Text><Text style={typeStyle(theme===DARK?'#CEE0FF':'#5979B5',11,'800')}>{value}</Text></Pressable>;
 }
-function TaskEditor({entry,initialQuadrant,prefs,theme,insetTop,height,onClose,onSave,onDelete}:{entry:Task|'new',initialQuadrant:number|null,prefs:Preferences,theme:Theme,insetTop:number,height:number,onClose:()=>void,onSave:(item:Task)=>void,onDelete:(task:Task)=>void}){
+function FolderSheet({theme,insetTop,parentName,onClose,onCreate}:{theme:Theme,insetTop:number,parentName:string,onClose:()=>void,onCreate:(name:string)=>void}){
+  const [name,setName]=useState('');
+  return <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={onClose}>
+    <View style={styles.overlay}><Pressable onPress={onClose} style={StyleSheet.absoluteFill}/>
+      <Animated.View entering={FadeInDown.springify().damping(18)} style={[styles.editorSheet,{top:insetTop+25,backgroundColor:theme.card}]}>
+        <View style={styles.flexBetween}><Text style={typeStyle(theme.ink,16,'800')}>新しいフォルダ</Text><Pressable onPress={onClose} accessibilityLabel="閉じる" style={{minHeight:44,minWidth:44,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.ink,24)}>×</Text></Pressable></View>
+        <Text style={[styles.formLabel,{color:theme.muted}]}>フォルダ名</Text>
+        <TextInput value={name} maxLength={32} placeholder="例：新規プロジェクト" placeholderTextColor={theme.muted} onChangeText={setName} returnKeyType="done" onSubmitEditing={()=>onCreate(name)} style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
+        <Text style={[typeStyle(theme.muted,11),{marginTop:8}]}>保存先：{parentName}</Text>
+        <View style={{flexDirection:'row',gap:8,marginTop:11}}>
+          <Pressable onPress={onClose} style={{minHeight:44,paddingHorizontal:15,justifyContent:'center',borderRadius:11,backgroundColor:theme.bg}}><Text style={typeStyle(theme.ink,12,'800')}>キャンセル</Text></Pressable>
+          <Pressable onPress={()=>onCreate(name)} style={[styles.primaryButton,{backgroundColor:theme.navy,minHeight:44}]}><Text style={typeStyle('#fff',12,'800')}>作成</Text></Pressable>
+        </View>
+      </Animated.View>
+    </View>
+  </Modal>;
+}
+function TaskEditor({entry,initialQuadrant,prefs,theme,insetTop,height,folders,initialFolderId,onClose,onSave,onDelete}:{entry:Task|'new',initialQuadrant:number|null,prefs:Preferences,theme:Theme,insetTop:number,height:number,folders:Folder[],initialFolderId:string|null,onClose:()=>void,onSave:(item:Task)=>void,onDelete:(task:Task)=>void}){
   const original=entry==='new'?null:entry;
   const [title,setTitle]=useState(original?.title??'');const [important,setImportant]=useState(original?.important??(initialQuadrant===null?true:initialQuadrant<=1));const [urgent,setUrgent]=useState(original?.urgent??(initialQuadrant===null?false:initialQuadrant===0||initialQuadrant===2));
   const [group,setGroup]=useState<Group>(original?.group??(initialQuadrant===null?'プライベート':GROUPS[initialQuadrant]));
   const [duration,setDuration]=useState(original?.durationMin??60);const [leadDays,setLeadDays]=useState(String(original?.leadDays??1));
   const [date,setDate]=useState(original?.dueDate??dateKey(addDays(new Date(),1)));
   const [pin,setPin]=useState(original?.pinned??false);
+  const [selectedFolder,setSelectedFolder]=useState<string|null>(original?folderForTask(original):(initialFolderId||(['work','personal','study','other'][initialQuadrant??1])));
+  const folderList:Folder[]=[];
+  function walk(parent:string|null,depth=0){if(depth>16)return;for(const f of folders.filter(f=>f.parentId===parent)){folderList.push({...f,name:'　'.repeat(depth)+f.name});walk(f.id,depth+1)}}
+  walk(null);
+
   function commit(){const text=title.trim();if(!text){Alert.alert('タスク名を入力してください');return}if(date.trim()&&!parseDateKey(date.trim())){Alert.alert('日付の形式が正しくありません','YYYY-MM-DD で入力してください');return}if(!/^\d+$/.test(leadDays)||+leadDays<1||+leadDays>90){Alert.alert('LT日数は1〜90日で指定してください');return}
     const item=original?{...original}:{...createTask(text,date.trim()||null,duration,important,urgent,group)};
-    Object.assign(item,{title:text,important,urgent,group,durationMin:duration,leadDays:+leadDays,dueDate:date.trim()||null,pinned:pin,manualOrder:pin?(item.manualOrder??-1):null});
+    Object.assign(item,{title:text,important,urgent,group:selectedFolder?folderGroup(folders,selectedFolder):group,folderId:selectedFolder,durationMin:duration,leadDays:+leadDays,dueDate:date.trim()||null,pinned:pin,manualOrder:pin?(item.manualOrder??-1):null});
     onSave(item);
   }
   return <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={onClose}>
@@ -435,7 +457,11 @@ function TaskEditor({entry,initialQuadrant,prefs,theme,insetTop,height,onClose,o
       <View style={styles.flexBetween}><View style={{flexDirection:'row',alignItems:'center',gap:10,flexShrink:1}}><Pressable onPress={onClose} accessibilityRole='button' accessibilityLabel='保存せず戻る' hitSlop={8} style={{minWidth:44,minHeight:44,borderRadius:12,borderWidth:1,borderColor:theme.line,backgroundColor:theme.bg,justifyContent:'center',alignItems:'center'}}><Text style={typeStyle(theme.ink,25,'500')}>×</Text></Pressable><Text style={typeStyle(theme.ink,16,'800')}>{original?'タスクを編集':'タスクを追加'}</Text></View><Pressable onPress={commit} hitSlop={8}><Text style={typeStyle('#5879B5',12,'800')}>保存 ✓</Text></Pressable></View>
       <Text style={[styles.formLabel,{color:theme.muted}]}>TASK NAME</Text><TextInput value={title} onChangeText={setTitle} maxLength={70} placeholder="何をする？" placeholderTextColor={theme.muted} autoCorrect={false} style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
       <Text style={[styles.formLabel,{color:theme.muted}]}>重要度・緊急度</Text><View style={styles.formChoices}><Chip theme={theme} title="◆ 重要" selected={important} onPress={()=>setImportant(!important)}/><Chip theme={theme} title="⚡ 緊急" selected={urgent} onPress={()=>setUrgent(!urgent)}/></View>
-      <Text style={[styles.formLabel,{color:theme.muted}]}>GROUP</Text><View style={styles.formChoices}>{GROUPS.map(g=><Chip key={g} title={g} theme={theme} selected={group===g} onPress={()=>setGroup(g)}/>)}</View>
+      <Text style={[styles.formLabel,{color:theme.muted}]}>フォルダ</Text>
+      <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} style={{flexGrow:0}} contentContainerStyle={{flexDirection:'row',gap:6,paddingVertical:2}}>
+        <Pressable onPress={()=>setSelectedFolder(null)} style={{minHeight:44,paddingHorizontal:10,justifyContent:'center',borderRadius:10,backgroundColor:selectedFolder===null?theme.tint:theme.bg,borderWidth:1,borderColor:theme.line}}><Text style={typeStyle(theme.ink,11,'700')}>すべて</Text></Pressable>
+        {folderList.map(f=><Pressable key={f.id} onPress={()=>{setSelectedFolder(f.id);setGroup(folderGroup(folders,f.id))}} style={{minHeight:44,paddingHorizontal:10,justifyContent:'center',borderRadius:10,backgroundColor:selectedFolder===f.id?theme.tint:theme.bg,borderWidth:1,borderColor:selectedFolder===f.id?'#7395D3':theme.line}}><Text numberOfLines={1} style={typeStyle(theme.ink,11,'700')}>{f.name}</Text></Pressable>)}
+      </ScrollView>
       <Text style={[styles.formLabel,{color:theme.muted}]}>所要時間</Text><View style={styles.formChoices}>{[30,60,90,120,180].map(n=><Chip key={n} theme={theme} title={`${n}分`} selected={n===duration} onPress={()=>setDuration(n)}/>)}</View>
       <Text style={[styles.formLabel,{color:theme.muted}]}>ガントチャート LT（日数・1〜90）</Text><TextInput value={leadDays} onChangeText={setLeadDays} keyboardType="number-pad" style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
       <Text style={[styles.formLabel,{color:theme.muted}]}>納期（YYYY-MM-DD）</Text><TextInput value={date} onChangeText={setDate} placeholder="2026-10-20" keyboardType="numbers-and-punctuation" autoCorrect={false} placeholderTextColor={theme.muted} style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
