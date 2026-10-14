@@ -415,15 +415,15 @@ body,button,input,select{font-synthesis:none}
     position:relative!important;
     inset:auto!important;top:auto!important;bottom:auto!important;left:auto!important;right:auto!important;
     box-sizing:border-box!important;
-    flex:0 0 calc(64px + var(--safe-bottom))!important;
-    height:calc(64px + var(--safe-bottom))!important;
-    min-height:calc(64px + var(--safe-bottom))!important;
+    flex:0 0 calc(71px + var(--safe-bottom))!important;
+    height:calc(71px + var(--safe-bottom))!important;
+    min-height:calc(71px + var(--safe-bottom))!important;
     max-height:none!important;width:100%!important;
     display:grid!important;
     grid-template-columns:repeat(5,minmax(0,1fr))!important;
     gap:0!important;align-items:stretch!important;
     margin:0!important;
-    padding:0 max(12px,env(safe-area-inset-left,0px)) calc(7px + max(4px,var(--safe-bottom)))!important;
+    padding:0 max(12px,env(safe-area-inset-left,0px)) calc(14px + max(4px,var(--safe-bottom)))!important;
     border:0!important;border-top:1px solid var(--line)!important;border-radius:0!important;box-shadow:none!important;
     overflow:visible!important;z-index:20!important;pointer-events:auto!important;
     background:#FFFFFF!important;color:#7F8DA2!important;
@@ -754,5 +754,36 @@ $('.main').addEventListener('pointerup',e=>{
   const idx=tabOrder.indexOf(from.tab),next=idx+(dx<0?1:-1);
   if(next>=0&&next<tabOrder.length){navigateTab(tabOrder[next]);haptic()}
 },{passive:true});
-$('.main').addEventListener('pointercancel',()=>{tabGesture=null},{passive:true});$$('#calModes button').forEach(el=>el.onclick=()=>{calMode=el.dataset.mode;ganttPage=0;ganttScrollX=0;$$('#calModes button').forEach(b=>b.classList.toggle('selected',b===el));renderCalendar()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});render();
+$('.main').addEventListener('pointercancel',()=>{tabGesture=null},{passive:true});$$('#calModes button').forEach(el=>el.onclick=()=>{calMode=el.dataset.mode;ganttPage=0;ganttScrollX=0;$$('#calModes button').forEach(b=>b.classList.toggle('selected',b===el));renderCalendar()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
+  const hadController=!!navigator.serviceWorker.controller;
+  let pendingReload=false,reloading=false,lastCheck=0,registration;
+  function applyUpdate(){
+    if(!pendingReload||reloading||document.visibilityState==='hidden')return;
+    if(document.querySelector('.modal-layer.open')||document.activeElement?.matches('input,textarea,select,[contenteditable="true"]'))return;
+    reloading=true;
+    location.reload();
+  }
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!hadController)return;
+    pendingReload=true;
+    applyUpdate();
+  });
+  async function checkUpdate(){
+    if(document.visibilityState==='hidden')return;
+    applyUpdate();
+    if(!registration||Date.now()-lastCheck<30000)return;
+    lastCheck=Date.now();
+    try{await registration.update();}catch{}
+  }
+  navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{
+    registration=reg;checkUpdate();
+  }).catch(()=>{});
+  document.addEventListener('visibilitychange',checkUpdate);
+  window.addEventListener('pageshow',checkUpdate);
+  window.addEventListener('online',checkUpdate);
+  window.addEventListener('focus',checkUpdate);
+  document.addEventListener('focusout',()=>setTimeout(applyUpdate,0));
+  const updateModal=document.getElementById('modal');
+  if(updateModal)new MutationObserver(applyUpdate).observe(updateModal,{attributes:true,attributeFilter:['class']});
+}render();
 })();</script></body></html>
