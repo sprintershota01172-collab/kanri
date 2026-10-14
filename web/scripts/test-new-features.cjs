@@ -1,0 +1,69 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const {JSDOM}=require('jsdom');
+const html=fs.readFileSync(path.resolve(__dirname,'../index.html'),'utf8');
+function launch(snapshot={}){
+  return new JSDOM(html,{url:'https://example.test/kanri/',runScripts:'dangerously',pretendToBeVisual:true,beforeParse(win){
+    win.matchMedia=()=>({matches:false,addListener(){},removeListener(){}});
+    for(const [key,value] of Object.entries(snapshot))win.localStorage.setItem(key,value);
+  }});
+}
+function element(doc,selector){const el=doc.querySelector(selector);assert.ok(el,'Missing '+selector);return el;}
+function click(doc,selector){element(doc,selector).click();}
+function tasks(win){return JSON.parse(win.localStorage.getItem('kanri_v1_tasks')||'[]');}
+let dom=launch(),doc=dom.window.document;
+click(doc,'[data-quick-folder="work"]');
+click(doc,'#vehicleQuickAdd');
+element(doc,'#vehicleName').value='車種A';
+click(doc,'#vehicleSave');
+let folders=JSON.parse(dom.window.localStorage.getItem('kanri_v2_folders'));
+const carA=folders.find(f=>f.name==='車種A');
+assert.equal(carA.parentId,'work');
+assert.equal(carA.kind,'vehicle');
+click(doc,'#addButton');
+element(doc,'#fTitle').value='車種Aの設計確認';
+click(doc,'#saveTask');
+assert.equal(tasks(dom.window)[0].folderId,carA.id);
+assert.equal(doc.querySelectorAll('.task-card').length,1);
+click(doc,'[data-quick-folder="work"]');
+click(doc,'#vehicleQuickAdd');
+element(doc,'#vehicleName').value='車種B';
+click(doc,'#vehicleSave');
+folders=JSON.parse(dom.window.localStorage.getItem('kanri_v2_folders'));
+const carB=folders.find(f=>f.name==='車種B');
+assert.equal(carB.parentId,'work');
+assert.equal(doc.querySelectorAll('.task-card').length,0,'car B excludes car A tasks');
+click(doc,'[data-tab="calendar"]');
+click(doc,'[data-mode="month"]');
+const chosenDate=element(doc,'.month-grid .day.sel').dataset.caldate;
+click(doc,'#addEventTop');
+element(doc,'#eventTitle').value='車種Bの定例会議';
+element(doc,'#eventDate').value=chosenDate;
+element(doc,'#eventTime').value='15:30';
+element(doc,'#eventDuration').value='120';
+element(doc,'#eventFolder').value=carB.id;
+click(doc,'#eventSave');
+const meeting=tasks(dom.window).find(t=>t.event);
+assert.ok(meeting,'meeting saved as calendar event');
+assert.equal(meeting.scheduled,chosenDate+'T15:30');
+assert.equal(meeting.duration,120);
+assert.equal(meeting.folderId,carB.id);
+assert.ok(element(doc,'.agenda-list').textContent.includes('車種Bの定例会議'));
+click(doc,'[data-mode="gantt"]');
+assert.equal(doc.querySelectorAll('.gantt-names .gantt-label-row').length,20,'exactly 20 label rows');
+assert.equal(doc.querySelectorAll('.gantt-scroll-table .gantt-task-row').length,20,'exactly 20 Gantt rows');
+assert.equal(element(doc,'.gantt-excel').style.getPropertyValue('--display-rows'),'20');
+assert.ok(element(doc,'.gantt-names').textContent.includes('車種Bの定例会議'));
+click(doc,'[data-tab="board"]');
+assert.equal(doc.querySelectorAll('.task-card').length,0,'calendar-only events are not focus tasks');
+click(doc,'[data-quick-folder="work"]');
+assert.equal(doc.querySelectorAll('.task-card').length,1,'work aggregates vehicle tasks');
+const saved=Object.fromEntries(Object.keys(dom.window.localStorage).map(k=>[k,dom.window.localStorage.getItem(k)]));
+dom.window.close();
+dom=launch(saved);doc=dom.window.document;
+assert.ok(tasks(dom.window).find(t=>t.event&&t.title==='車種Bの定例会議'),'meeting survives reload');
+assert.equal(JSON.parse(dom.window.localStorage.getItem('kanri_v2_folders')).filter(f=>f.kind==='vehicle').length,2,'vehicle folders survive reload');
+dom.window.close();
+console.log('PASS 20-row Gantt, meeting schedule CRUD, vehicle folder navigation and persistence');
