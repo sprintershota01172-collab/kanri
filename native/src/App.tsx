@@ -192,6 +192,11 @@ function AppInner(){
   }
   const n=tasks.length,completed=tasks.filter(t=>t.completed).length,percentage=n?Math.round(completed/n*100):0;
   const top=sortTasks(tasks.filter(t=>!t.completed))[0];
+  const folderPath:Folder[]=[];
+  {let cursor=workspace.folders.find(f=>f.id===workspace.folderId),guard=0;
+   while(cursor&&guard++<20){folderPath.unshift(cursor);cursor=workspace.folders.find(f=>f.id===cursor?.parentId)}}
+  const childFolders=workspace.folders.filter(f=>f.parentId===workspace.folderId);
+
   if(!loaded)return <View style={[styles.root,{backgroundColor:theme.bg,justifyContent:'center',alignItems:'center'}]}><Text style={typeStyle(theme.ink,28,'800')}>kanri</Text><Text style={typeStyle(theme.muted,12)}>データを準備しています</Text></View>;
   return <View style={[styles.root,{backgroundColor:theme.bg,paddingTop:insets.top}]}>
     <StatusBar barStyle={prefs.dark?'light-content':'dark-content'} backgroundColor={theme.bg}/>
@@ -201,12 +206,34 @@ function AppInner(){
         <View style={{flexDirection:'row',alignItems:'center',gap:7}}><Text style={typeStyle(theme.muted,11,'700')}>{new Date().getMonth()+1}/{new Date().getDate()} {'日月火水木金土'[new Date().getDay()]}</Text><Pressable onPress={()=>{void updatePreferences({...prefs,dark:!prefs.dark})}} style={[styles.quick,{backgroundColor:theme.card,borderColor:theme.line}]}><Text style={typeStyle(theme.ink,14)}>◐</Text></Pressable></View>
       </View>
     </View>
-    <View style={styles.content}>
+    <View style={styles.content}
+      onTouchStart={event=>{const t=event.nativeEvent.touches?.[0];if(t)swipeStart.current={x:t.pageX,y:t.pageY,time:Date.now()}}}
+      onTouchEnd={event=>{
+        const start=swipeStart.current;swipeStart.current=null;
+        const t=event.nativeEvent.changedTouches?.[0];if(!start||!t||editor||newFolderOpen)return;
+        const dx=t.pageX-start.x,dy=t.pageY-start.y;
+        if(Math.abs(dx)<95||Math.abs(dx)<Math.abs(dy)*1.5||Date.now()-start.time>175)return;
+        const order:Tab[]=['board','calendar','puzzle','settings'];
+        const next=order.indexOf(tab)+(dx<0?1:-1);
+        if(next>=0&&next<order.length){selectTab(order[next]);void Haptics.selectionAsync()}
+      }}>
       {tab==='board'&&<>
         <View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>FOUR FOCUS</Text></View><IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/></View>
+        <View style={{flexDirection:'row',alignItems:'center',gap:5,minHeight:35}}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flex:1,minWidth:0}} contentContainerStyle={{alignItems:'center',gap:5}}>
+            <Pressable onPress={()=>selectFolder(null)} style={{paddingHorizontal:9,paddingVertical:8,backgroundColor:workspace.folderId===null?theme.tint:theme.card,borderColor:theme.line,borderWidth:1,borderRadius:10}}><Text style={typeStyle(theme.ink,11,'800')}>⌂ すべて</Text></Pressable>
+            {folderPath.map(f=><React.Fragment key={f.id}><Text style={typeStyle(theme.muted,12)}>›</Text><Pressable onPress={()=>selectFolder(f.id)} style={{paddingHorizontal:9,paddingVertical:8,backgroundColor:f.id===workspace.folderId?theme.tint:theme.card,borderColor:theme.line,borderWidth:1,borderRadius:10}}><Text style={typeStyle(theme.ink,11,'800')}>{f.name}</Text></Pressable></React.Fragment>)}
+          </ScrollView>
+          <Pressable accessibilityLabel="フォルダを追加" onPress={()=>setNewFolderOpen(true)} style={{minWidth:44,minHeight:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint}}><Text style={typeStyle(theme===DARK?'#EDF2FF':'#486EB2',22,'700')}>＋</Text></Pressable>
+        </View>
+        {childFolders.length>0&&<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0,marginBottom:4}} contentContainerStyle={{gap:6,paddingVertical:3}}>
+          {childFolders.map(f=><Pressable key={f.id} onPress={()=>selectFolder(f.id)} onLongPress={()=>deleteFolder(f.id)} delayLongPress={480} accessibilityLabel={f.name+'を開く'} style={{minHeight:41,backgroundColor:theme.card,borderColor:theme.line,borderWidth:1,borderRadius:10,paddingHorizontal:13,flexDirection:'row',alignItems:'center',gap:6}}>
+            <Text style={typeStyle('#D1A752',15)}>▰</Text><Text style={typeStyle(theme.ink,11,'800')}>{f.name}</Text>
+          </Pressable>)}
+        </ScrollView>}
         <View ref={boardRef} style={{flex:1,minHeight:0}}><View style={styles.board}>
           {[0,1,2,3].map(q=>{
-            const items=sortTasks(tasks.filter(t=>!t.completed&&quadrant(t,prefs)===q));
+            const items=sortTasks(tasks.filter(t=>!t.completed&&quadrant(t,prefs)===q&&(workspace.folderId===null||folderForTask(t)===workspace.folderId)));
             const pageSize=winHeight>=820?4:winHeight>=690?3:2;const count=Math.max(1,Math.ceil(items.length/pageSize));const page=Math.min(boardPages[q],count-1);
             return <View key={q} style={[styles.quad,winHeight<720&&{padding:7},{backgroundColor:theme.card,borderColor:theme.line,padding:winHeight>=740?12:8}]}>
               <Pressable accessibilityRole="button" accessibilityLabel={`${prefs.names[q]}にタスクを追加`} onPress={()=>addInQuadrant(q)} style={styles.quadHead}><Text style={typeStyle(theme.ink,11,'800')} numberOfLines={1}>{prefs.names[q]}</Text><Text style={typeStyle(theme.muted,10,'800')}>{pad(items.length)}</Text></Pressable>
@@ -267,11 +294,11 @@ function AppInner(){
       {tab==='settings'&&<SettingsPanel theme={theme} prefs={prefs} tasks={tasks} onMode={mode=>{void updatePreferences({...prefs,mode,names:(mode==='group'?[...GROUPS]:[...DEFAULT_PREFS.names]) as Preferences['names']})}} onRename={()=>setRenaming(true)} onDark={()=>void updatePreferences({...prefs,dark:!prefs.dark})} onReminder={()=>void changeNotificationEnabled()} onLeadEdit={()=>setLeadEditor(true)} onStart={()=>void updatePreferences({...prefs,startReminder:!prefs.startReminder})}/>}
     </View>
     <View style={[styles.nav,{backgroundColor:theme.navy,paddingBottom:insets.bottom,height:59+insets.bottom}]}>
-      {([['board','▦','FOCUS'],['calendar','▤','PLAN'],['add','+',''],['puzzle','▧','PUZZLE'],['settings','☷','SETUP']] as const).map(([id,icon,label])=>id==='add'?<Pressable accessibilityLabel="タスクを追加" key="add" onPress={()=>{setNewQuadrant(null);setEditor('new')}} style={styles.navButton}><View style={styles.navAdd}><Text style={typeStyle('#FFFFFF',30,'400')}>+</Text></View></Pressable>:<Pressable key={id} onPress={()=>setTab(id)} style={styles.navButton}><Text style={typeStyle(tab===id?'#FFFFFF':'#9BA9C0',24,'400')}>{icon}</Text><Text style={typeStyle(tab===id?'#FFFFFF':'#9BA9C0',9,'700')}>{label}</Text></Pressable>)}
+      {([['board','▦','FOCUS'],['calendar','▤','PLAN'],['add','+',''],['puzzle','▧','PUZZLE'],['settings','☷','SETUP']] as const).map(([id,icon,label])=>id==='add'?<Pressable accessibilityLabel="タスクを追加" key="add" onPress={()=>{setNewQuadrant(null);setEditor('new')}} style={styles.navButton}><View style={styles.navAdd}><Text style={typeStyle('#FFFFFF',30,'400')}>+</Text></View></Pressable>:<Pressable key={id} onPress={()=>selectTab(id)} style={styles.navButton}><Text style={typeStyle(tab===id?'#FFFFFF':'#9BA9C0',24,'400')}>{icon}</Text><Text style={typeStyle(tab===id?'#FFFFFF':'#9BA9C0',9,'700')}>{label}</Text></Pressable>)}
     </View>
     {undo&&<View style={[styles.undo,{bottom:insets.bottom+78}]}><Text style={typeStyle('#FFFFFF',11)}>{undo.label}</Text><Pressable onPress={undoAction}><Text style={typeStyle('#B4D0FF',11,'800')}>元に戻す</Text></Pressable></View>}
     {!!toast&&<Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(140)} style={[styles.toast,{top:insets.top+149}]}><Text style={typeStyle('#FFFFFF',11)}>{toast}</Text></Animated.View>}
-    {editor&&<TaskEditor key={editor==='new'?'new':editor.id} entry={editor} initialQuadrant={newQuadrant} prefs={prefs} theme={theme} insetTop={insets.top} height={winHeight} onClose={()=>{Keyboard.dismiss();setEditor(null)}} onSave={data=>{Keyboard.dismiss();setEditor(null);void updateTask(data);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('保存しました')}} onDelete={t=>{Keyboard.dismiss();setEditor(null);void removeTask(t);remember('タスクを削除しました',()=>{void updateTask(t,null)})}}/>}
+    {newFolderOpen&&<FolderSheet theme={theme} insetTop={insets.top} parentName={folderPath.map(f=>f.name).join(' / ')||'すべて'} onClose={()=>setNewFolderOpen(false)} onCreate={createFolder}/>}{editor&&<TaskEditor key={editor==='new'?'new':editor.id} entry={editor} initialQuadrant={newQuadrant} prefs={prefs} folders={workspace.folders} initialFolderId={workspace.folderId} theme={theme} insetTop={insets.top} height={winHeight} onClose={()=>{Keyboard.dismiss();setEditor(null)}} onSave={data=>{Keyboard.dismiss();setEditor(null);void updateTask(data);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('保存しました')}} onDelete={t=>{Keyboard.dismiss();setEditor(null);void removeTask(t);remember('タスクを削除しました',()=>{void updateTask(t,null)})}}/>}
     {leadEditor&&<LeadTimeSheet theme={theme} insetTop={insets.top} current={prefs.leadMinutes} onClose={()=>{Keyboard.dismiss();setLeadEditor(false)}} onSave={minutes=>{Keyboard.dismiss();setLeadEditor(false);void updatePreferences({...prefs,leadMinutes:minutes})}}/>}
     {renaming&&<RenameSheet prefs={prefs} theme={theme} insetTop={insets.top} onClose={()=>setRenaming(false)} onSave={names=>{setRenaming(false);void updatePreferences({...prefs,names})}}/>}
   </View>;
