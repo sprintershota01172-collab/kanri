@@ -342,7 +342,7 @@ function renderQuickGroups(){
   $('#groupQuickSwitch').innerHTML=entries.map(g=>`<button type="button" class="group-quick-chip ${currentFolderId===g.id?'active':''}" data-quick-folder="${esc(g.id??'__all__')}" aria-pressed="${String(currentFolderId===g.id)}">${esc(g.name)}</button>`).join('');
   $$('[data-quick-folder]').forEach(el=>el.onclick=e=>{e.stopPropagation();setFolder(el.dataset.quickFolder==='__all__'?null:el.dataset.quickFolder)});
   const active=$('.group-quick-chip.active');
-  if(active)active.scrollIntoView?.({block:'nearest',inline:'nearest'});
+  if(active){const strip=$('#groupQuickSwitch');strip.scrollLeft=Math.max(0,active.offsetLeft-strip.offsetLeft-18)}
 }
 function navigateTab(next){const tabs=['board','calendar','puzzle','settings'];if(!tabs.includes(next))return;tab=next;saveView();render()}
 function read(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}}function save(){localStorage.setItem(KEY,JSON.stringify(tasks))}function savePrefs(){localStorage.setItem(PREF,JSON.stringify(prefs))}function pad(n){return String(n).padStart(2,'0')}function dateKey(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}function parseLocal(s){if(!s)return null;const [y,m,d]=s.split('-').map(Number);if(!y||!m||!d)return null;const result=new Date(y,m-1,d);return dateKey(result)===s?result:null}function sameDay(a,b){return dateKey(a)===dateKey(b)}function diffDays(d){const a=parseLocal(d);if(!a)return 999;const now=new Date();return Math.round((a.getTime()-new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime())/86400000)}function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function dayName(d){return `${d.getMonth()+1}/${d.getDate()}`}function dueLabel(d){if(!d)return '期限なし';let left=diffDays(d);return left<0?`${-left}日超過`:left===0?'今日まで':left===1?'明日まで':`${left}日後`}
@@ -561,7 +561,7 @@ const tabOrder=['board','calendar','puzzle','settings'];
 let tabGesture=null;
 $('.main').addEventListener('pointerdown',e=>{
   if(e.pointerType==='mouse'&&e.button!==0)return;
-  if($('#modal').classList.contains('open')||e.target.closest('button,input,select,textarea,.task-wrap,.folder-strip,.gantt-scroll,.time-panel,.puzzle-chip')){tabGesture=null;return}
+  if($('#modal').classList.contains('open')||e.target.closest('button,input,select,textarea,.task-wrap,.folder-strip,.group-quick-switch,.gantt-scroll,.time-panel,.puzzle-chip')){tabGesture=null;return}
   tabGesture={x:e.clientX,y:e.clientY,time:Date.now(),tab};
 },{passive:true});
 $('.main').addEventListener('pointerup',e=>{
