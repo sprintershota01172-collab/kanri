@@ -30,6 +30,7 @@ export type Task = {
   dueDate: string | null; // YYYY-MM-DD, local date, deadline 23:59
   scheduledStart: string | null; // YYYY-MM-DDTHH:mm, local wall time
   completed: boolean;
+  completedAt?: string | null; // completion timestamp; purge after seven days
   pinned: boolean;
   manualOrder: number | null;
   notificationIds: string[];
@@ -122,7 +123,7 @@ export function canSchedule(tasks: Task[], day: string, startMinute: number, dur
 export function createTask(title: string, dueDate: string|null, durationMin: number, important: boolean, urgent: boolean, group: Group): Task {
   const now = new Date().toISOString();
   return {id:`t_${Date.now()}_${Math.random().toString(36).slice(2,9)}`,title,dueDate,durationMin,important,urgent,group,
-    leadDays:1,ganttStart:null,scheduledStart:null,completed:false,pinned:false,manualOrder:null,notificationIds:[],createdAt:now,updatedAt:now};
+    leadDays:1,ganttStart:null,scheduledStart:null,completed:false,completedAt:null,pinned:false,manualOrder:null,notificationIds:[],createdAt:now,updatedAt:now};
 }
 export function dueLabel(date: string|null) {
   const d=daysUntil(date);
@@ -137,4 +138,17 @@ export function ganttCellFilled(task: Task, day: string): boolean {
   const calendarDay = (d: Date) => Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());
   const diff = Math.round((calendarDay(target)-calendarDay(start))/86400000);
   return diff>=0 && diff<Math.max(1,Math.min(90,task.leadDays||1));
+}
+
+/** Seven days after completion a task leaves the recoverable trash. */
+export const COMPLETED_RETENTION_MS = 7*24*60*60*1000;
+export function completedTaskExpired(task:Task,now=Date.now()):boolean{
+  return !!task.completed && !!task.completedAt && Number.isFinite(Date.parse(task.completedAt)) &&
+    now-Date.parse(task.completedAt)>=COMPLETED_RETENTION_MS;
+}
+export function completeTaskForTrash(task:Task,now=new Date()):Task{
+  return {...task,completed:true,completedAt:now.toISOString()};
+}
+export function restoreCompletedTask(task:Task):Task{
+  return {...task,completed:false,completedAt:null};
 }
