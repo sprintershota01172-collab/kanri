@@ -67,8 +67,10 @@ function incrementalFooterTest({installed,physical,layout}){
    addEventListener(){}
  };
  runInNewContext(mobile,{window,document,requestAnimationFrame:fn=>fn()},{timeout:1200});
- const expected=installed&&physical-layout>=54&&physical-layout<=160?Math.min(48,physical-layout-34):0;
- assert.equal(vars.get('--kanri-bottom-step'),expected+'px','incremental adjustment constrained to installed PWA');
+ const gap=physical-layout;
+ const plausible=installed&&gap>0&&gap<=240;
+ const expected=plausible?Math.max(0,Math.min(180,physical-50-layout)):0;
+ assert.equal(vars.get('--kanri-bottom-step'),expected+'px','status-bar-corrected extension only in plausible installed PWA');
  assert.equal(vars.get('--vh'),(layout+expected)+'px','shell height includes only guarded step');
  document.activeElement={matches:()=>true};documentEvents.focusin();
  viewport.height=layout-280;viewportEvents.resize();
@@ -80,6 +82,8 @@ incrementalFooterTest({installed:true,physical:932,layout:812});
 incrementalFooterTest({installed:false,physical:874,layout:804});
 incrementalFooterTest({installed:true,physical:874,layout:830});
 incrementalFooterTest({installed:true,physical:1100,layout:812});
+incrementalFooterTest({installed:true,physical:874,layout:730});
+incrementalFooterTest({installed:true,physical:932,layout:735});
 for(const [width,height] of [[375,812],[393,852],[402,874],[430,932]]){
  const dom=new JSDOM(html,{url:'https://kanri.example.test/',pretendToBeVisual:true,runScripts:'dangerously',beforeParse(win){
   Object.defineProperty(win,'innerWidth',{configurable:true,value:width});
