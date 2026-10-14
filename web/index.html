@@ -212,9 +212,42 @@ body{min-height:0;height:100%;height:100dvh;overflow:hidden;background:#101d32}
  .date-nav{min-height:38px}
  .nav-btn{min-height:50px}
 }
+
+/* v1.7: dark theme must restyle inherited body text, not only variables. */
+.device{color:var(--ink)}
+.device.dark{color:var(--ink);color-scheme:dark;--muted:#C2CBDB;--line:#44546B;--tint:#30476A}
+.device.dark .screen-title,.device.dark .s-row,.device.dark .quad-title,.device.dark .brand,.device.dark .today,.device.dark .setting-row,.device.dark .task-card,.device.dark .gantt-label-row,.device.dark button{color:var(--ink)}
+.device.dark .primary,.device.dark .add-main,.device.dark .scheduled-chip,.device.dark .gantt-square.filled{color:#fff}
+.device.dark .nav-btn{color:#AAB9D2}
+.device.dark .nav-btn.active{color:#fff}
+.device.dark .s-row button,.device.dark .s-row select{color:#CFDEFF;background:#344D72}
+.device.dark .progress-stat{background:#080F1D;color:#fff}
+.device.dark .progress-stat strong,.device.dark .progress-stat span{color:#fff}
+.device.dark .toggle{background:#58667C}
+.device.dark .toggle.on{background:#698DD0}
+.folder-browser{flex:none;min-width:0;display:flex;flex-direction:column;gap:4px;margin:1px 0 3px}
+.folder-path{display:flex;align-items:center;gap:5px;min-height:30px;white-space:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.folder-path::-webkit-scrollbar,.folder-strip::-webkit-scrollbar{display:none}
+.folder-crumb{flex:none;min-height:29px;display:inline-flex;align-items:center;border-radius:9px;padding:3px 8px;font-size:11px;font-weight:800;color:var(--ink);background:var(--card);border:1px solid var(--line)}
+.folder-crumb.current{color:#436DB0;background:var(--tint)}
+.device.dark .folder-crumb.current{color:#E5EEFF}
+.folder-sep{font-size:11px;color:var(--muted)}
+.folder-create{margin-left:auto;flex:none;height:32px;min-width:35px;border-radius:10px;background:var(--tint);color:var(--blue)!important;font-size:18px;font-weight:800}
+.folder-strip{display:flex;align-items:center;gap:5px;overflow-x:auto;overflow-y:hidden;min-height:0;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.folder-wrap{position:relative;flex:0 0 auto;display:flex;align-items:center;max-width:185px;overflow:hidden;border-radius:10px;background:#C95F62}
+.folder-tile{height:36px;min-width:90px;max-width:185px;border-radius:10px;padding:0 11px;display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);font-size:11px;font-weight:750;color:var(--ink);transition:transform .17s ease;touch-action:pan-x}
+.folder-tile span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.folder-icon{color:#D1A752;font-size:16px}
+.folder-trash{position:absolute;right:0;top:0;bottom:0;width:58px;background:#C95661;color:white!important;font-weight:800;font-size:11px;border:0}
+.task-wrap{position:relative;border-radius:10px;overflow:hidden;background:#CB5961;flex:none}
+.task-wrap .task-card{z-index:1;transition:transform .16s ease}
+.task-swipe-delete{position:absolute;right:0;top:0;bottom:0;width:64px;background:#C9525C;color:white!important;font-size:11px;font-weight:850;z-index:0}
+.task-wrap .task-card{min-height:50px}
+@media(max-height:715px){.folder-path{min-height:25px}.folder-crumb{min-height:26px}.folder-tile{height:30px}}
+@media(prefers-reduced-motion:no-preference){.screen.active{animation:kanriPanel .16s ease-out}@keyframes kanriPanel{from{opacity:.68;transform:translateX(6px)}to{opacity:1;transform:none}}}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
-<section class="screen active" id="boardScreen"><div class="screen-head"><div><div class="screen-title">TODO</div></div><button class="small-btn" id="sortButton" style="font-size:10px;font-weight:800">↕ 自動整理</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
+<section class="screen active" id="boardScreen"><div class="screen-head"><div><div class="screen-title">TODO</div></div><button class="small-btn" id="sortButton" style="font-size:10px;font-weight:800">↕ 自動整理</button></div><div class="folder-browser" id="folderBrowser"></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
 <section class="screen" id="calendarScreen"><div class="screen-head"><div class="screen-title">予定</div><div class="pill-group" id="calModes"><button data-mode="month" class="selected">月</button><button data-mode="week">週</button><button data-mode="gantt">ガント</button></div></div><div class="cal-content" id="calendarContent"></div></section>
 <section class="screen" id="puzzleScreen"><div class="screen-head"><div><div class="screen-title">PUZZLE</div></div><button id="undoTop" class="small-btn" style="font-size:10px">↶ 戻す</button></div><div class="puzzle-content" id="puzzleContent"></div></section>
 <section class="screen" id="settingsScreen"><div class="screen-head"><div><div class="screen-title">設定</div></div></div><div class="settings-content" id="settingsContent"></div></section>
@@ -232,7 +265,23 @@ function syncStandAloneHeight(){
 }
 syncStandAloneHeight();
 window.addEventListener('orientationchange',syncStandAloneHeight);
-const KEY='kanri_v1_tasks',PREF='kanri_v1_prefs';const defaults={mode:'priority',names:['重要・緊急','重要・余裕あり','緊急・軽め','あとで考える'],dark:false,notify:true,lead:60};let prefs={...defaults,...read(PREF,{})};let tasks=read(KEY,[]);if(!Array.isArray(tasks))tasks=[];let tab='board',calMode='month',focusDay=new Date(),puzzleDay=new Date(),qpages=[0,0,0,0],ganttPage=0,ganttScrollX=0,inboxPage=0,activePuzzle=null,undoState=null,undoTimer=null,toastTimer=null,sortingManual=false;const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];const palette=['#c78086','#6381bd','#c7aa74','#719a91'];
+const KEY='kanri_v1_tasks',PREF='kanri_v1_prefs',FOLDERS_KEY='kanri_v2_folders',VIEW_KEY='kanri_v2_view';const defaults={mode:'priority',names:['重要・緊急','重要・余裕あり','緊急・軽め','あとで考える'],dark:false,notify:true,lead:60};let prefs={...defaults,...read(PREF,{})};let tasks=read(KEY,[]);if(!Array.isArray(tasks))tasks=[];let tab='board',calMode='month',focusDay=new Date(),puzzleDay=new Date(),qpages=[0,0,0,0],ganttPage=0,ganttScrollX=0,inboxPage=0,activePuzzle=null,undoState=null,undoTimer=null,toastTimer=null,sortingManual=false;const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];const palette=['#c78086','#6381bd','#c7aa74','#719a91'];
+const initialFolders=[{id:'work',name:'業務',parentId:null},{id:'personal',name:'プライベート',parentId:null},{id:'study',name:'学習',parentId:null},{id:'other',name:'その他',parentId:null}];
+let folders=read(FOLDERS_KEY,null);
+if(!Array.isArray(folders)){folders=initialFolders.map(x=>({...x}));localStorage.setItem(FOLDERS_KEY,JSON.stringify(folders))}
+let lastView=read(VIEW_KEY,{tab:'board',folderId:null});
+let currentFolderId=folders.some(f=>f.id===lastView.folderId)?lastView.folderId:null;
+if(['board','calendar','puzzle','settings'].includes(lastView.tab))tab=lastView.tab;
+function saveFolders(){localStorage.setItem(FOLDERS_KEY,JSON.stringify(folders))}
+function saveView(){localStorage.setItem(VIEW_KEY,JSON.stringify({tab,folderId:currentFolderId}))}
+function getFolder(id){return folders.find(f=>f.id===id)||null}
+function folderRoot(id){let node=getFolder(id),safety=0;while(node?.parentId&&safety++<30)node=getFolder(node.parentId);return node}
+function rootCategory(id){let root=folderRoot(id);return root?.id==='work'?'仕事':root?.id==='personal'?'プライベート':root?.id==='study'?'学習':'その他'}
+function taskFolderId(task){if(Object.prototype.hasOwnProperty.call(task,'folderId'))return task.folderId;return ({'仕事':'work','業務':'work','プライベート':'personal','学習':'study','その他':'other'})[task.group]||null}
+function folderPath(id){let path=[],seen=new Set();while(id&&getFolder(id)&&!seen.has(id)){seen.add(id);const folder=getFolder(id);path.unshift(folder);id=folder.parentId}return path}
+function flattenFolders(parent=null,depth=0){if(depth>20)return [];return folders.filter(f=>f.parentId===parent).flatMap(f=>[{...f,depth},...flattenFolders(f.id,depth+1)])}
+function setFolder(id){currentFolderId=id&&getFolder(id)?id:null;saveView();qpages=[0,0,0,0];render()}
+function navigateTab(next){const tabs=['board','calendar','puzzle','settings'];if(!tabs.includes(next))return;tab=next;saveView();render()}
 function read(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}}function save(){localStorage.setItem(KEY,JSON.stringify(tasks))}function savePrefs(){localStorage.setItem(PREF,JSON.stringify(prefs))}function pad(n){return String(n).padStart(2,'0')}function dateKey(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}function parseLocal(s){if(!s)return null;const [y,m,d]=s.split('-').map(Number);if(!y||!m||!d)return null;const result=new Date(y,m-1,d);return dateKey(result)===s?result:null}function sameDay(a,b){return dateKey(a)===dateKey(b)}function diffDays(d){const a=parseLocal(d);if(!a)return 999;const now=new Date();return Math.round((a.getTime()-new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime())/86400000)}function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function dayName(d){return `${d.getMonth()+1}/${d.getDate()}`}function dueLabel(d){if(!d)return '期限なし';let left=diffDays(d);return left<0?`${-left}日超過`:left===0?'今日まで':left===1?'明日まで':`${left}日後`}
 function score(t){let d=diffDays(t.due);const U=d<0?1: d===999?0:1/(1+Math.max(0,d)/3);const P=((+t.important)+(+t.urgent))/2;const T=Math.min(t.duration,180)/180;return Math.round(45*U+35*P+20*T+(d<0?20:0))}function quadrant(t){if(prefs.mode==='group')return ['仕事','プライベート','学習','その他'].indexOf(t.group);return t.important?(t.urgent?0:1):(t.urgent?2:3)}function sorted(items){return [...items].sort((a,b)=>{if(a.pin!==b.pin)return a.pin?-1:1;if(a.pin&&b.pin)return (a.rank??999)-(b.rank??999);return score(b)-score(a)||new Date(a.created).getTime()-new Date(b.created).getTime()})}function isDone(t){return !!t.done}function mutate(id,patch){const t=tasks.find(t=>t.id===id);if(!t)return;Object.assign(t,patch);save();render()}function haptic(){try{navigator.vibrate?.(12)}catch{}}function flash(msg){clearTimeout(toastTimer);$('#toast').textContent=msg;$('#toast').classList.add('show');toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),1800)}function setUndo(label,fn){undoState=fn;$('#undoLabel').textContent=label;$('#undoBar').classList.add('show');clearTimeout(undoTimer);undoTimer=setTimeout(()=>{$('#undoBar').classList.remove('show');undoState=null},7000)}function undo(){if(!undoState){flash('戻せる操作はありません');return}let f=undoState;undoState=null;clearTimeout(undoTimer);$('#undoBar').classList.remove('show');f();flash('元に戻しました')}
 function render(){document.getElementById('app').classList.toggle('dark',prefs.dark);let n=new Date();$('#todayText').textContent=`${n.getMonth()+1}/${n.getDate()} ${'日月火水木金土'[n.getDay()]}`; $$('.nav-btn[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.screen').forEach(el=>el.classList.toggle('active',el.id===tab+'Screen'));if(tab==='board')renderBoard();if(tab==='calendar')renderCalendar();if(tab==='puzzle')renderPuzzle();if(tab==='settings')renderSettings()}
