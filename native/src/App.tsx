@@ -307,9 +307,10 @@ function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{t
     return Gesture.Race(drag,swipe);
   },[task.id,onDrop,onRequestDelete]);
   const motion=useAnimatedStyle(()=>({transform:[{translateX:dx.value+swipeX.value},{translateY:dy.value}],zIndex:dx.value||dy.value?8:0}));
-  return <View style={{position:'relative',borderRadius:10,overflow:'hidden',backgroundColor:'#B94756'}}>
-    <View pointerEvents="none" style={{position:'absolute',right:0,top:0,bottom:0,width:72,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle('#FFFFFF',12,'800')}>削除</Text></View>
-    <GestureDetector gesture={gesture}><Animated.View onTouchStart={e=>e.stopPropagation()} style={[styles.taskTile,{backgroundColor:theme.bg,borderColor:theme.line},motion]}>
+  const dangerReveal=useAnimatedStyle(()=>({opacity:Math.min(1,Math.abs(swipeX.value)/36)}));
+  return <View style={{position:'relative',borderRadius:10,overflow:'hidden',backgroundColor:theme.bg}}>
+    <Animated.View pointerEvents="none" style={[{position:'absolute',right:0,top:0,bottom:0,width:72,backgroundColor:'#B94756',alignItems:'center',justifyContent:'center'},dangerReveal]}><Text style={typeStyle('#FFFFFF',12,'800')}>削除</Text></Animated.View>
+    <GestureDetector gesture={gesture}><Animated.View onTouchStart={e=>e.stopPropagation()} style={[styles.taskTile,{backgroundColor:theme.bg,borderColor:theme.line,width:'100%'},motion]}>
       <View style={{flexDirection:'row',gap:6,alignItems:'flex-start'}}><Pressable accessibilityLabel="タスクを完了" onPress={onComplete} style={[styles.check,{borderColor:theme.muted}]}/><Pressable style={{flex:1}} onPress={onOpen}><Text numberOfLines={2} style={typeStyle(theme.ink,11,'700')}>{task.title}</Text></Pressable><Pressable accessibilityLabel="最上位に固定" onPress={onPin}><Text style={typeStyle(task.pinned?'#C7A876':theme.muted,11)}>{task.pinned?'◆':'◇'}</Text></Pressable></View>
       <Pressable style={{marginLeft:20,marginTop:5}} onPress={onOpen}><Text numberOfLines={1} style={typeStyle(theme.muted,9)}>{dueLabel(task.dueDate)} · {task.durationMin}分 · {priorityScore(task)}pt</Text></Pressable>
     </Animated.View></GestureDetector>
