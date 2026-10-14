@@ -110,8 +110,8 @@ body{min-height:0;height:100%;height:100dvh;overflow:hidden;background:#101d32}
  .main { min-height:0; }
 }
 @media(max-width:499px) and (display-mode:standalone) {
- html,body {height:100lvh;}
- .device {height:100lvh;}
+ html,body {height:var(--kanri-standalone-height,100lvh);}
+ .device {height:var(--kanri-standalone-height,100lvh);}
 }
 /* Full-height spreadsheet; empty rows and columns always have visible borders */
 .gantt-excel{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
@@ -140,6 +140,17 @@ body{min-height:0;height:100%;height:100dvh;overflow:hidden;background:#101d32}
 </main><nav class="nav"><button class="nav-btn active" data-tab="board"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg><span>FOCUS</span></button><button class="nav-btn" data-tab="calendar"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>PLAN</span></button><button class="nav-btn" id="addButton" aria-label="タスクを追加"><span class="add-main">+</span></button><button class="nav-btn" data-tab="puzzle"><svg viewBox="0 0 24 24"><path d="M4 5h7v6H4zM13 5h7v10h-7zM4 13h7v6H4zM13 17h7v2h-7z"/></svg><span>PUZZLE</span></button><button class="nav-btn" data-tab="settings"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M9 3v6M15 9v6M8 15v6"/></svg><span>SETUP</span></button></nav><div class="modal-layer" id="modal" role="presentation"><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="タスクの編集"></div></div><div class="undo" id="undoBar"><span id="undoLabel">予定を配置しました</span><button id="undoBtn">元に戻す</button></div><div class="toast" id="toast"></div></div>
 <script>
 (()=>{'use strict';
+/* iOS home-screen PWA: lock the app to the physical portrait viewport.
+   Safari may report a shorter dynamic viewport below the bottom toolbar;
+   keep keyboard opening from changing the background layout. */
+function syncStandAloneHeight(){
+  const standalone=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+  if(!standalone||window.innerWidth>=500)return;
+  const height=Math.max(window.innerHeight||0,document.documentElement.clientHeight||0,window.screen.height||0);
+  if(height>0)document.documentElement.style.setProperty('--kanri-standalone-height',height+'px');
+}
+syncStandAloneHeight();
+window.addEventListener('orientationchange',syncStandAloneHeight);
 const KEY='kanri_v1_tasks',PREF='kanri_v1_prefs';const defaults={mode:'priority',names:['重要・緊急','重要・余裕あり','緊急・軽め','あとで考える'],dark:false,notify:true,lead:60};let prefs={...defaults,...read(PREF,{})};let tasks=read(KEY,[]);if(!Array.isArray(tasks))tasks=[];let tab='board',calMode='month',focusDay=new Date(),puzzleDay=new Date(),qpages=[0,0,0,0],ganttPage=0,ganttScrollX=0,inboxPage=0,activePuzzle=null,undoState=null,undoTimer=null,toastTimer=null,sortingManual=false;const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];const palette=['#c78086','#6381bd','#c7aa74','#719a91'];
 function read(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}}function save(){localStorage.setItem(KEY,JSON.stringify(tasks))}function savePrefs(){localStorage.setItem(PREF,JSON.stringify(prefs))}function pad(n){return String(n).padStart(2,'0')}function dateKey(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}function parseLocal(s){if(!s)return null;const [y,m,d]=s.split('-').map(Number);if(!y||!m||!d)return null;const result=new Date(y,m-1,d);return dateKey(result)===s?result:null}function sameDay(a,b){return dateKey(a)===dateKey(b)}function diffDays(d){const a=parseLocal(d);if(!a)return 999;const now=new Date();return Math.round((a.getTime()-new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime())/86400000)}function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function dayName(d){return `${d.getMonth()+1}/${d.getDate()}`}function dueLabel(d){if(!d)return '期限なし';let left=diffDays(d);return left<0?`${-left}日超過`:left===0?'今日まで':left===1?'明日まで':`${left}日後`}
 function score(t){let d=diffDays(t.due);const U=d<0?1: d===999?0:1/(1+Math.max(0,d)/3);const P=((+t.important)+(+t.urgent))/2;const T=Math.min(t.duration,180)/180;return Math.round(45*U+35*P+20*T+(d<0?20:0))}function quadrant(t){if(prefs.mode==='group')return ['仕事','プライベート','学習','その他'].indexOf(t.group);return t.important?(t.urgent?0:1):(t.urgent?2:3)}function sorted(items){return [...items].sort((a,b)=>{if(a.pin!==b.pin)return a.pin?-1:1;if(a.pin&&b.pin)return (a.rank??999)-(b.rank??999);return score(b)-score(a)||new Date(a.created).getTime()-new Date(b.created).getTime()})}function isDone(t){return !!t.done}function mutate(id,patch){const t=tasks.find(t=>t.id===id);if(!t)return;Object.assign(t,patch);save();render()}function haptic(){try{navigator.vibrate?.(12)}catch{}}function flash(msg){clearTimeout(toastTimer);$('#toast').textContent=msg;$('#toast').classList.add('show');toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),1800)}function setUndo(label,fn){undoState=fn;$('#undoLabel').textContent=label;$('#undoBar').classList.add('show');clearTimeout(undoTimer);undoTimer=setTimeout(()=>{$('#undoBar').classList.remove('show');undoState=null},7000)}function undo(){if(!undoState){flash('戻せる操作はありません');return}let f=undoState;undoState=null;clearTimeout(undoTimer);$('#undoBar').classList.remove('show');f();flash('元に戻しました')}
