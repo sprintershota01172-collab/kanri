@@ -310,7 +310,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
             </View>
             {ganttItems.slice(ganttPage*7,ganttPage*7+7).map(t=>{
               const lt=Math.max(1,Math.min(90,t.leadDays||1));
-              const fallbackDue=parseDateKey(t.dueDate);
+              const fallbackDue=t.dueDate?parseDateKey(t.dueDate):null;
               const start=t.ganttStart||t.scheduledStart?.slice(0,10)||(fallbackDue?dateKey(addDays(fallbackDue,1-lt)):null);
               const startDate=start?parseDateKey(start):null;
               return <View key={t.id} style={{flexDirection:'row',height:49}}>
@@ -336,7 +336,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
         <Pressable onPress={()=>setGanttPage(Math.min(Math.max(0,Math.ceil(ganttItems.length/7)-1),ganttPage+1))} hitSlop={10}><Text style={typeStyle(theme.muted,18)}>›</Text></Pressable>
       </View>
     </View>:<View style={{flex:1,minHeight:0,marginTop:12}}><View style={styles.flexBetween}><Text style={typeStyle(theme.ink,12,'800')}>{focus.getMonth()+1}/{focus.getDate()} の予定</Text><Text style={typeStyle(theme.muted,10)}>{agenda.length}件表示</Text></View>
-      <View style={{gap:7,marginTop:9,flex:1,minHeight:0}}>{agenda.length?agenda.map(t=><Pressable key={t.id} onPress={()=>onOpen(t)} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line}]}><View style={{height:28,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/><View style={{flex:1}}><Text numberOfLines={1} style={typeStyle(theme.ink,12,'800')}>{t.title}</Text><Text numberOfLines={1} style={typeStyle(theme.muted,10)}>{t.scheduledStart?.slice(11,16)??'未配置'} · {t.durationMin}分 · {dueLabel(t.dueDate)}</Text></View><Text style={typeStyle(theme.muted,17)}>›</Text></Pressable>):<View style={{flex:1,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>まだ予定はありません。パズルで配置しましょう。</Text></View>}</View>
+      <View style={{gap:7,marginTop:9,flex:1,minHeight:0}}>{agenda.length?agenda.map(t=><Pressable key={t.id} onPress={()=>onOpen(t)} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line}]}><View style={{height:28,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/><View style={{flex:1}}><Text numberOfLines={1} style={typeStyle(theme.ink,12,'800')}>{t.title}</Text><Text numberOfLines={1} style={typeStyle(theme.muted,10)}>{t.scheduledStart?.slice(11,16)??'未配置'} · {t.durationMin}分 · {dueLabel(t.dueDate)}</Text></View><Text style={typeStyle(theme.muted,17)}>›</Text></Pressable>):<View style={{flex:1,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>予定なし</Text></View>}</View>
     </View>}
   </View>;
 }
@@ -352,7 +352,7 @@ function SettingsPanel({theme,prefs,tasks,onMode,onRename,onDark,onReminder,onLe
       <SettingRow theme={theme} title="納期前の通知" value={prefs.leadMinutes===60?'1時間前':prefs.leadMinutes===1440?'前日':prefs.leadMinutes===0?'当日':`${prefs.leadMinutes}分前`} onPress={onLeadEdit}/>
       <SettingRow theme={theme} title="予定開始時の通知" value={prefs.startReminder?'ON':'OFF'} onPress={onStart} last/>
     </View>
-    <View style={[styles.statsBox,{backgroundColor:theme.navy}]}><Text style={typeStyle('#FFFFFF',25,'800')}>{tasks.filter(t=>t.completed).length} <Text style={typeStyle('#B8C9E1',12)}>/ {tasks.length} タスク完了</Text></Text><Text style={[typeStyle('#C3CFE1',11),{marginTop:7}]}>小さく終わらせて、次へ進む。</Text></View>
+    <View style={[styles.statsBox,{backgroundColor:theme.navy}]}><Text style={typeStyle('#FFFFFF',25,'800')}>{tasks.filter(t=>t.completed).length} <Text style={typeStyle('#B8C9E1',12)}>/ {tasks.length} タスク完了</Text></Text><Text style={[typeStyle('#C3CFE1',11),{marginTop:7}]}></Text></View>
     <Text style={[typeStyle(theme.muted,10),{marginTop:12}]}>データは端末内のSQLiteに保存されます。ログイン不要・オフライン対応。</Text>
   </View>;
 }
