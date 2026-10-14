@@ -38,5 +38,7 @@ assert.ok(html.includes('<script src="./mobile-viewport.js"></script>'),'Viewpor
 assert.ok(!html.includes('document.documentElement.clientHeight||0,window.screen.height'),'Do not size standalone viewport using screen.height');
 const manifest=JSON.parse(fs.readFileSync(require('node:path').join(__dirname,'..','manifest.webmanifest'),'utf8'));
 assert.equal(manifest.display,'standalone');
-assert.equal(manifest.background_color,'#0D1626','PWA bottom fallback must be navy');
+assert.equal(manifest.background_color,'#F4F5F6','PWA launch/status background must match light header');
+assert.equal(manifest.theme_color,'#F4F5F6','PWA theme should match status bar');
+assert.ok(html.includes('apple-mobile-web-app-status-bar-style" content="default"'),'iOS status bar must not be navy translucent');
 console.log('Web syntax, full Gantt grid, viewport, and compact UI checks passed');
