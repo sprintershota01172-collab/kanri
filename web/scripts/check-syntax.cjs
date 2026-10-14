@@ -20,4 +20,8 @@ assert.ok(html.includes('for(let blank=view.length;blank<rowCount;blank++)'),'Ga
 assert.ok(html.includes("Array.from({length:days},(_,i)=>"),'Gantt should show all days in selected month');
 assert.ok(html.includes('gantt-empty-square'),'Gantt blank cells must retain borders');
 assert.ok(html.includes('--kanri-standalone-height'),'PWA should correct standalone viewport height');
-console.log('Web syntax, empty Gantt spreadsheet, and viewport smoke checks passed');
+for(const key of ['/* v1.6 - dense, content-first UI','board-foot[hidden]','header-actions','month-grid{flex:1','sheet-actions .primary{min-height:44px']) {
+ assert.ok(html.includes(key),'Missing compact UI rule '+key);
+}
+assert.ok(html.includes("$('#boardScreen .board-foot').hidden=!tasks.some(t=>t.pin)"),'Unneeded ranking controls should be hidden');
+console.log('Web syntax, full Gantt grid, viewport, and compact UI checks passed');
