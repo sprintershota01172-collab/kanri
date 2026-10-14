@@ -37,7 +37,6 @@ function AppInner(){
   const [workspace,setWorkspace]=useState<Workspace>({...DEFAULT_WORKSPACE,folders:DEFAULT_WORKSPACE.folders.map(f=>({...f}))});
   const [newFolderOpen,setNewFolderOpen]=useState(false);
   const [folderMenuOpen,setFolderMenuOpen]=useState(false);
-  const [vehicleEditorOpen,setVehicleEditorOpen]=useState(false);
   const [trashOpen,setTrashOpen]=useState(false);
   const [eventEditor,setEventEditor]=useState<Task|'new'|null>(null);
   const swipeStart=useRef<{x:number;y:number;time:number}|null>(null);
@@ -89,16 +88,9 @@ function AppInner(){
     setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId:p.folderId}],folderId:id,recentFolderIds:[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4)}));
     setNewFolderOpen(false);setBoardPages([0,0,0,0]);
   }
-  function createVehicle(name:string){
-    const trimmed=name.trim();
-    if(!trimmed){Alert.alert('車種名を入力してください');return}
-    if(workspace.folders.some(f=>f.parentId==='work'&&f.name===trimmed)){Alert.alert('同じ車種名があります');return}
-    const id='vehicle_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-    setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId:'work',kind:'vehicle' as const}],folderId:id,recentFolderIds:[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4)}));
-    setVehicleEditorOpen(false);setBoardPages([0,0,0,0]);
-  }
   function deleteFolder(id:string){
     const f=workspace.folders.find(x=>x.id===id);if(!f)return;
+    if(['work','personal','study','other'].includes(id))return;
     const linked=tasksRef.current.filter(t=>folderForTask(t)===id);
     Alert.alert('フォルダを削除',f.name+' を削除しますか？ 中のタスクと子フォルダは1つ上へ移動します。',[
       {text:'キャンセル',style:'cancel'},
@@ -247,7 +239,7 @@ function AppInner(){
       onTouchStart={event=>{const t=event.nativeEvent.touches?.[0];if(t)swipeStart.current={x:t.pageX,y:t.pageY,time:Date.now()}}}
       onTouchEnd={event=>{
         const start=swipeStart.current;swipeStart.current=null;
-        const t=event.nativeEvent.changedTouches?.[0];if(!start||!t||editor||eventEditor||vehicleEditorOpen||newFolderOpen)return;
+        const t=event.nativeEvent.changedTouches?.[0];if(!start||!t||editor||eventEditor||newFolderOpen)return;
         const dx=t.pageX-start.x,dy=t.pageY-start.y;
         if(Math.abs(dx)<95||Math.abs(dx)<Math.abs(dy)*1.5||Date.now()-start.time>175)return;
         const order:Tab[]=['board','calendar','puzzle','settings'];
@@ -264,8 +256,8 @@ function AppInner(){
               </Pressable>
             )}
             {(workspace.recentFolderIds||[]).filter(id=>!['work','personal','study','other'].includes(id)&&workspace.folders.some(f=>f.id===id)).slice(0,3).map(id=><Pressable key={'recent-'+id} accessibilityRole="button" accessibilityLabel={(workspace.folders.find(f=>f.id===id)?.name||'フォルダ')+'を開く'} onPress={()=>selectFolder(id)} style={{minHeight:36,paddingHorizontal:8,justifyContent:'center',borderWidth:1,borderColor:id===workspace.folderId?'#8FAADD':theme.line,borderRadius:10,backgroundColor:id===workspace.folderId?theme.tint:theme.card}}><Text numberOfLines={1} style={typeStyle(id===workspace.folderId?theme.ink:theme.muted,10,'700')}>{workspace.folders.find(f=>f.id===id)?.name||'フォルダ'}</Text></Pressable>)}
-            {folderPath[0]?.id==='work'&&workspace.folders.filter(f=>f.parentId==='work'&&f.kind==='vehicle'&&!(workspace.recentFolderIds||[]).slice(0,3).includes(f.id)).map(f=><Pressable key={'car-'+f.id} onPress={()=>selectFolder(f.id)} style={{minHeight:36,paddingHorizontal:8,justifyContent:'center',borderRadius:10,backgroundColor:workspace.folderId===f.id?theme.tint:theme.card,borderWidth:1,borderColor:theme.line}}><Text numberOfLines={1} style={typeStyle(theme.muted,10,'700')}>{f.name}</Text></Pressable>)}
-            {folderPath[0]?.id==='work'&&<Pressable onPress={()=>setVehicleEditorOpen(true)} style={{minHeight:36,justifyContent:'center',paddingHorizontal:8,backgroundColor:theme.tint,borderRadius:10}}><Text style={typeStyle(theme.ink,10,'800')}>＋ 車種</Text></Pressable>}
+            {workspace.folders.filter(f=>f.parentId===workspace.folderId&&!(workspace.recentFolderIds||[]).slice(0,3).includes(f.id)).map(f=><Pressable key={'child-'+f.id} onPress={()=>selectFolder(f.id)} style={{minHeight:36,paddingHorizontal:8,justifyContent:'center',borderRadius:10,backgroundColor:workspace.folderId===f.id?theme.tint:theme.card,borderWidth:1,borderColor:theme.line}}><Text numberOfLines={1} style={typeStyle(theme.muted,10,'700')}>{f.name}</Text></Pressable>)}
+            <Pressable onPress={()=>setNewFolderOpen(true)} style={{minHeight:36,justifyContent:'center',paddingHorizontal:8,backgroundColor:theme.tint,borderRadius:10}}><Text style={typeStyle(theme.ink,10,'800')} >＋ 子ツリー</Text></Pressable>
           </ScrollView>
           <IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/>
         </View>
@@ -358,7 +350,7 @@ function AppInner(){
     </Modal>
     {folderMenuOpen&&<FolderBrowserSheet theme={theme} insetTop={insets.top} folders={workspace.folders} selectedFolderId={workspace.folderId} onClose={()=>setFolderMenuOpen(false)} onSelect={selectFolder} onCreate={()=>{setFolderMenuOpen(false);setNewFolderOpen(true)}} onDelete={deleteFolder}/>}
     {newFolderOpen&&<FolderSheet theme={theme} insetTop={insets.top} parentName={folderPath.map(f=>f.name).join(' / ')||'すべて'} onClose={()=>setNewFolderOpen(false)} onCreate={createFolder}/>}{editor&&<TaskEditor key={editor==='new'?'new':editor.id} entry={editor} initialQuadrant={newQuadrant} initialDueDate={calendarDraftDate} prefs={prefs} folders={workspace.folders} initialFolderId={workspace.folderId} theme={theme} insetTop={insets.top} height={stableEditorHeight.current} onClose={()=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null)}} onSave={data=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null);void updateTask(data);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('保存しました')}} onDelete={t=>{Keyboard.dismiss();setEditor(null);void removeTask(t);remember('タスクを削除しました',()=>{void updateTask(t,null)})}}/>}
-    {vehicleEditorOpen&&<VehicleEditor theme={theme} insetTop={insets.top} onClose={()=>{Keyboard.dismiss();setVehicleEditorOpen(false)}} onSave={createVehicle}/>}
+
     {eventEditor&&<EventEditor key={eventEditor==='new'?'new':eventEditor.id} entry={eventEditor} theme={theme} insetTop={insets.top} folders={workspace.folders} initialFolderId={workspace.folderId} initialDate={dateKey(focus)} onClose={()=>{Keyboard.dismiss();setEventEditor(null)}} onSave={item=>{Keyboard.dismiss();setEventEditor(null);void updateTask(item);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('予定を保存しました')}} onDelete={item=>{Keyboard.dismiss();setEventEditor(null);void removeTask(item)}}/>}
     {leadEditor&&<LeadTimeSheet theme={theme} insetTop={insets.top} current={prefs.leadMinutes} onClose={()=>{Keyboard.dismiss();setLeadEditor(false)}} onSave={minutes=>{Keyboard.dismiss();setLeadEditor(false);void updatePreferences({...prefs,leadMinutes:minutes})}}/>}
     {renaming&&<RenameSheet prefs={prefs} theme={theme} insetTop={insets.top} onClose={()=>setRenaming(false)} onSave={names=>{setRenaming(false);void updatePreferences({...prefs,names})}}/>}
@@ -528,15 +520,18 @@ function FolderBrowserSheet({theme,insetTop,folders,selectedFolderId,onClose,onS
       <Animated.View entering={FadeInDown.springify().damping(18)} style={[styles.editorSheet,{top:insetTop+20,maxHeight:'80%',backgroundColor:theme.card}]}>
         <View style={styles.flexBetween}>
           <View style={{flexDirection:'row',alignItems:'center',gap:9}}><Pressable accessibilityLabel="フォルダを閉じる" onPress={onClose} style={{height:44,width:44,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:theme.line,borderRadius:11}}><Text style={typeStyle(theme.ink,24)}>×</Text></Pressable><Text style={typeStyle(theme.ink,16,'800')}>フォルダ</Text></View>
-          <Pressable onPress={onCreate} style={{minHeight:44,justifyContent:'center',paddingHorizontal:9,backgroundColor:theme.tint,borderRadius:11}}><Text style={typeStyle(theme.ink,12,'800')}>＋ 追加</Text></Pressable>
+          <Pressable onPress={onCreate} style={{minHeight:44,justifyContent:'center',paddingHorizontal:9,backgroundColor:theme.tint,borderRadius:11}}><Text style={typeStyle(theme.ink,12,'800')} >＋ 子ツリー</Text></Pressable>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0,marginTop:6,marginBottom:7}} contentContainerStyle={{alignItems:'center',gap:5}}>
           <Pressable onPress={()=>changeFolder(null)} style={{backgroundColor:selectedFolderId===null?theme.tint:theme.bg,padding:8,borderRadius:9}}><Text style={typeStyle(theme.ink,11,'700')}>すべて</Text></Pressable>
           {path.map(f=><React.Fragment key={f.id}><Text style={typeStyle(theme.muted,12)}>›</Text><Pressable onPress={()=>changeFolder(f.id)} style={{backgroundColor:f.id===selectedFolderId?theme.tint:theme.bg,padding:8,borderRadius:9}}><Text style={typeStyle(theme.ink,11,'700')}>{f.name}</Text></Pressable></React.Fragment>)}
         </ScrollView>
-        {children.slice(pageSafe*6,pageSafe*6+6).map(f=><Pressable key={f.id} onPress={()=>changeFolder(f.id)} onLongPress={()=>onDelete(f.id)} delayLongPress={450} style={{minHeight:47,paddingHorizontal:11,marginBottom:5,borderRadius:11,borderWidth:1,borderColor:theme.line,backgroundColor:theme.bg,flexDirection:'row',alignItems:'center',gap:8}}>
-          <Text style={typeStyle('#D1A752',17)}>▰</Text><Text numberOfLines={1} style={[typeStyle(theme.ink,12,'700'),{flex:1}]}>{f.name}</Text><Text style={typeStyle(theme.muted,19)}>›</Text>
-        </Pressable>)}
+        {children.slice(pageSafe*6,pageSafe*6+6).map(f=><View key={f.id} style={{flexDirection:'row',alignItems:'stretch',gap:6,marginBottom:5}}>
+          <Pressable onPress={()=>changeFolder(f.id)} style={{flex:1,minWidth:0,minHeight:47,paddingHorizontal:11,borderRadius:11,borderWidth:1,borderColor:theme.line,backgroundColor:theme.bg,flexDirection:'row',alignItems:'center',gap:8}}>
+            <Text style={typeStyle('#D1A752',17)}>▰</Text><Text numberOfLines={1} style={[typeStyle(theme.ink,12,'700'),{flex:1}]}>{f.name}</Text><Text style={typeStyle(theme.muted,19)}>›</Text>
+          </Pressable>
+          {!['work','personal','study','other'].includes(f.id)&&<Pressable accessibilityRole="button" accessibilityLabel={f.name+'を削除'} onPress={()=>onDelete(f.id)} style={{minWidth:48,minHeight:47,paddingHorizontal:7,alignItems:'center',justifyContent:'center',borderRadius:10,backgroundColor:theme.bg,borderWidth:1,borderColor:theme.line}}><Text style={typeStyle('#C98087',11,'800')}>削除</Text></Pressable>}
+        </View>)}
         {children.length===0&&<View style={{minHeight:46,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>フォルダなし</Text></View>}
         {pages>1&&<View style={[styles.pager,{justifyContent:'center',gap:14,marginTop:5,minHeight:36}]}>
           <Pressable disabled={pageSafe===0} onPress={()=>setPage(n=>Math.max(0,n-1))} style={{minWidth:44,minHeight:36,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,21)}>‹</Text></Pressable><Text style={typeStyle(theme.muted,11)}>{pageSafe+1}/{pages}</Text>
@@ -552,9 +547,9 @@ function FolderSheet({theme,insetTop,parentName,onClose,onCreate}:{theme:Theme,i
   return <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={onClose}>
     <View style={styles.overlay}><Pressable onPress={onClose} style={StyleSheet.absoluteFill}/>
       <Animated.View entering={FadeInDown.springify().damping(18)} style={[styles.editorSheet,{top:insetTop+25,backgroundColor:theme.card}]}>
-        <View style={styles.flexBetween}><Text style={typeStyle(theme.ink,16,'800')}>新しいフォルダ</Text><Pressable onPress={onClose} accessibilityLabel="閉じる" style={{minHeight:44,minWidth:44,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.ink,24)}>×</Text></Pressable></View>
-        <Text style={[styles.formLabel,{color:theme.muted}]}>フォルダ名</Text>
-        <TextInput value={name} maxLength={32} placeholder="例：新規プロジェクト" placeholderTextColor={theme.muted} onChangeText={setName} returnKeyType="done" onSubmitEditing={()=>onCreate(name)} style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
+        <View style={styles.flexBetween}><Text style={typeStyle(theme.ink,16,'800')}>子ツリーを追加</Text><Pressable onPress={onClose} accessibilityLabel="閉じる" style={{minHeight:44,minWidth:44,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.ink,24)}>×</Text></Pressable></View>
+        <Text style={[styles.formLabel,{color:theme.muted}]}>名前（車種・案件・工程など自由）</Text>
+        <TextInput value={name} maxLength={32} placeholder="例：車種A / 案件 / 工程" placeholderTextColor={theme.muted} onChangeText={setName} returnKeyType="done" onSubmitEditing={()=>onCreate(name)} style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
         <Text style={[typeStyle(theme.muted,11),{marginTop:8}]}>保存先：{parentName}</Text>
         <View style={{flexDirection:'row',gap:8,marginTop:11}}>
           <Pressable onPress={onClose} style={{minHeight:44,paddingHorizontal:15,justifyContent:'center',borderRadius:11,backgroundColor:theme.bg}}><Text style={typeStyle(theme.ink,12,'800')}>キャンセル</Text></Pressable>
@@ -599,23 +594,6 @@ function DueCalendarPicker({value,theme,onSelect,onClose}:{value:string,theme:Th
   </View>;
 }
 
-function VehicleEditor({theme,insetTop,onClose,onSave}:{theme:Theme,insetTop:number,onClose:()=>void,onSave:(name:string)=>void}){
-  const [name,setName]=useState('');
-  return <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={onClose}>
-    <View style={styles.overlay}><Pressable onPress={onClose} style={StyleSheet.absoluteFill}/>
-      <Animated.View entering={FadeInDown.springify().damping(18)} style={[styles.editorSheet,{top:insetTop+25,backgroundColor:theme.card}]}>
-        <View style={styles.flexBetween}><Text style={typeStyle(theme.ink,16,'800')}>車種を追加</Text><Pressable accessibilityLabel="閉じる" onPress={onClose} style={{minWidth:44,minHeight:44,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.ink,22)}>×</Text></Pressable></View>
-        <Text style={[styles.formLabel,{color:theme.muted}]}>車種名</Text>
-        <TextInput value={name} onChangeText={setName} placeholder="例：ヤリスクロス・型式" placeholderTextColor={theme.muted} maxLength={40} returnKeyType="done" onSubmitEditing={()=>onSave(name)} style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
-        <Text style={[typeStyle(theme.muted,11),{marginTop:8}]}>保存先：業務 / 車種名</Text>
-        <View style={{flexDirection:'row',gap:8,marginTop:12}}>
-          <Pressable onPress={onClose} style={{minHeight:44,justifyContent:'center',paddingHorizontal:14,borderRadius:11,backgroundColor:theme.bg}}><Text style={typeStyle(theme.ink,12,'800')}>キャンセル</Text></Pressable>
-          <Pressable onPress={()=>onSave(name)} style={[styles.primaryButton,{minHeight:44,backgroundColor:theme.navy}]}><Text style={typeStyle('#FFFFFF',12,'800')}>車種を登録</Text></Pressable>
-        </View>
-      </Animated.View>
-    </View>
-  </Modal>;
-}
 function EventEditor({entry,theme,insetTop,folders,initialFolderId,initialDate,onClose,onSave,onDelete}:{entry:Task|'new',theme:Theme,insetTop:number,folders:Folder[],initialFolderId:string|null,initialDate:string,onClose:()=>void,onSave:(task:Task)=>void,onDelete:(task:Task)=>void}){
   const original=entry==='new'?null:entry;
   const [title,setTitle]=useState(original?.title||'');
