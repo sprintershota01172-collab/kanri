@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {Alert,Keyboard,Modal,Pressable,StatusBar,StyleSheet,Text,TextInput,View,useWindowDimensions,BackHandler} from 'react-native';
+import {Alert,Keyboard,Modal,Pressable,StatusBar,StyleSheet,Text,TextInput,View,useWindowDimensions,BackHandler,ScrollView} from 'react-native';
 import {SQLiteProvider,useSQLiteContext} from 'expo-sqlite';
 import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
@@ -7,7 +7,7 @@ import {Gesture,GestureDetector,GestureHandlerRootView} from 'react-native-gestu
 import {scheduleOnRN} from 'react-native-worklets';
 import Animated,{FadeIn,FadeInDown,FadeOut,withSpring,useAnimatedStyle,useSharedValue} from 'react-native-reanimated';
 import {SafeAreaProvider,useSafeAreaInsets} from 'react-native-safe-area-context';
-import {addDays,canSchedule,COLORS,createTask,dateKey,DEFAULT_PREFS,daysUntil,ganttCellFilled,dueLabel,GROUPS,Group,moveToQuadrant,pad,parseDateKey,parseScheduleMinutes,Preferences,priorityScore,quadrant,sortTasks,Task,timeText} from './model';
+import {addDays,canSchedule,COLORS,createTask,dateKey,DEFAULT_PREFS,daysUntil,dueLabel,GROUPS,Group,moveToQuadrant,pad,parseDateKey,parseScheduleMinutes,Preferences,priorityScore,quadrant,sortTasks,Task,timeText} from './model';
 import {deleteTask,migrate,readPreferences,readTasks,savePreferences,saveTask} from './storage';
 import {cancelTaskNotifications,registerNotifications,requestLocalPermissions,scheduleTaskNotifications,snoozeTask} from './reminders';
 
@@ -173,13 +173,13 @@ function AppInner(){
     <StatusBar barStyle={prefs.dark?'light-content':'dark-content'} backgroundColor={theme.bg}/>
     <View style={styles.top}>
       <View style={styles.brandRow}>
-        <View><Text style={[styles.brand,{color:theme.ink}]}>kanr<Text style={{color:'#7395D3'}}>i</Text></Text><Text style={[styles.eyebrow,{color:theme.muted}]}>考えなくても、整う。</Text></View>
+        <View><Text style={[styles.brand,{color:theme.ink}]}>kanr<Text style={{color:'#7395D3'}}>i</Text></Text></View>
         <View style={{alignItems:'flex-end',gap:5}}><Text style={typeStyle(theme.muted,10,'700')}>{new Date().getMonth()+1}月{new Date().getDate()}日 {'日月火水木金土'[new Date().getDay()]}曜日</Text><Pressable onPress={()=>{void updatePreferences({...prefs,dark:!prefs.dark})}} style={[styles.quick,{backgroundColor:theme.card,borderColor:theme.line}]}><Text style={typeStyle(theme.ink,14)}>◐</Text></Pressable></View>
       </View>
     </View>
     <View style={styles.content}>
       {tab==='board'&&<>
-        <View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>FOUR FOCUS</Text><Text style={typeStyle(theme.muted,10,'600')}>4つに分ければ、迷わない。</Text></View><IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/></View>
+        <View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>FOUR FOCUS</Text></View><IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/></View>
         <View ref={boardRef} style={{flex:1,minHeight:0}}><View style={styles.board}>
           {[0,1,2,3].map(q=>{
             const items=sortTasks(tasks.filter(t=>!t.completed&&quadrant(t,prefs)===q));
@@ -190,7 +190,7 @@ function AppInner(){
               <View style={{flex:1,minHeight:0,justifyContent:'flex-start',gap:7,marginTop:9}}>
                 <Pressable onPress={()=>addInQuadrant(q)} accessibilityLabel={`${prefs.names[q]}に新しいタスクを追加`} style={StyleSheet.absoluteFill}/>
                 {items.slice(page*pageSize,page*pageSize+pageSize).map(t=><DragTask key={t.id} task={t} theme={theme} onDrop={boardDrop} onOpen={()=>setEditor(t)} onComplete={()=>{void updateTask({...t,completed:true});void Haptics.selectionAsync();remember('完了しました',()=>{void updateTask(t)})}} onPin={()=>topPin(t.id)}/>)}
-                {!items.length&&<Pressable onPress={()=>addInQuadrant(q)} style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text style={typeStyle(theme.muted,10)}>＋ タップして追加</Text></Pressable>}
+                {!items.length&&<Pressable onPress={()=>addInQuadrant(q)} style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text style={typeStyle(theme.muted,10)}>＋</Text></Pressable>}
               </View>
               <View style={styles.pager}><Pressable disabled={!page} onPress={()=>setBoardPages(old=>old.map((v,i)=>i===q?v-1:v))}><Text style={typeStyle(theme.muted,16)}>‹</Text></Pressable><Text style={typeStyle(theme.muted,9)}>{page+1}/{count}</Text><Pressable disabled={page>=count-1} onPress={()=>setBoardPages(old=>old.map((v,i)=>i===q?v+1:v))}><Text style={typeStyle(theme.muted,16)}>›</Text></Pressable></View>
             </View>;
@@ -203,7 +203,7 @@ function AppInner(){
         <CalendarPanel theme={theme} mode={calMode} focus={focus} setFocus={setFocus} tasks={tasks} prefs={prefs} ganttPage={ganttPage} setGanttPage={setGanttPage} onOpen={setEditor} onGanttStart={(task,date)=>{const before={...task};void updateTask({...task,ganttStart:date});void Haptics.selectionAsync();remember('ガント開始日を設定しました',()=>{void updateTask(before)});}}/>
       </>}
       {tab==='puzzle'&&<>
-        <View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>TIME PUZZLE</Text><Text style={typeStyle(theme.muted,10)}>ブロックを、空き時間へ。</Text></View><IconButton label="↶ 戻す" theme={theme} onPress={undoAction}/></View>
+        <View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>TIME PUZZLE</Text></View><IconButton label="↶ 戻す" theme={theme} onPress={undoAction}/></View>
         <View style={{flex:1,minHeight:0}}><View style={[styles.puzzleInbox,{backgroundColor:theme.navy}]}>
           <View style={styles.flexBetween}><Text style={typeStyle('#F3F7FF',11,'800')}>UNPLACED TASKS</Text><Text style={typeStyle('#A3B5D0',10)}>{tasks.filter(t=>!t.completed&&!t.scheduledStart).length} 待機中</Text></View>
           <View style={{flexDirection:'row',gap:7,marginTop:8,minHeight:70,alignItems:'flex-start'}}> 
@@ -285,30 +285,63 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
       })}</View>
     </View>}
     {mode==='week'&&<View style={{flexDirection:'row',gap:4,paddingVertical:8}}>{Array.from({length:7},(_,i)=>{const day=addDays(weekStart,i),key=dateKey(day),count=tasks.filter(t=>t.dueDate===key||t.scheduledStart?.slice(0,10)===key).length;return <Pressable key={i} onPress={()=>setFocus(day)} style={[styles.weekTile,{backgroundColor:key===selectedDate?theme.tint:theme.card,borderColor:key===selectedDate?'#8AABD9':theme.line}]}><Text style={typeStyle(theme.muted,9)}>{'日月火水木金土'[day.getDay()]}</Text><Text style={typeStyle(theme.ink,17,'800')}>{day.getDate()}</Text><Text style={typeStyle('#5879B5',9,'700')}>{count}件</Text></Pressable>})}</View>}
-    {mode==='gantt'?<View style={[styles.ganttBox,{backgroundColor:theme.card,borderColor:theme.line}]}>
-      <View style={[styles.ganttMonthRow,{borderBottomColor:theme.line,paddingBottom:7}]}>
-        <Text style={[typeStyle(theme.muted,9,'800'),{width:70}]}>TASK / LT</Text>
-        <View style={styles.ganttDays}>{Array.from({length:31},(_,i)=><Text key={i} numberOfLines={1} adjustsFontSizeToFit style={[typeStyle(i>=daysInMonth?theme.muted:theme.ink,7,'700'),{flex:1,textAlign:'center',fontVariant:['tabular-nums'],opacity:i>=daysInMonth?.23:1}]}>{i+1}</Text>)}</View>
+    {mode==='gantt'?<View style={[styles.ganttBox,{backgroundColor:theme.card,borderColor:theme.line,padding:9}]}>
+      <View style={{flexDirection:'row',alignSelf:'stretch',borderWidth:1,borderColor:theme.line,borderRadius:9,overflow:'hidden'}}>
+        <View style={{width:104,flexShrink:0,backgroundColor:theme.card,zIndex:2}}>
+          <View style={{height:46,justifyContent:'center',paddingLeft:7,backgroundColor:theme.tint,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line}}>
+            <Text style={typeStyle(theme.ink,10,'800')}>タスク / LT</Text>
+          </View>
+          {ganttItems.slice(ganttPage*7,ganttPage*7+7).map(t=><Pressable key={t.id} onPress={()=>onOpen(t)} style={{height:49,paddingHorizontal:7,justifyContent:'center',borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line}}>
+            <Text numberOfLines={1} style={typeStyle(theme.ink,11,'800')}>{t.title}</Text>
+            <Text style={typeStyle(theme.muted,9)}>LT {t.leadDays||1}日</Text>
+          </Pressable>)}
+          {!ganttItems.length&&<View style={{height:49,borderBottomWidth:1,borderRightWidth:1,borderColor:theme.line,justifyContent:'center',paddingLeft:7}}><Text style={typeStyle(theme.muted,10)}>タスクなし</Text></View>}
+        </View>
+        <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={true} bounces={false} keyboardShouldPersistTaps="always" style={{flex:1,minWidth:0}}>
+          <View style={{width:daysInMonth*36}}>
+            <View style={{flexDirection:'row',height:46,backgroundColor:theme.tint}}>
+              {Array.from({length:daysInMonth},(_,i)=>{
+                const d=new Date(focus.getFullYear(),focus.getMonth(),i+1);
+                const weekend=d.getDay()===0||d.getDay()===6;
+                return <View key={i} style={{width:36,height:46,alignItems:'center',justifyContent:'center',gap:3,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,backgroundColor:weekend?theme.bg:theme.tint}}>
+                  <Text style={typeStyle(theme.ink,12,'800')}>{i+1}</Text><Text style={typeStyle(theme.muted,9)}>{'日月火水木金土'[d.getDay()]}</Text>
+                </View>
+              })}
+            </View>
+            {ganttItems.slice(ganttPage*7,ganttPage*7+7).map(t=>{
+              const lt=Math.max(1,Math.min(90,t.leadDays||1));
+              const fallbackDue=parseDateKey(t.dueDate);
+              const start=t.ganttStart||t.scheduledStart?.slice(0,10)||(fallbackDue?dateKey(addDays(fallbackDue,1-lt)):null);
+              const startDate=start?parseDateKey(start):null;
+              return <View key={t.id} style={{flexDirection:'row',height:49}}>
+                {Array.from({length:daysInMonth},(_,i)=>{
+                  const day=new Date(focus.getFullYear(),focus.getMonth(),i+1);
+                  const key=dateKey(day);
+                  const duration=startDate?Math.round((day.getTime()-startDate.getTime())/86400000):-999;
+                  const filled=duration>=0&&duration<lt;
+                  const isWeekend=day.getDay()===0||day.getDay()===6;
+                  return <Pressable key={key} accessibilityRole="button" accessibilityLabel={`${t.title} ${key} を開始日にする`} onPress={()=>onGanttStart(t,key)} style={{width:36,height:49,backgroundColor:filled?COLORS[quadrant(t,prefs)]:isWeekend?theme.bg:theme.card,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,alignItems:'flex-end',justifyContent:'flex-start'}}>
+                    {key===t.ganttStart&&<View style={{position:'absolute',top:0,bottom:0,left:0,right:0,borderWidth:2,borderColor:theme.navy}}/>}
+                    {key===t.dueDate&&<View style={{width:5,height:5,borderRadius:3,backgroundColor:'#C78086',margin:2}}/>}
+                  </Pressable>;
+                })}
+              </View>
+            })}
+          </View>
+        </ScrollView>
       </View>
-      {ganttItems.slice(ganttPage*7,ganttPage*7+7).map(t=><View key={t.id} style={[styles.ganttMonthRow,{minHeight:45,borderBottomWidth:.5,borderBottomColor:theme.line}]}>
-        <Pressable onPress={()=>onOpen(t)} style={{width:70,paddingVertical:5}}><Text numberOfLines={1} style={typeStyle(theme.ink,10,'700')}>{t.title}</Text><Text style={typeStyle(theme.muted,8)}>LT {t.leadDays||1}日</Text></Pressable>
-        <View style={styles.ganttDays}>{Array.from({length:31},(_,i)=>{
-          if(i>=daysInMonth)return <View key={'invalid-'+i} style={[styles.ganttSquare,{backgroundColor:theme.bg,opacity:.18,borderColor:theme.line,borderWidth:.5}]}/>;
-          const key=dateKey(new Date(focus.getFullYear(),focus.getMonth(),i+1));
-          const filled=ganttCellFilled(t,key),due=key===t.dueDate,selected=key===t.ganttStart;
-          return <Pressable key={key} accessibilityLabel={`${t.title} ${key} 開始日に設定`} onPress={()=>onGanttStart(t,key)} style={[styles.ganttSquare,{backgroundColor:filled?COLORS[quadrant(t,prefs)]:theme.bg,borderColor:due?'#D18B91':selected?'#6E95D3':theme.line,borderWidth:due||selected?1.5:.5}]}/>;
-        })}</View>
-      </View>)}
-      {!ganttItems.length&&<View style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text style={typeStyle(theme.muted,11)}>タスクを登録すると月間ガントが表示されます</Text></View>}
-      <View style={[styles.pager,{marginTop:12}]}><Pressable onPress={()=>setGanttPage(Math.max(0,ganttPage-1))}><Text style={typeStyle(theme.muted,18)}>‹</Text></Pressable><Text style={typeStyle(theme.muted,10)}>{ganttPage+1}/{Math.max(1,Math.ceil(ganttItems.length/7))}</Text><Pressable onPress={()=>setGanttPage(Math.min(Math.max(0,Math.ceil(ganttItems.length/7)-1),ganttPage+1))}><Text style={typeStyle(theme.muted,18)}>›</Text></Pressable></View>
-      <Text style={[typeStyle(theme.muted,10),{marginTop:8,lineHeight:15}]}>色マス＝LTの期間　赤枠＝納期　マスをタップで開始日変更。LT日数はタスク編集から変更できます。</Text>
+      <View style={[styles.pager,{marginTop:11}]}>
+        <Pressable onPress={()=>setGanttPage(Math.max(0,ganttPage-1))} hitSlop={10}><Text style={typeStyle(theme.muted,18)}>‹</Text></Pressable>
+        <Text style={typeStyle(theme.muted,10)}>{ganttPage+1}/{Math.max(1,Math.ceil(ganttItems.length/7))}</Text>
+        <Pressable onPress={()=>setGanttPage(Math.min(Math.max(0,Math.ceil(ganttItems.length/7)-1),ganttPage+1))} hitSlop={10}><Text style={typeStyle(theme.muted,18)}>›</Text></Pressable>
+      </View>
     </View>:<View style={{flex:1,minHeight:0,marginTop:12}}><View style={styles.flexBetween}><Text style={typeStyle(theme.ink,12,'800')}>{focus.getMonth()+1}/{focus.getDate()} の予定</Text><Text style={typeStyle(theme.muted,10)}>{agenda.length}件表示</Text></View>
       <View style={{gap:7,marginTop:9,flex:1,minHeight:0}}>{agenda.length?agenda.map(t=><Pressable key={t.id} onPress={()=>onOpen(t)} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line}]}><View style={{height:28,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/><View style={{flex:1}}><Text numberOfLines={1} style={typeStyle(theme.ink,12,'800')}>{t.title}</Text><Text numberOfLines={1} style={typeStyle(theme.muted,10)}>{t.scheduledStart?.slice(11,16)??'未配置'} · {t.durationMin}分 · {dueLabel(t.dueDate)}</Text></View><Text style={typeStyle(theme.muted,17)}>›</Text></Pressable>):<View style={{flex:1,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>まだ予定はありません。パズルで配置しましょう。</Text></View>}</View>
     </View>}
   </View>;
 }
 function SettingsPanel({theme,prefs,tasks,onMode,onRename,onDark,onReminder,onLeadEdit,onStart}:{theme:Theme,prefs:Preferences,tasks:Task[],onMode:(m:'priority'|'group')=>void,onRename:()=>void,onDark:()=>void,onReminder:()=>void,onLeadEdit:()=>void,onStart:()=>void}){
-  return <View style={{flex:1,minHeight:0}}><View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>PREFERENCES</Text><Text style={typeStyle(theme.muted,10)}>あなたのやり方に、合わせる。</Text></View></View>
+  return <View style={{flex:1,minHeight:0}}><View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>PREFERENCES</Text></View></View>
     <View style={[styles.settingsBox,{backgroundColor:theme.card,borderColor:theme.line}]}>
       <SettingRow theme={theme} title="分類方法" value={prefs.mode==='priority'?'優先度':'グループ'} onPress={()=>onMode(prefs.mode==='priority'?'group':'priority')}/>
       <SettingRow theme={theme} title="エリア名" value="編集 ›" onPress={onRename}/>
