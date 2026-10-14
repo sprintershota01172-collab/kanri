@@ -67,7 +67,7 @@ function incrementalFooterTest({installed,physical,layout}){
    addEventListener(){}
  };
  runInNewContext(mobile,{window,document,requestAnimationFrame:fn=>fn()},{timeout:1200});
- const expected=installed&&physical-layout>=54&&physical-layout<=160?Math.min(24,physical-layout-34):0;
+ const expected=installed&&physical-layout>=54&&physical-layout<=160?Math.min(48,physical-layout-34):0;
  assert.equal(vars.get('--kanri-bottom-step'),expected+'px','incremental adjustment constrained to installed PWA');
  assert.equal(vars.get('--vh'),(layout+expected)+'px','shell height includes only guarded step');
  document.activeElement={matches:()=>true};documentEvents.focusin();
