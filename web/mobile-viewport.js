@@ -7,6 +7,16 @@
   const editable=el=>el?.matches?.('textarea,input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([readonly]),select');
   let layoutHeight=window.innerHeight,layoutWidth=window.innerWidth;
   let lastHeight=-1,lastTop=-1,lastEditing=false,lastBottomStep=0;
+  // This testable read uses computed pixels, not an unresolved env() string.
+  window.KanriStatusTopInset=()=>{
+    if(!document.body?.appendChild)return 0;
+    const probe=document.createElement('div');
+    probe.style.cssText='position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none';
+    document.body.appendChild(probe);
+    const measured=probe.getBoundingClientRect().height;
+    probe.remove();
+    return measured;
+  };
   function refresh(){
     if(!coarse)return;
     const editing=!!editable(document.activeElement);
@@ -28,15 +38,31 @@
       root.style.setProperty('--sheet-visual-top',visualTop+'px');
       lastTop=visualTop;
     }
-    // iPhone home-screen mode can expose a narrow strip below innerHeight.
-    // Advance at most 48 CSS px toward it, retaining the system indicator margin.
-    // Keep the same step while typing so the keyboard cannot move the app shell.
+    // "default" iOS standalone status bars place the WebKit origin BELOW
+    // the system status area. screen.height includes that area; innerHeight
+    // can additionally omit part of the usable bottom surface. Therefore,
+    // screen.height must never be used directly as the shell height.
+    // Derive the bottom from the physical CSS screen minus the TOP status bar,
+    // while the navigation itself reserves the bottom safe-area inset.
+    // The measured position is frozen while the keyboard is open.
     if(!editing){
-      const installed=window.navigator?.standalone===true||window.matchMedia?.('(display-mode: standalone)').matches===true;
+      const installed=window.navigator?.standalone===true||
+        window.matchMedia?.('(display-mode: standalone)').matches===true;
+      const portrait=window.innerHeight>=window.innerWidth;
       const physical=Number(window.screen?.height)||0;
-      const gap=physical-layoutHeight;
-      const canExtend=installed&&window.innerHeight>=window.innerWidth&&gap>=54&&gap<=160;
-      lastBottomStep=canExtend?Math.min(48,Math.max(0,gap-34)):0;
+      const screenWidth=Number(window.screen?.width)||0;
+      const plausible=installed&&portrait&&
+        physical>layoutHeight&&physical-layoutHeight<=240&&
+        (!screenWidth||Math.abs(screenWidth-window.innerWidth)<36);
+      if(plausible){
+        // Read the actual CSS inset when available. Some iOS PWA versions
+        // expose zero for default (non-translucent) status bars, hence the
+        // 50px fallback. Bound to the usual iPhone status-area range.
+        const safeTop=Number(window.KanriStatusTopInset?.())||0;
+        const topStatus=Math.max(44,Math.min(62,safeTop||50));
+        const usable=Math.max(layoutHeight,physical-topStatus);
+        lastBottomStep=Math.max(0,Math.min(180,Math.round(usable-layoutHeight)));
+      }else lastBottomStep=0;
     }
     root.style.setProperty('--kanri-bottom-step',lastBottomStep+'px');
     root.style.setProperty('--vh',(layoutHeight+lastBottomStep)+'px');
