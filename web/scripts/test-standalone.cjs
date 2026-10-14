@@ -69,7 +69,7 @@ function incrementalFooterTest({installed,physical,layout}){
  runInNewContext(mobile,{window,document,requestAnimationFrame:fn=>fn()},{timeout:1200});
  const gap=physical-layout;
  const plausible=installed&&gap>0&&gap<=240;
- const expected=plausible?Math.max(0,Math.min(180,physical-50-layout)):0;
+ const expected=plausible?Math.max(gap>=54&&gap<=160?Math.min(48,Math.max(0,gap-34)):0,Math.max(0,Math.min(180,physical-50-layout))):0;
  assert.equal(vars.get('--kanri-bottom-step'),expected+'px','status-bar-corrected extension only in plausible installed PWA');
  assert.equal(vars.get('--vh'),(layout+expected)+'px','shell height includes only guarded step');
  document.activeElement={matches:()=>true};documentEvents.focusin();
