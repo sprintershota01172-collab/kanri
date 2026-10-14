@@ -19,7 +19,9 @@ assert.ok(html.includes('gantt-blank-row'),'Gantt should render fully bordered r
 assert.ok(html.includes('for(let blank=view.length;blank<rowCount;blank++)'),'Gantt should fill remaining rows');
 assert.ok(html.includes("Array.from({length:days},(_,i)=>"),'Gantt should show all days in selected month');
 assert.ok(html.includes('gantt-empty-square'),'Gantt blank cells must retain borders');
-assert.ok(html.includes('--kanri-standalone-height'),'PWA should correct standalone viewport height');
+assert.ok(html.includes('v1.9.5 — iPhone PWA layout'),'Standalone PWA must use unified flex layout');
+assert.ok(html.includes('flex:1 1 0%!important'),'Main content fills remaining screen space');
+assert.ok(html.includes('position:relative!important'),'Navigation stays in app flex flow');
 for(const key of ['/* v1.6 - dense, content-first UI','board-foot[hidden]','header-actions','month-grid{flex:1','sheet-actions .primary{min-height:44px']) {
  assert.ok(html.includes(key),'Missing compact UI rule '+key);
 }
