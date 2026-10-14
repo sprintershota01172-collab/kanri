@@ -519,9 +519,19 @@ body,button,input,select{font-synthesis:none}
 .gantt-excel .gantt-square{touch-action:auto!important}
 @media(max-width:375px){.gantt-excel .gantt-names{width:144px!important;min-width:144px!important;flex-basis:144px!important}.gantt-excel .gantt-label-complete-row .gantt-label-row strong{font-size:9px}}
 .folder-delete-current{width:100%;min-height:44px;margin-top:8px;border:1px solid #d3a2a8;color:#a9444f;background:var(--bg);border-radius:10px;font-size:12px;font-weight:800}
+
+/* Editable group strip: long press to manage/reorder, horizontal swipe on board to switch. */
+.group-quick-chip{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;position:relative}
+.group-quick-chip.reordering{z-index:4;box-shadow:0 3px 16px #18294555;border:2px solid var(--blue);background:var(--tint);transition:none}
+.group-action-hint{font-size:11px;color:var(--muted);margin:0 0 10px}
+.group-action-list{display:flex;flex-direction:column;gap:8px}
+.group-action-list button{min-height:48px;text-align:left;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:10px 13px;font-size:13px;font-weight:800;color:var(--ink)}
+.group-action-list button:disabled{opacity:.32}
+.group-action-list button small{display:block;font-size:10px;color:var(--muted);font-weight:600;margin-top:3px}
+.group-action-list .group-action-danger{color:#AE4854;border-color:#D5ADB0}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
-<section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="現在のフォルダに子ツリーを追加">＋ ツリー</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
+<section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="グループまたは子ツリーを追加">＋ 追加</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
 <section class="screen" id="calendarScreen"><div class="screen-head"><div class="schedule-head-left"><div class="screen-title">予定</div><button type="button" id="trashCalendar" class="schedule-add" aria-label="完了・削除一覧を開く">完了済み</button><button type="button" id="addEventTop" class="schedule-add" aria-label="会議・予定を追加">＋予定</button></div><div class="pill-group" id="calModes"><button data-mode="month" class="selected">月</button><button data-mode="week">週</button><button data-mode="gantt">ガント</button></div></div><div class="cal-content" id="calendarContent"></div></section>
 <section class="screen" id="puzzleScreen"><div class="screen-head"><div><div class="screen-title">PUZZLE</div></div><button id="undoTop" class="small-btn" style="font-size:10px">↶ 戻す</button></div><div class="puzzle-content" id="puzzleContent"></div></section>
 <section class="screen" id="settingsScreen"><div class="screen-head"><div><div class="screen-title">設定</div></div></div><div class="settings-content" id="settingsContent"></div></section>
@@ -554,12 +564,112 @@ function setFolder(id){
   if(currentFolderId){const recent=read(RECENT_FOLDERS,[]);localStorage.setItem(RECENT_FOLDERS,JSON.stringify([currentFolderId,...recent.filter(x=>x!==currentFolderId)].slice(0,4)))}
   saveView();qpages=[0,0,0,0];render()
 }
-function renderQuickGroups(){
-  const recent=read(RECENT_FOLDERS,[]).filter(id=>getFolder(id)&&!['work','personal','study','other'].includes(id));
-  const entries=[{id:null,name:'すべて'},...folders.filter(f=>!f.parentId).map(f=>({id:f.id,name:f.id==='personal'?'私用':f.id==='work'?'業務':f.name})),...recent.slice(0,3).map(id=>({id,name:getFolder(id).name}))];
+function visibleGroupEntries(){
+  const recent=read(RECENT_FOLDERS,[]).filter(id=>getFolder(id)&&getFolder(id).parentId!==null);
+  const entries=[{id:null,name:'すべて'},...folders.filter(f=>f.parentId===null).map(f=>({id:f.id,name:f.id==='personal'?'私用':f.id==='work'?'業務':f.name})),...recent.slice(0,3).map(id=>({id,name:getFolder(id).name}))];
   for(const child of childFolders(currentFolderId).filter(f=>f.parentId!==null))if(!entries.some(x=>x.id===child.id))entries.push({id:child.id,name:child.name});
-  $('#groupQuickSwitch').innerHTML=entries.map(g=>`<button type="button" class="group-quick-chip ${currentFolderId===g.id?'active':''}" data-quick-folder="${esc(g.id??'__all__')}" aria-pressed="${String(currentFolderId===g.id)}">${esc(g.name)}</button>`).join('');
-  $$('[data-quick-folder]').forEach(el=>el.onclick=e=>{e.stopPropagation();setFolder(el.dataset.quickFolder==='__all__'?null:el.dataset.quickFolder)});
+  return entries;
+}
+function adjacentFolder(id,delta){
+  const current=getFolder(id);if(!current)return null;
+  const siblings=folders.filter(f=>f.parentId===current.parentId);
+  return siblings[siblings.findIndex(f=>f.id===id)+delta]||null;
+}
+function reorderGroup(id,targetId){
+  if(!id||id===targetId)return false;
+  const item=getFolder(id),target=getFolder(targetId);
+  if(!item||!target||item.parentId!==target.parentId)return false;
+  const siblings=folders.filter(f=>f.parentId===item.parentId);
+  const a=siblings.findIndex(f=>f.id===id),b=siblings.findIndex(f=>f.id===targetId);
+  if(a<0||b<0)return false;
+  siblings.splice(a,1);
+  siblings.splice(b,0,item);
+  let index=0;
+  folders=folders.map(f=>f.parentId===item.parentId?siblings[index++]:f);
+  saveFolders();render();haptic();return true;
+}
+function openGroupActions(id){
+  const f=getFolder(id);if(!f)return;
+  const prev=adjacentFolder(id,-1),next=adjacentFolder(id,1);
+  $('#sheet').innerHTML='<div class="sheet-head"><div class="sheet-head-main"><button type="button" id="groupActionsClose" class="sheet-dismiss" aria-label="閉じる">×</button><strong>'+esc(f.name)+' を操作</strong></div></div>'+
+    '<p class="group-action-hint">長押し後に左右へドラッグでも並び替えできます。</p>'+
+    '<div class="group-action-list"><button type="button" id="groupRename">名前を変更</button><button type="button" id="groupAddChild">＋ 子ツリー</button>'+
+    '<button type="button" id="groupMovePrev" '+(!prev?'disabled':'')+'>← 左へ移動</button><button type="button" id="groupMoveNext" '+(!next?'disabled':'')+'>右へ移動 →</button>'+
+    '<button type="button" id="groupDelete" class="group-action-danger">グループ・ツリーを削除</button></div>';
+  openModal();$('#groupActionsClose').onclick=closeModal;
+  $('#groupRename').onclick=()=>renameFolderSheet(id);
+  $('#groupAddChild').onclick=()=>createFolderSheet(id,'子ツリー');
+  $('#groupMovePrev').onclick=()=>{if(prev)reorderGroup(id,prev.id);closeModal()};
+  $('#groupMoveNext').onclick=()=>{if(next)reorderGroup(id,next.id);closeModal()};
+  $('#groupDelete').onclick=()=>confirmFolderRemoval(id);
+}
+function renameFolderSheet(id){
+  const folder=getFolder(id);if(!folder)return;
+  $('#sheet').innerHTML='<div class="sheet-head"><div class="sheet-head-main"><button class="sheet-dismiss" id="renameClose" aria-label="閉じる">×</button><strong>名前を変更</strong></div></div>'+
+    '<div class="field"><label>新しい名前</label><input id="renameFolderName" maxlength="32" value="'+esc(folder.name)+'"></div>'+
+    '<div class="sheet-actions"><button class="sheet-cancel" id="renameCancel">キャンセル</button><button class="primary" id="renameSave">保存</button></div>';
+  openModal();$('#renameClose').onclick=closeModal;$('#renameCancel').onclick=closeModal;
+  const commit=()=>{const name=$('#renameFolderName').value.trim();if(!name)return flash('名前を入力してください');
+    if(folders.some(f=>f.id!==id&&f.parentId===folder.parentId&&f.name===name))return flash('同じ名前があります');
+    folder.name=name;saveFolders();closeModal();render();haptic();};
+  $('#renameSave').onclick=commit;$('#renameFolderName').addEventListener('keydown',e=>{if(e.key==='Enter')commit()});
+}
+function openGroupAddMenu(){
+  $('#sheet').innerHTML='<div class="sheet-head"><div class="sheet-head-main"><button class="sheet-dismiss" id="groupAddClose" aria-label="閉じる">×</button><strong>追加するものを選択</strong></div></div>'+
+    '<div class="group-action-list"><button id="addRootGroup" type="button">＋ グループを追加<small>「業務」「私用」と並ぶ項目</small></button>'+
+    '<button id="addChildTree" type="button">＋ 子ツリーを追加<small>現在選択中のグループの内側</small></button></div>';
+  openModal();$('#groupAddClose').onclick=closeModal;
+  $('#addRootGroup').onclick=()=>createFolderSheet(null,'グループ');
+  $('#addChildTree').onclick=()=>createFolderSheet(currentFolderId,'子ツリー');
+}
+function wireGroupChip(el){
+  const id=el.dataset.quickFolder==='__all__'?null:el.dataset.quickFolder;
+  let timer=null,long=false,moved=false,down=null,lastX=0,scrolled=false;
+  const strip=$('#groupQuickSwitch');
+  const clear=()=>{if(timer){clearTimeout(timer);timer=null}};
+  el.onpointerdown=e=>{
+    if(e.pointerType==='mouse'&&e.button!==0)return;
+    down={x:e.clientX,y:e.clientY,scroll:strip.scrollLeft,time:Date.now()};lastX=e.clientX;long=false;moved=false;scrolled=false;
+    if(id)timer=setTimeout(()=>{long=true;el.classList.add('reordering');haptic()},430);
+  };
+  el.onpointermove=e=>{
+    if(!down)return;
+    const dx=e.clientX-down.x,dy=e.clientY-down.y;lastX=e.clientX;
+    if(!long&&Math.max(Math.abs(dx),Math.abs(dy))>9)clear();
+    if(long){
+      moved=moved||Math.abs(dx)>21;
+      el.style.transform='translateX('+Math.max(-160,Math.min(160,dx))+'px)';
+      if(e.cancelable)e.preventDefault();
+    }else if(Math.abs(dx)>7&&Math.abs(dx)>Math.abs(dy)){
+      scrolled=true;strip.scrollLeft=down.scroll-dx;
+      if(e.cancelable)e.preventDefault();
+    }
+  };
+  el.onpointerup=e=>{
+    clear();if(!down)return;
+    const dx=e.clientX-down.x;const wasLong=long;down=null;
+    el.classList.remove('reordering');el.style.transform='';
+    if(wasLong){
+      if(moved||Math.abs(dx)>28){
+        const siblings=$('[data-quick-folder]').filter(x=>{const other=getFolder(x.dataset.quickFolder);return other&&getFolder(id)&&other.parentId===getFolder(id).parentId});
+        let destination=siblings.filter(x=>x!==el).reduce((near,x)=>{
+          const rect=x.getBoundingClientRect(),distance=Math.abs(rect.left+rect.width/2-e.clientX);
+          return distance<(near?.distance??Infinity)?{id:x.dataset.quickFolder,distance}:near
+        },null);
+        if(destination)reorderGroup(id,destination.id);else openGroupActions(id);
+      }else openGroupActions(id);
+      return;
+    }
+    if(!scrolled&&Math.abs(dx)<10)setFolder(id);
+  };
+  el.onpointercancel=()=>{clear();down=null;el.classList.remove('reordering');el.style.transform=''};
+  el.onclick=e=>{e.preventDefault()}; // Tap and long press are dispatched by pointer handlers above.
+  el.oncontextmenu=e=>{e.preventDefault();if(id)openGroupActions(id)};
+}
+function renderQuickGroups(){
+  const entries=visibleGroupEntries();
+  $('#groupQuickSwitch').innerHTML=entries.map(g=>`<button type="button" class="group-quick-chip ${currentFolderId===g.id?'active':''}" data-quick-folder="${esc(g.id??'__all__')}" aria-pressed="${String(currentFolderId===g.id)}" aria-label="${esc(g.name)}。タップで切り替え、長押しで操作">${esc(g.name)}</button>`).join('');
+  $('[data-quick-folder]').forEach(wireGroupChip);
 
   const active=$('.group-quick-chip.active');
   if(active){const strip=$('#groupQuickSwitch');strip.scrollLeft=Math.max(0,active.offsetLeft-strip.offsetLeft-18)}
@@ -622,22 +732,23 @@ function confirmTaskRemoval(id){
 }
 function confirmFolderRemoval(id){
   const folder=getFolder(id);if(!folder)return;
-  if(['work','personal','study','other'].includes(id)){flash('基本フォルダは削除できません');return}
+  if(folder.parentId===null&&folders.filter(f=>f.parentId===null).length<=1){flash('最後のグループは削除できません');return}
   const count=tasks.filter(t=>taskFolderId(t)===id).length;
   const children=folders.filter(f=>f.parentId===id).length;
-  confirmAction('フォルダを削除',folder.name+' を削除しますか？ 中の'+count+'件のタスクと'+children+'個の子フォルダは1つ上へ移動します。',()=>{
-    const parent=folder.parentId;
-    tasks.forEach(t=>{if(taskFolderId(t)===id){t.folderId=parent;if(parent)t.group=rootCategory(parent)}});
+  confirmAction('グループ・ツリーを削除',folder.name+' を削除しますか？ 中の'+count+'件のタスクと'+children+'個の子フォルダは別のグループまたは親フォルダへ移動します。',()=>{
+    const parent=folder.parentId??folders.find(f=>f.id!==id&&f.parentId===null)?.id??null;
+    tasks.forEach(t=>{if(taskFolderId(t)===id){t.folderId=parent;t.group=parent?rootCategory(parent):'その他'}});
     folders.forEach(f=>{if(f.parentId===id)f.parentId=parent});
     folders=folders.filter(f=>f.id!==id);
     save();saveFolders();
     if(currentFolderId===id)currentFolderId=parent;
+    localStorage.setItem(RECENT_FOLDERS,JSON.stringify(read(RECENT_FOLDERS,[]).filter(x=>x!==id)));
     saveView();render();
   });
 }
-function createFolderSheet(){
-  const current=getFolder(currentFolderId);
-  $('#sheet').innerHTML='<div class="sheet-head"><div class="sheet-head-main"><button id="folderCancelX" class="sheet-dismiss" aria-label="閉じる">×</button><strong>子ツリーを追加</strong></div></div>'+
+function createFolderSheet(parentId=currentFolderId,label='子ツリー'){
+  const current=getFolder(parentId);
+  $('#sheet').innerHTML='<div class="sheet-head"><div class="sheet-head-main"><button id="folderCancelX" class="sheet-dismiss" aria-label="閉じる">×</button><strong>'+esc(label)+'を追加</strong></div></div>'+
     '<div class="field"><label>名前（車種・案件・工程など自由）</label><input id="folderName" maxlength="32" placeholder="例：プロジェクトA / 部品設計" autocomplete="off"></div>'+
     '<div class="folder-location">保存先：'+esc(current?folderPath(current.id).map(x=>x.name).join(' / '):'すべてのフォルダ')+'</div>'+
     '<div class="sheet-actions"><button id="folderCancel" class="sheet-cancel">キャンセル</button><button id="folderSave" class="primary">作成</button></div>';
@@ -645,9 +756,9 @@ function createFolderSheet(){
   $('#folderCancelX').onclick=closeModal;$('#folderCancel').onclick=closeModal;
   const submit=()=>{
     const name=$('#folderName').value.trim();if(!name){flash('フォルダ名を入力');return}
-    if(folders.some(f=>f.parentId===currentFolderId&&f.name===name)){flash('同じ名前のフォルダがあります');return}
+    if(folders.some(f=>f.parentId===parentId&&f.name===name)){flash('同じ名前のフォルダがあります');return}
     const id='folder-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9);
-    folders.push({id,name,parentId:currentFolderId});saveFolders();closeModal();setFolder(id);
+    folders.push({id,name,parentId});saveFolders();closeModal();setFolder(id);
   };
   $('#folderSave').onclick=submit;
   $('#folderName').addEventListener('keydown',e=>{if(e.key==='Enter')submit()});
@@ -678,17 +789,17 @@ function openFolderBrowser(page=0){
   if(all.length){
     body+=all.slice(p*pageSize,(p+1)*pageSize).map(f=>
       '<div class="folder-wrap">'+
-      '<button type="button" class="folder-tile" data-folder-open="'+esc(f.id)+'"><span class="folder-icon">▰</span><span>'+esc(f.name)+'</span><span class="folder-arrow">›</span></button>'+(['work','personal','study','other'].includes(f.id)?'':'<button type="button" class="folder-delete-visible" data-folder-trash="'+esc(f.id)+'" aria-label="'+esc(f.name)+'を削除">削除</button>')+'</div>'
+      '<button type="button" class="folder-tile" data-folder-open="'+esc(f.id)+'"><span class="folder-icon">▰</span><span>'+esc(f.name)+'</span><span class="folder-arrow">›</span></button>'+('<button type="button" class="folder-delete-visible" data-folder-trash="'+esc(f.id)+'" aria-label="'+esc(f.name)+'を削除">削除</button>')+'</div>'
     ).join('');
   }else body+='<div class="folder-list-empty">フォルダなし</div>';
   body+='</div>';
   body+='<div class="folder-location">ここに任意の名前で子ツリーを追加できます。</div>';
-  if(current&&!['work','personal','study','other'].includes(current.id))body+='<button type="button" id="deleteCurrentFolder" class="folder-delete-current" aria-label="'+esc(current.name)+'を削除">現在のツリーを削除</button>';
+  if(current)body+='<button type="button" id="deleteCurrentFolder" class="folder-delete-current" aria-label="'+esc(current.name)+'を削除">現在のツリーを削除</button>';
   if(pages>1)body+='<div class="folder-pages"><button id="folderPrev" '+(p===0?'disabled':'')+'>‹</button><span>'+(p+1)+'/'+pages+'</span><button id="folderNext" '+(p>=pages-1?'disabled':'')+'>›</button></div>';
   body+='<div class="sheet-actions"><button type="button" id="folderViewTasks" class="primary">この場所のタスクを見る</button></div>';
   $('#sheet').innerHTML=body;openModal();
   $('#folderBrowserClose').onclick=closeModal;
-  $('#folderAdd').onclick=createFolderSheet;
+  $('#folderAdd').onclick=()=>createFolderSheet(currentFolderId,'子ツリー');
   $('#deleteCurrentFolder')?.addEventListener('click',()=>confirmFolderRemoval(currentFolderId));
 
   $('#folderViewTasks').onclick=closeModal;
@@ -701,7 +812,7 @@ function openFolderBrowser(page=0){
   $('#folderPrev')?.addEventListener('click',()=>openFolderBrowser(p-1));
   $('#folderNext')?.addEventListener('click',()=>openFolderBrowser(p+1));
 }
-function renderBoard(){renderQuickGroups();$("#folderMenuButton").onclick=()=>openFolderBrowser();$("#folderMenuButton").setAttribute("aria-label",(getFolder(currentFolderId)?.name||"すべて")+"：フォルダを開く");$("#currentFolderLabel").textContent=getFolder(currentFolderId)?.name||"";$("#currentFolderLabel").hidden=!getFolder(currentFolderId);$('#boardScreen .board-foot').hidden=!tasks.some(t=>t.pin);let html='';for(let q=0;q<4;q++){const items=sorted(tasks.filter(t=>!t.done&&!t.event&&quadrant(t)===q&&inFolder(t,currentFolderId)));const pageSize=window.innerHeight>=820?4:window.innerHeight>=690?3:2;const pages=Math.max(1,Math.ceil(items.length/pageSize));qpages[q]=Math.min(qpages[q],pages-1);let showing=items.slice(qpages[q]*pageSize,qpages[q]*pageSize+pageSize);html+=`<section class="quadrant" data-q="${q}" role="button" tabindex="0" aria-label="${esc(prefs.names[q])} にタスクを追加"><div class="quad-title"><strong>${esc(prefs.names[q])}</strong><span>${items.length.toString().padStart(2,'0')}</span></div><div class="accent" style="background:${palette[q]}"></div><div class="task-area">${showing.length?showing.map(t=>`<div class="task-wrap"><button type="button" class="task-swipe-delete" data-task-trash="${t.id}" aria-label="${esc(t.title)}を削除">削除</button><article class="task-card" data-task="${t.id}"><div class="task-line"><button aria-label="完了" class="check" data-done="${t.id}"></button><div class="tname">${esc(t.title)}</div><button class="tiny-pin" data-top="${t.id}" aria-label="最上位に固定">${t.pin?'◆':'◇'}</button></div><div class="meta">${esc(dueLabel(t.due))} · ${t.duration}分 · ${score(t)}pt</div></article></div>`).join(''):'<div class="empty"><span aria-hidden="true">＋</span></div>'}</div><div class="pager"><button data-page="${q}" data-dir="-1" ${qpages[q]<=0?'disabled':''}>‹</button><span>${qpages[q]+1}/${pages}</span><button data-page="${q}" data-dir="1" ${qpages[q]>=pages-1?'disabled':''}>›</button></div></section>`}$('#board').innerHTML=html;$('#childQuickAdd').onclick=createFolderSheet;$$('[data-page]').forEach(el=>el.onclick=()=>{qpages[+el.dataset.page]+=+el.dataset.dir;renderBoard()});$$('.quadrant').forEach(el=>{el.onclick=e=>{if(e.target.closest('button,.task-card'))return;openEdit(null,+el.dataset.q)};el.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target===el){e.preventDefault();openEdit(null,+el.dataset.q)}}});$$('.task-card').forEach(setupDrag);$$('[data-task-trash]').forEach(el=>el.onclick=e=>{e.stopPropagation();confirmTaskRemoval(el.dataset.taskTrash)});$$('[data-done]').forEach(el=>el.addEventListener('pointerdown',e=>e.stopPropagation()));$$('[data-top]').forEach(el=>el.addEventListener('pointerdown',e=>e.stopPropagation()));$$('[data-top]').forEach(el=>el.onclick=e=>{e.stopPropagation();const t=tasks.find(t=>t.id===el.dataset.top);if(!t)return;let pinned=tasks.filter(x=>x.pin);t.pin=true;t.rank=Math.min(0,...pinned.map(x=>x.rank??0))-1;save();render();flash('最上位に固定しました')});$$('[data-done]').forEach(el=>el.onclick=e=>{e.stopPropagation();completeTask(el.dataset.done)})}
+function renderBoard(){renderQuickGroups();$("#folderMenuButton").onclick=()=>openFolderBrowser();$("#folderMenuButton").setAttribute("aria-label",(getFolder(currentFolderId)?.name||"すべて")+"：フォルダを開く");$("#currentFolderLabel").textContent=getFolder(currentFolderId)?.name||"";$("#currentFolderLabel").hidden=!getFolder(currentFolderId);$('#boardScreen .board-foot').hidden=!tasks.some(t=>t.pin);let html='';for(let q=0;q<4;q++){const items=sorted(tasks.filter(t=>!t.done&&!t.event&&quadrant(t)===q&&inFolder(t,currentFolderId)));const pageSize=window.innerHeight>=820?4:window.innerHeight>=690?3:2;const pages=Math.max(1,Math.ceil(items.length/pageSize));qpages[q]=Math.min(qpages[q],pages-1);let showing=items.slice(qpages[q]*pageSize,qpages[q]*pageSize+pageSize);html+=`<section class="quadrant" data-q="${q}" role="button" tabindex="0" aria-label="${esc(prefs.names[q])} にタスクを追加"><div class="quad-title"><strong>${esc(prefs.names[q])}</strong><span>${items.length.toString().padStart(2,'0')}</span></div><div class="accent" style="background:${palette[q]}"></div><div class="task-area">${showing.length?showing.map(t=>`<div class="task-wrap"><button type="button" class="task-swipe-delete" data-task-trash="${t.id}" aria-label="${esc(t.title)}を削除">削除</button><article class="task-card" data-task="${t.id}"><div class="task-line"><button aria-label="完了" class="check" data-done="${t.id}"></button><div class="tname">${esc(t.title)}</div><button class="tiny-pin" data-top="${t.id}" aria-label="最上位に固定">${t.pin?'◆':'◇'}</button></div><div class="meta">${esc(dueLabel(t.due))} · ${t.duration}分 · ${score(t)}pt</div></article></div>`).join(''):'<div class="empty"><span aria-hidden="true">＋</span></div>'}</div><div class="pager"><button data-page="${q}" data-dir="-1" ${qpages[q]<=0?'disabled':''}>‹</button><span>${qpages[q]+1}/${pages}</span><button data-page="${q}" data-dir="1" ${qpages[q]>=pages-1?'disabled':''}>›</button></div></section>`}$('#board').innerHTML=html;$('#childQuickAdd').onclick=openGroupAddMenu;$$('[data-page]').forEach(el=>el.onclick=()=>{qpages[+el.dataset.page]+=+el.dataset.dir;renderBoard()});$$('.quadrant').forEach(el=>{el.onclick=e=>{if(e.target.closest('button,.task-card'))return;openEdit(null,+el.dataset.q)};el.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target===el){e.preventDefault();openEdit(null,+el.dataset.q)}}});$$('.task-card').forEach(setupDrag);$$('[data-task-trash]').forEach(el=>el.onclick=e=>{e.stopPropagation();confirmTaskRemoval(el.dataset.taskTrash)});$$('[data-done]').forEach(el=>el.addEventListener('pointerdown',e=>e.stopPropagation()));$$('[data-top]').forEach(el=>el.addEventListener('pointerdown',e=>e.stopPropagation()));$$('[data-top]').forEach(el=>el.onclick=e=>{e.stopPropagation();const t=tasks.find(t=>t.id===el.dataset.top);if(!t)return;let pinned=tasks.filter(x=>x.pin);t.pin=true;t.rank=Math.min(0,...pinned.map(x=>x.rank??0))-1;save();render();flash('最上位に固定しました')});$$('[data-done]').forEach(el=>el.onclick=e=>{e.stopPropagation();completeTask(el.dataset.done)})}
 function moveQuadrant(t,q){if(prefs.mode==='group'){t.group=['仕事','プライベート','学習','その他'][q];t.folderId=['work','personal','study','other'][q]}else{t.important=q<=1;t.urgent=q===0||q===2}t.pin=false;t.rank=null;save();render();haptic();flash('エリアを移動しました')}
 function setupDrag(el){
   let sx=0,sy=0,dragged=false,swiping=false,timer=null,armed=false;
@@ -886,6 +997,11 @@ $('.main').addEventListener('pointerup',e=>{
   const from=tabGesture;tabGesture=null;
   const dx=e.clientX-from.x,dy=e.clientY-from.y;
   if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.35||Date.now()-from.time>1100)return;
+  if(from.tab==='board'){
+    const entries=visibleGroupEntries();const idx=entries.findIndex(g=>g.id===currentFolderId),next=idx+(dx<0?1:-1);
+    if(next>=0&&next<entries.length){setFolder(entries[next].id);haptic()}
+    return;
+  }
   const idx=tabOrder.indexOf(from.tab),next=idx+(dx<0?1:-1);
   if(next>=0&&next<tabOrder.length){navigateTab(tabOrder[next]);haptic()}
 },{passive:true});
