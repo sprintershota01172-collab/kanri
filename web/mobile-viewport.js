@@ -6,7 +6,7 @@
   const coarse=window.matchMedia?.('(pointer: coarse)').matches??true;
   const editable=el=>el?.matches?.('textarea,input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([readonly]),select');
   let layoutHeight=window.innerHeight,layoutWidth=window.innerWidth;
-  let lastHeight=-1,lastTop=-1,lastEditing=false;
+  let lastHeight=-1,lastTop=-1,lastEditing=false,lastBottomStep=0;
   function refresh(){
     if(!coarse)return;
     const editing=!!editable(document.activeElement);
@@ -28,18 +28,18 @@
       root.style.setProperty('--sheet-visual-top',visualTop+'px');
       lastTop=visualTop;
     }
-    // iOS home-screen PWAs sometimes leave a visually unused strip below the
-    // webview. Advance toward it cautiously: at most 24 CSS px per release,
-    // never consume the roughly 34px reserved for the system home indicator.
-    // This is intentionally disabled for normal Safari and while editing.
-    const installed=window.navigator?.standalone===true||window.matchMedia?.('(display-mode: standalone)').matches===true;
-    const physical=Number(window.screen?.height)||0;
-    const gap=physical-layoutHeight;
-    const canExtend=installed&&!editing&&window.innerHeight>=window.innerWidth&&gap>=54&&gap<=160;
-    const bottomStep=canExtend?Math.min(24,Math.max(0,gap-34)):0;
-    root.style.setProperty('--kanri-bottom-step',bottomStep+'px');
-    // Keep a constant viewport through keyboard opening (same strategy as tabi).
-    root.style.setProperty('--vh',(layoutHeight+bottomStep)+'px');
+    // iPhone home-screen mode can expose a narrow strip below innerHeight.
+    // Advance one small 24px step toward it, retaining the system indicator margin.
+    // Keep the same step while typing so the keyboard cannot move the app shell.
+    if(!editing){
+      const installed=window.navigator?.standalone===true||window.matchMedia?.('(display-mode: standalone)').matches===true;
+      const physical=Number(window.screen?.height)||0;
+      const gap=physical-layoutHeight;
+      const canExtend=installed&&window.innerHeight>=window.innerWidth&&gap>=54&&gap<=160;
+      lastBottomStep=canExtend?Math.min(24,Math.max(0,gap-34)):0;
+    }
+    root.style.setProperty('--kanri-bottom-step',lastBottomStep+'px');
+    root.style.setProperty('--vh',(layoutHeight+lastBottomStep)+'px');
     root.classList.toggle('editing-input',editing);
     lastEditing=editing;
   }
