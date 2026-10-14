@@ -25,6 +25,11 @@ function open({installed=true,width=402,viewport=813,physical=874}={}){
  assert.equal(dom.window.document.documentElement.style.getPropertyValue('--kanri-standalone-height'),'874px','keyboard resize must not move screen');
  dom.window.close();
 }
+for(const [width,viewport,physical] of [[375,752,812],[393,792,852],[430,872,932]]){
+ const dom=open({width,viewport,physical});
+ assert.equal(dom.window.document.documentElement.style.getPropertyValue('--kanri-standalone-height'),physical+'px','full viewport on iPhone '+width);
+ dom.window.close();
+}
 {
  const dom=open({installed:false});
  assert.equal(dom.window.document.documentElement.style.getPropertyValue('--kanri-standalone-height'),'','ordinary Safari keeps native viewport rules');
