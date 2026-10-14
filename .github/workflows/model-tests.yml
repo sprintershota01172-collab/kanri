@@ -34,6 +34,8 @@ jobs:
         run: node web/scripts/test-export.cjs
       - name: Validate calendar picking and schedule display
         run: node web/scripts/test-calendar.cjs
+      - name: Validate 20-row Gantt, vehicle folders and meetings
+        run: node web/scripts/test-new-features.cjs
       - name: Validate iPhone full-screen PWA geometry
         run: node web/scripts/test-standalone.cjs
       - name: Install headless Chromium
