@@ -15,7 +15,7 @@ function start(cached={}){
 }
 function q(doc,selector){const node=doc.querySelector(selector);assert.ok(node,'Expected selector '+selector);return node}
 function click(doc,s){q(doc,s).click()}
-function pointer(win,el,type,x,y){const e=new win.MouseEvent(type,{bubbles:true,clientX:x,clientY:y,button:0});Object.defineProperty(e,'pointerId',{value:1});Object.defineProperty(e,'pointerType',{value:'touch'});el.dispatchEvent(e)}
+function pointer(win,el,type,x,y){const e=new win.MouseEvent(type,{bubbles:true,clientX:x,clientY:y,button:0});Object.defineProperty(e,'pointerId',{value:1});Object.defineProperty(e,'pointerType',{value:'touch'});if(typeof el['on'+type]==='function')el['on'+type](e);else el.dispatchEvent(e)}
 let dom=start(),d=dom.window.document;
 assert.equal(d.querySelectorAll('.folder-tile').length,0,'folders must not occupy board at rest');
 assert.equal(d.querySelectorAll('.quadrant').length,4,'original four-quadrant board retained');
