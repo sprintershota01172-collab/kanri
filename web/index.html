@@ -454,6 +454,29 @@ body,button,input,select{font-synthesis:none}
   /* Standalone does not authorize extending the app under inaccessible OS UI. */
   html,body,.device{height:100dvh!important;max-height:100dvh!important}
 }
+
+/* v1.9.4 — seamless iPhone bottom edge.
+   Match the real iOS home-indicator color to the nav, while keeping
+   touch targets INSIDE the visible WebKit viewport. */
+:root{--nav:#0D1626}
+.device.dark{--nav:#0D1626}
+@media(max-width:499px){
+  html,body{background:#0D1626!important}
+  .nav{background:#0D1626!important;border-bottom:0!important;box-shadow:none!important}
+  .device{background:var(--bg)}
+}
+@media(max-width:499px) and (display-mode:standalone){
+  /* Save four usable pixels for FOCUS/PLAN without touching the OS area. */
+  .device{padding-bottom:calc(54px + env(safe-area-inset-bottom,0px))!important}
+  .nav{
+    bottom:0!important;
+    height:calc(54px + env(safe-area-inset-bottom,0px))!important;
+    min-height:54px!important;
+    padding-bottom:env(safe-area-inset-bottom,0px)!important;
+    border-radius:16px 16px 0 0;
+  }
+  .nav-btn{min-height:48px!important;transform:translateY(2px)}
+}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div></div><button class="small-btn" id="sortButton" style="font-size:10px;font-weight:800">↕ 自動整理</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
