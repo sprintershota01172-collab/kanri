@@ -247,19 +247,19 @@ function AppInner(){
         if(next>=0&&next<order.length){selectTab(order[next]);void Haptics.selectionAsync()}
       }}>
       {tab==='board'&&<>
-        <View style={styles.screenHead}>
-          <Pressable accessibilityRole="button" accessibilityLabel="すべてのフォルダを開く" onPress={()=>setFolderMenuOpen(true)} style={{minHeight:37,flexDirection:'row',alignItems:'center',gap:3}}><Text style={typeStyle(theme.ink,18,'800')}>TODO</Text><Text style={typeStyle(theme.muted,12,'700')}>⌄</Text></Pressable>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} onTouchStart={e=>{e.stopPropagation();swipeStart.current=null}} style={{flex:1,minWidth:0,marginHorizontal:3}} contentContainerStyle={{alignItems:'center',gap:4}}>
+        <View style={[styles.screenHead,{gap:4}]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="すべてのフォルダを開く" onPress={()=>setFolderMenuOpen(true)} style={{minHeight:44,minWidth:66,justifyContent:'center',flexDirection:'row',alignItems:'center',gap:3}}><Text style={typeStyle(theme.ink,18,'800')}>TODO</Text><Text style={typeStyle(theme.muted,12,'700')}>⌄</Text></Pressable>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} onTouchStart={e=>{e.stopPropagation();swipeStart.current=null}} style={{flex:1,minWidth:0,marginHorizontal:2}} contentContainerStyle={{alignItems:'center',gap:5,paddingHorizontal:2}}>
             {([{id:null,name:'すべて'},{id:'work',name:'業務'},{id:'personal',name:'私用'},{id:'study',name:'学習'},{id:'other',name:'その他'}] as {id:string|null,name:string}[]).map(g=>
-              <Pressable key={g.id||'all'} accessibilityRole="button" accessibilityLabel={g.name+'に切り替える'} onPress={()=>selectFolder(g.id)} style={{minHeight:36,paddingHorizontal:8,justifyContent:'center',borderWidth:1,borderColor:workspace.folderId===g.id?'#90A8D5':theme.line,borderRadius:10,backgroundColor:workspace.folderId===g.id?theme.tint:theme.card}}>
+              <Pressable key={g.id||'all'} accessibilityRole="button" accessibilityLabel={g.name+'に切り替える'} onPress={()=>selectFolder(g.id)} style={{minHeight:44,minWidth:52,paddingHorizontal:9,justifyContent:'center',alignItems:'center',borderWidth:1,borderColor:workspace.folderId===g.id?'#90A8D5':theme.line,borderRadius:10,backgroundColor:workspace.folderId===g.id?theme.tint:theme.card}}>
                 <Text style={typeStyle(workspace.folderId===g.id?(prefs.dark?'#F4F7FF':'#456DAA'):theme.muted,10,'700')}>{g.name}</Text>
               </Pressable>
             )}
-            {(workspace.recentFolderIds||[]).filter(id=>!['work','personal','study','other'].includes(id)&&workspace.folders.some(f=>f.id===id)).slice(0,3).map(id=><Pressable key={'recent-'+id} accessibilityRole="button" accessibilityLabel={(workspace.folders.find(f=>f.id===id)?.name||'フォルダ')+'を開く'} onPress={()=>selectFolder(id)} style={{minHeight:36,paddingHorizontal:8,justifyContent:'center',borderWidth:1,borderColor:id===workspace.folderId?'#8FAADD':theme.line,borderRadius:10,backgroundColor:id===workspace.folderId?theme.tint:theme.card}}><Text numberOfLines={1} style={typeStyle(id===workspace.folderId?theme.ink:theme.muted,10,'700')}>{workspace.folders.find(f=>f.id===id)?.name||'フォルダ'}</Text></Pressable>)}
-            {workspace.folders.filter(f=>f.parentId===workspace.folderId&&!(workspace.recentFolderIds||[]).slice(0,3).includes(f.id)).map(f=><Pressable key={'child-'+f.id} onPress={()=>selectFolder(f.id)} style={{minHeight:36,paddingHorizontal:8,justifyContent:'center',borderRadius:10,backgroundColor:workspace.folderId===f.id?theme.tint:theme.card,borderWidth:1,borderColor:theme.line}}><Text numberOfLines={1} style={typeStyle(theme.muted,10,'700')}>{f.name}</Text></Pressable>)}
-            <Pressable onPress={()=>setNewFolderOpen(true)} style={{minHeight:36,justifyContent:'center',paddingHorizontal:8,backgroundColor:theme.tint,borderRadius:10}}><Text style={typeStyle(theme.ink,10,'800')} >＋ 子ツリー</Text></Pressable>
+            {(workspace.recentFolderIds||[]).filter(id=>!['work','personal','study','other'].includes(id)&&workspace.folders.some(f=>f.id===id)).slice(0,3).map(id=><Pressable key={'recent-'+id} accessibilityRole="button" accessibilityLabel={(workspace.folders.find(f=>f.id===id)?.name||'フォルダ')+'を開く'} onPress={()=>selectFolder(id)} style={{minHeight:44,paddingHorizontal:10,justifyContent:'center',borderWidth:1,borderColor:id===workspace.folderId?'#8FAADD':theme.line,borderRadius:10,backgroundColor:id===workspace.folderId?theme.tint:theme.card}}><Text numberOfLines={1} style={typeStyle(id===workspace.folderId?theme.ink:theme.muted,10,'700')}>{workspace.folders.find(f=>f.id===id)?.name||'フォルダ'}</Text></Pressable>)}
+            {workspace.folders.filter(f=>f.parentId===workspace.folderId&&!(workspace.recentFolderIds||[]).slice(0,3).includes(f.id)).map(f=><Pressable key={'child-'+f.id} onPress={()=>selectFolder(f.id)} style={{minHeight:44,paddingHorizontal:10,justifyContent:'center',borderRadius:10,backgroundColor:workspace.folderId===f.id?theme.tint:theme.card,borderWidth:1,borderColor:theme.line}}><Text numberOfLines={1} style={typeStyle(theme.muted,10,'700')}>{f.name}</Text></Pressable>)}
           </ScrollView>
-          <IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/>
+          <Pressable onPress={()=>setNewFolderOpen(true)} accessibilityLabel="子ツリーを追加" style={{minHeight:44,minWidth:62,justifyContent:'center',alignItems:'center',paddingHorizontal:5,backgroundColor:theme.tint,borderRadius:10,borderWidth:1,borderColor:theme.line}}><Text style={typeStyle(theme.ink,10,'800')}>＋ ツリー</Text></Pressable>
+          <Pressable onPress={()=>{setTasks(t=>[...t]);toastMessage('優先順位を再計算しました')}} accessibilityLabel="優先順位を自動整理" style={{minHeight:44,minWidth:34,justifyContent:'center',alignItems:'center',backgroundColor:theme.card,borderRadius:10,borderWidth:1,borderColor:theme.line}}><Text style={typeStyle(theme.ink,17,'800')}>↕</Text></Pressable>
         </View>
         <View ref={boardRef} style={{flex:1,minHeight:0}}><View style={styles.board}>
           {[0,1,2,3].map(q=>{
@@ -433,21 +433,22 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
     })}</View>}
     {mode==='gantt'?<View style={[styles.ganttBox,{backgroundColor:theme.card,borderColor:theme.line,padding:9}]}>
       <View style={{flexDirection:'row',flex:1,minHeight:0,alignSelf:'stretch',borderWidth:1,borderColor:theme.line,borderRadius:9,overflow:'hidden'}}>
-        <View style={{width:104,flexShrink:0,backgroundColor:theme.card,zIndex:2,height:'100%'}}>
+        <View style={{width:224,flexShrink:0,backgroundColor:theme.card,zIndex:2,height:'100%'}}>
           <View style={{height:46,justifyContent:'center',paddingLeft:7,backgroundColor:theme.tint,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line}}>
-            <Text style={typeStyle(theme.ink,10,'800')}>タスク / LT</Text>
+            <Text style={typeStyle(theme.ink,10,'800')}>タスク名　　　　　　　 LT</Text>
           </View>
           <ScrollView ref={ganttNamesRef} nestedScrollEnabled scrollEventThrottle={16} bounces={false} showsVerticalScrollIndicator={ganttItems.length>20} onScroll={e=>syncGanttY('names',e.nativeEvent.contentOffset.y)} onLayout={e=>{const h=e.nativeEvent.layout.height;if(h>0&&Math.abs(ganttBodyHeight-h)>1)setGanttBodyHeight(h)}} style={{flex:1,minHeight:0}}>
           {ganttVisible.map(t=><View key={t.id} style={{height:ganttRowHeight,flexDirection:'row',alignItems:'stretch',borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line}}>
             {!t.event&&<Pressable onPress={()=>onGanttComplete(t)} accessibilityRole="button" accessibilityLabel={t.title+'を完了'} style={{width:24,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint}}><Text style={typeStyle('#70A094',14,'800')}>✓</Text></Pressable>}
-            <Pressable onPress={()=>onOpen(t)} style={{flex:1,minWidth:0,justifyContent:'center',paddingHorizontal:4}}>
-              <Text numberOfLines={1} style={typeStyle(theme.ink,10,'800')}>{t.title}</Text><Text style={typeStyle(theme.muted,8)}>{t.event?'予定 '+(t.scheduledStart?.slice(11,16)||''):'LT '+(t.leadDays||1)+'日'}</Text>
+            <Pressable onPress={()=>onOpen(t)} style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:3,paddingHorizontal:3}}>
+              <Text numberOfLines={1} ellipsizeMode="tail" style={[typeStyle(theme.ink,9,'800'),{flex:1,minWidth:0}]}>{t.title}</Text>
+              <Text numberOfLines={1} style={[typeStyle(theme.muted,8),{width:28,textAlign:'center'}]}>{t.event?'予定':'LT '+(t.leadDays||1)}</Text>
             </Pressable>
           </View>)}
           {Array.from({length:ganttBlankCount},(_,i)=><View key={'blank-name-'+i} style={{height:ganttRowHeight,backgroundColor:theme.card,borderBottomWidth:1,borderRightWidth:1,borderColor:theme.line}}/>)}
           </ScrollView>
         </View>
-        <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={true} bounces={false} keyboardShouldPersistTaps="always" style={{flex:1,minWidth:0}} contentContainerStyle={{height:'100%'}}>
+        <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={true} bounces={false} directionalLockEnabled keyboardShouldPersistTaps="always" style={{flex:1,minWidth:0}} contentContainerStyle={{height:'100%',minWidth:daysInMonth*36}}>
           <View style={{width:daysInMonth*36,height:'100%'}}>
             <View style={{flexDirection:'row',height:46,backgroundColor:theme.tint}}>
               {Array.from({length:daysInMonth},(_,i)=>{
@@ -684,7 +685,15 @@ function TaskEditor({entry,initialQuadrant,initialDueDate,prefs,theme,insetTop,h
     <View style={styles.overlay}><Pressable style={StyleSheet.absoluteFill} onPress={onClose}/><Animated.View entering={FadeInDown.springify().damping(19)} style={[styles.editorSheet,{top:insetTop+12,maxHeight:height-insetTop-35,backgroundColor:theme.card}]}>
       <View style={styles.flexBetween}><View style={{flexDirection:'row',alignItems:'center',gap:10,flexShrink:1}}><Pressable onPress={onClose} accessibilityRole='button' accessibilityLabel='保存せず戻る' hitSlop={8} style={{minWidth:44,minHeight:44,borderRadius:12,borderWidth:1,borderColor:theme.line,backgroundColor:theme.bg,justifyContent:'center',alignItems:'center'}}><Text style={typeStyle(theme.ink,25,'500')}>×</Text></Pressable><Text style={typeStyle(theme.ink,16,'800')}>{original?'タスクを編集':'タスクを追加'}</Text></View><Pressable onPress={commit} hitSlop={8}><Text style={typeStyle('#5879B5',12,'800')}>保存 ✓</Text></Pressable></View>
       <Text style={[styles.formLabel,{color:theme.muted}]}>TASK NAME</Text><TextInput value={title} onChangeText={setTitle} maxLength={70} placeholder="何をする？" placeholderTextColor={theme.muted} autoCorrect={false} style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
-      <Text style={[styles.formLabel,{color:theme.muted}]}>重要度・緊急度</Text><View style={styles.formChoices}><Chip theme={theme} title="◆ 重要" selected={important} onPress={()=>setImportant(!important)}/><Chip theme={theme} title="⚡ 緊急" selected={urgent} onPress={()=>setUrgent(!urgent)}/></View>
+      <Text style={[styles.formLabel,{color:theme.muted}]}>重要度・緊急度（4分類から選択）</Text>
+       <View style={{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:5}}>
+         {(['重要・緊急','重要・余裕あり','緊急・軽め','優先度低め'] as const).map((label,i)=>{
+           const selected=(important?(urgent?0:1):(urgent?2:3))===i;
+           return <Pressable key={i} accessibilityRole="radio" accessibilityState={{checked:selected}} onPress={()=>{setImportant(i<2);setUrgent(i===0||i===2)}} style={{width:'48.5%',minHeight:45,borderWidth:1,borderRadius:11,alignItems:'center',justifyContent:'center',backgroundColor:selected?theme.tint:theme.bg,borderColor:selected?'#5879B5':theme.line}}>
+             <Text style={typeStyle(selected?(prefs.dark?'#E4EDFF':'#4A6AA5'):theme.ink,11,'700')}>{label}</Text>
+           </Pressable>;
+         })}
+       </View>
       <Text style={[styles.formLabel,{color:theme.muted}]}>フォルダ</Text>
       <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} style={{flexGrow:0}} contentContainerStyle={{flexDirection:'row',gap:6,paddingVertical:2}}>
         <Pressable onPress={()=>setSelectedFolder(null)} style={{minHeight:44,paddingHorizontal:10,justifyContent:'center',borderRadius:10,backgroundColor:selectedFolder===null?theme.tint:theme.bg,borderWidth:1,borderColor:theme.line}}><Text style={typeStyle(theme.ink,11,'700')}>すべて</Text></Pressable>
