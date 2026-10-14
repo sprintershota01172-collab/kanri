@@ -251,9 +251,33 @@ body{min-height:0;height:100%;height:100dvh;overflow:hidden;background:#101d32}
 .confirm-danger{min-height:44px;flex:1;background:#B94756;color:#fff!important;border-radius:12px;font-weight:800;font-size:13px}
 .folder-location{margin-top:8px;font-size:11px;color:var(--muted)}
 .device.dark .task-wrap,.device.dark .folder-wrap{background:#A33D4C}
+
+/* v1.7.1: v1.6 layout restored; folder navigation lives in an on-demand sheet. */
+.folder-heading{font:inherit;font-size:17px;font-weight:800;letter-spacing:-.45px;color:var(--ink)!important;min-height:37px;display:inline-flex;align-items:center;gap:5px;background:transparent;padding:0 2px 0 0}
+.folder-heading .folder-caret{font-size:13px;color:var(--muted);margin-top:2px}
+.folder-dialog-path{display:flex;align-items:center;gap:5px;min-height:39px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.folder-dialog-path::-webkit-scrollbar{display:none}
+.folder-list{display:flex;flex-direction:column;gap:5px;min-height:0}
+.folder-list .folder-wrap{display:block;width:100%;max-width:none;flex:none;border-radius:11px;background:var(--card);position:relative;overflow:hidden}
+.folder-list .folder-tile{display:flex;width:100%;max-width:none;min-width:0;height:47px;min-height:47px;position:relative;z-index:1;background:var(--card);color:var(--ink);border:1px solid var(--line);gap:9px;padding:0 12px;transition:transform .18s ease-out}
+.folder-list .folder-tile span:nth-child(2){flex:1;text-align:left}
+.folder-list .folder-arrow{font-size:19px;color:var(--muted)}
+.folder-list .folder-trash{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s}
+.folder-list .folder-wrap:is(.swiping,.revealed) .folder-trash{opacity:1;visibility:visible;pointer-events:auto}
+.folder-list-empty{color:var(--muted);font-size:12px;display:flex;align-items:center;justify-content:center;height:46px}
+.folder-create-compact{min-height:44px;padding:0 9px;color:var(--ink);font-size:12px;font-weight:800;background:var(--tint);border-radius:11px}
+.folder-pages{display:flex;align-items:center;justify-content:center;gap:15px;margin-top:7px;font-size:11px;color:var(--muted)}
+.folder-pages button{min-height:36px;min-width:44px;font-size:19px}
+/* Delete stays fully hidden until an intentional left swipe. */
+.task-wrap{position:relative;width:100%;display:block;background:var(--card)!important;overflow:hidden;border-radius:10px}
+.task-wrap .task-card{position:relative;width:100%;z-index:1;margin:0;display:block;box-sizing:border-box}
+.task-swipe-delete{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease}
+.task-wrap:is(.swiping,.revealed) .task-swipe-delete{opacity:1;visibility:visible;pointer-events:auto}
+.folder-wrap:not(.swiping):not(.revealed) .folder-trash,.task-wrap:not(.swiping):not(.revealed) .task-swipe-delete{display:none!important}
+.device.dark .folder-heading,.device.dark .folder-create-compact{color:var(--ink)!important}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
-<section class="screen active" id="boardScreen"><div class="screen-head"><div><div class="screen-title">TODO</div></div><button class="small-btn" id="sortButton" style="font-size:10px;font-weight:800">↕ 自動整理</button></div><div class="folder-browser" id="folderBrowser"></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
+<section class="screen active" id="boardScreen"><div class="screen-head"><div><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span class="folder-caret">⌄</span></button></div><button class="small-btn" id="sortButton" style="font-size:10px;font-weight:800">↕ 自動整理</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
 <section class="screen" id="calendarScreen"><div class="screen-head"><div class="screen-title">予定</div><div class="pill-group" id="calModes"><button data-mode="month" class="selected">月</button><button data-mode="week">週</button><button data-mode="gantt">ガント</button></div></div><div class="cal-content" id="calendarContent"></div></section>
 <section class="screen" id="puzzleScreen"><div class="screen-head"><div><div class="screen-title">PUZZLE</div></div><button id="undoTop" class="small-btn" style="font-size:10px">↶ 戻す</button></div><div class="puzzle-content" id="puzzleContent"></div></section>
 <section class="screen" id="settingsScreen"><div class="screen-head"><div><div class="screen-title">設定</div></div></div><div class="settings-content" id="settingsContent"></div></section>
@@ -354,24 +378,38 @@ function wireFolderSwipe(el){
   });
   el.addEventListener('pointercancel',()=>{if(!el.parentElement.classList.contains('revealed'))el.style.transform=''});
 }
-function renderFolders(){
-  const current=getFolder(currentFolderId),path=folderPath(currentFolderId),children=folders.filter(f=>f.parentId===currentFolderId);
-  let html='<div class="folder-path"><button class="folder-crumb '+(!current?'current':'')+'" data-folder-root="1">⌂ すべて</button>';
-  for(const f of path)html+='<span class="folder-sep">›</span><button class="folder-crumb '+(currentFolderId===f.id?'current':'')+'" data-folder-path="'+esc(f.id)+'">'+esc(f.name)+'</button>';
-  html+='<button class="folder-create" id="folderAdd" aria-label="フォルダを追加">＋</button></div>';
-  if(children.length)html+='<div class="folder-strip">'+children.map(f=>
-    '<div class="folder-wrap"><button class="folder-trash" data-folder-trash="'+esc(f.id)+'" aria-label="'+esc(f.name)+'を削除">削除</button>'+
-    '<button class="folder-tile" data-folder-open="'+esc(f.id)+'"><span class="folder-icon">▰</span><span>'+esc(f.name)+'</span></button></div>'
-  ).join('')+'</div>';
-  $('#folderBrowser').innerHTML=html;
-  $('[data-folder-root]').onclick=()=>setFolder(null);
-  $$('[data-folder-path]').forEach(el=>el.onclick=()=>setFolder(el.dataset.folderPath));
+function openFolderBrowser(page=0){
+  const current=getFolder(currentFolderId),path=folderPath(currentFolderId);
+  const all=folders.filter(f=>f.parentId===currentFolderId),pageSize=6;
+  const pages=Math.max(1,Math.ceil(all.length/pageSize)),p=Math.max(0,Math.min(page,pages-1));
+  let body='<div class="sheet-head"><div class="sheet-head-main"><button type="button" id="folderBrowserClose" class="sheet-dismiss" aria-label="戻る">×</button><strong>フォルダ</strong></div><button type="button" id="folderAdd" class="folder-create-compact">＋ 追加</button></div>';
+  body+='<div class="folder-dialog-path"><button data-folder-root="1" class="folder-crumb '+(!current?'current':'')+'">すべて</button>';
+  for(const f of path)body+='<span class="folder-sep">›</span><button class="folder-crumb '+(f.id===currentFolderId?'current':'')+'" data-folder-path="'+esc(f.id)+'">'+esc(f.name)+'</button>';
+  body+='</div><div class="folder-list">';
+  if(all.length){
+    body+=all.slice(p*pageSize,(p+1)*pageSize).map(f=>
+      '<div class="folder-wrap"><button type="button" class="folder-trash" data-folder-trash="'+esc(f.id)+'" aria-label="'+esc(f.name)+'を削除">削除</button>'+
+      '<button type="button" class="folder-tile" data-folder-open="'+esc(f.id)+'"><span class="folder-icon">▰</span><span>'+esc(f.name)+'</span><span class="folder-arrow">›</span></button></div>'
+    ).join('');
+  }else body+='<div class="folder-list-empty">フォルダなし</div>';
+  body+='</div>';
+  if(pages>1)body+='<div class="folder-pages"><button id="folderPrev" '+(p===0?'disabled':'')+'>‹</button><span>'+(p+1)+'/'+pages+'</span><button id="folderNext" '+(p>=pages-1?'disabled':'')+'>›</button></div>';
+  body+='<div class="sheet-actions"><button type="button" id="folderViewTasks" class="primary">この場所のタスクを見る</button></div>';
+  $('#sheet').innerHTML=body;openModal();
+  $('#folderBrowserClose').onclick=closeModal;
   $('#folderAdd').onclick=createFolderSheet;
-  $$('[data-folder-open]').forEach(el=>{wireFolderSwipe(el);el.onclick=()=>{if(el.dataset.swiped){el.dataset.swiped='';return}setFolder(el.dataset.folderOpen)}});
+  $('#folderViewTasks').onclick=closeModal;
+  $('[data-folder-root]').onclick=()=>{setFolder(null);openFolderBrowser()};
+  $$('[data-folder-path]').forEach(el=>el.onclick=()=>{setFolder(el.dataset.folderPath);openFolderBrowser()});
+  $$('[data-folder-open]').forEach(el=>{
+    wireFolderSwipe(el);
+    el.onclick=()=>{if(el.dataset.swiped){el.dataset.swiped='';return}setFolder(el.dataset.folderOpen);openFolderBrowser()};
+  });
   $$('[data-folder-trash]').forEach(el=>el.onclick=e=>{e.stopPropagation();confirmFolderRemoval(el.dataset.folderTrash)});
+  $('#folderPrev')?.addEventListener('click',()=>openFolderBrowser(p-1));
+  $('#folderNext')?.addEventListener('click',()=>openFolderBrowser(p+1));
 }
-
-function renderBoard(){renderFolders();$('#boardScreen .board-foot').hidden=!tasks.some(t=>t.pin);let html='';for(let q=0;q<4;q++){const items=sorted(tasks.filter(t=>!t.done&&quadrant(t)===q&&(currentFolderId===null||taskFolderId(t)===currentFolderId)));const pageSize=window.innerHeight>=820?4:window.innerHeight>=690?3:2;const pages=Math.max(1,Math.ceil(items.length/pageSize));qpages[q]=Math.min(qpages[q],pages-1);let showing=items.slice(qpages[q]*pageSize,qpages[q]*pageSize+pageSize);html+=`<section class="quadrant" data-q="${q}" role="button" tabindex="0" aria-label="${esc(prefs.names[q])} にタスクを追加"><div class="quad-title"><strong>${esc(prefs.names[q])}</strong><span>${items.length.toString().padStart(2,'0')}</span></div><div class="accent" style="background:${palette[q]}"></div><div class="task-area">${showing.length?showing.map(t=>`<div class="task-wrap"><button type="button" class="task-swipe-delete" data-task-trash="${t.id}" aria-label="${esc(t.title)}を削除">削除</button><article class="task-card" data-task="${t.id}"><div class="task-line"><button aria-label="完了" class="check" data-done="${t.id}"></button><div class="tname">${esc(t.title)}</div><button class="tiny-pin" data-top="${t.id}" aria-label="最上位に固定">${t.pin?'◆':'◇'}</button></div><div class="meta">${esc(dueLabel(t.due))} · ${t.duration}分 · ${score(t)}pt</div></article></div>`).join(''):'<div class="empty"><span aria-hidden="true">＋</span></div>'}</div><div class="pager"><button data-page="${q}" data-dir="-1" ${qpages[q]<=0?'disabled':''}>‹</button><span>${qpages[q]+1}/${pages}</span><button data-page="${q}" data-dir="1" ${qpages[q]>=pages-1?'disabled':''}>›</button></div></section>`}$('#board').innerHTML=html;$$('[data-page]').forEach(el=>el.onclick=()=>{qpages[+el.dataset.page]+=+el.dataset.dir;renderBoard()});$$('.quadrant').forEach(el=>{el.onclick=e=>{if(e.target.closest('button,.task-card'))return;openEdit(null,+el.dataset.q)};el.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target===el){e.preventDefault();openEdit(null,+el.dataset.q)}}});$$('.task-card').forEach(setupDrag);$$('[data-task-trash]').forEach(el=>el.onclick=e=>{e.stopPropagation();confirmTaskRemoval(el.dataset.taskTrash)});$$('[data-done]').forEach(el=>el.addEventListener('pointerdown',e=>e.stopPropagation()));$$('[data-top]').forEach(el=>el.addEventListener('pointerdown',e=>e.stopPropagation()));$$('[data-top]').forEach(el=>el.onclick=e=>{e.stopPropagation();const t=tasks.find(t=>t.id===el.dataset.top);if(!t)return;let pinned=tasks.filter(x=>x.pin);t.pin=true;t.rank=Math.min(0,...pinned.map(x=>x.rank??0))-1;save();render();flash('最上位に固定しました')});$$('[data-done]').forEach(el=>el.onclick=e=>{e.stopPropagation();const t=tasks.find(t=>t.id===el.dataset.done);if(!t)return;mutate(t.id,{done:true});haptic();setUndo('タスクを完了しました',()=>mutate(t.id,{done:false}))})}
+function renderBoard(){$("#folderMenuButton").onclick=()=>openFolderBrowser();$("#folderMenuButton").setAttribute("aria-label",(getFolder(currentFolderId)?.name||"すべて")+"：フォルダを開く");$('#boardScreen .board-foot').hidden=!tasks.some(t=>t.pin);let html='';for(let q=0;q<4;q++){const items=sorted(tasks.filter(t=>!t.done&&quadrant(t)===q&&(currentFolderId===null||taskFolderId(t)===currentFolderId)));const pageSize=window.innerHeight>=820?4:window.innerHeight>=690?3:2;const pages=Math.max(1,Math.ceil(items.length/pageSize));qpages[q]=Math.min(qpages[q],pages-1);let showing=items.slice(qpages[q]*pageSize,qpages[q]*pageSize+pageSize);html+=`<section class="quadrant" data-q="${q}" role="button" tabindex="0" aria-label="${esc(prefs.names[q])} にタスクを追加"><div class="quad-title"><strong>${esc(prefs.names[q])}</strong><span>${items.length.toString().padStart(2,'0')}</span></div><div class="accent" style="background:${palette[q]}"></div><div class="task-area">${showing.length?showing.map(t=>`<div class="task-wrap"><button type="button" class="task-swipe-delete" data-task-trash="${t.id}" aria-label="${esc(t.title)}を削除">削除</button><article class="task-card" data-task="${t.id}"><div class="task-line"><button aria-label="完了" class="check" data-done="${t.id}"></button><div class="tname">${esc(t.title)}</div><button class="tiny-pin" data-top="${t.id}" aria-label="最上位に固定">${t.pin?'◆':'◇'}</button></div><div class="meta">${esc(dueLabel(t.due))} · ${t.duration}分 · ${score(t)}pt</div></article></div>`).join(''):'<div class="empty"><span aria-hidden="true">＋</span></div>'}</div><div class="pager"><button data-page="${q}" data-dir="-1" ${qpages[q]<=0?'disabled':''}>‹</button><span>${qpages[q]+1}/${pages}</span><button data-page="${q}" data-dir="1" ${qpages[q]>=pages-1?'disabled':''}>›</button></div></section>`}$('#board').innerHTML=html;$$('[data-page]').forEach(el=>el.onclick=()=>{qpages[+el.dataset.page]+=+el.dataset.dir;renderBoard()});$$('.quadrant').forEach(el=>{el.onclick=e=>{if(e.target.closest('button,.task-card'))return;openEdit(null,+el.dataset.q)};el.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target===el){e.preventDefault();openEdit(null,+el.dataset.q)}}});$$('.task-card').forEach(setupDrag);$$('[data-task-trash]').forEach(el=>el.onclick=e=>{e.stopPropagation();confirmTaskRemoval(el.dataset.taskTrash)});$$('[data-done]').forEach(el=>el.addEventListener('pointerdown',e=>e.stopPropagation()));$$('[data-top]').forEach(el=>el.addEventListener('pointerdown',e=>e.stopPropagation()));$$('[data-top]').forEach(el=>el.onclick=e=>{e.stopPropagation();const t=tasks.find(t=>t.id===el.dataset.top);if(!t)return;let pinned=tasks.filter(x=>x.pin);t.pin=true;t.rank=Math.min(0,...pinned.map(x=>x.rank??0))-1;save();render();flash('最上位に固定しました')});$$('[data-done]').forEach(el=>el.onclick=e=>{e.stopPropagation();const t=tasks.find(t=>t.id===el.dataset.done);if(!t)return;mutate(t.id,{done:true});haptic();setUndo('タスクを完了しました',()=>mutate(t.id,{done:false}))})}
 function moveQuadrant(t,q){if(prefs.mode==='group'){t.group=['仕事','プライベート','学習','その他'][q];t.folderId=['work','personal','study','other'][q]}else{t.important=q<=1;t.urgent=q===0||q===2}t.pin=false;t.rank=null;save();render();haptic();flash('エリアを移動しました')}
 function setupDrag(el){
   let sx=0,sy=0,dragged=false,swiping=false,timer=null,armed=false;
