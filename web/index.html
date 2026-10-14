@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"><meta name="theme-color" content="#F4F5F6"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.png"><title>kanri</title>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"><meta name="theme-color" content="#F4F5F6"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.png"><title>kanri</title>
 <style>
 :root{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;--bg:#f4f5f6;--card:#fff;--ink:#17243b;--muted:#8a94a5;--line:#e8ebef;--tint:#e7edf9;--blue:#506fa9;--gold:#c3a56c;--green:#6c9e92;--red:#c67b7f;--nav:#101d32;--safe:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{height:100%;width:100%;margin:0;overflow:hidden;overscroll-behavior:none}body{display:flex;align-items:center;justify-content:center;background:#172239;color:var(--ink);position:fixed;inset:0}button,input,select{font:inherit}button{border:0;background:transparent;color:inherit;cursor:pointer}button:active{opacity:.75}.device{position:relative;width:min(100%,430px);height:min(100%,920px);background:var(--bg);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 16px 80px #050c1930}.device::before{content:"";position:absolute;top:0;inset-inline:0;height:2px;background:linear-gradient(90deg,#416fb3,#b9a276);z-index:5}@media(min-width:500px){.device{border:7px solid #0b1322;border-radius:40px;height:min(94vh,920px)}body{padding:8px}}.device.dark{--bg:#0f1727;--card:#1b283a;--ink:#eef2f9;--muted:#9aa6b9;--line:#29364a;--tint:#263a5a;--nav:#080e1a}.top{flex:none;padding:18px 20px 8px;position:relative;z-index:1}.header{display:flex;justify-content:space-between;align-items:center}.brand{font-size:30px;font-weight:800;letter-spacing:-1.8px;line-height:1}.brand i{font-style:normal;color:var(--blue)}.eyebrow{font-size:10px;font-weight:750;letter-spacing:2.3px;color:var(--muted);margin-top:4px}.today{font-size:10px;color:var(--muted);font-weight:700}.small-btn{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 10px;min-width:36px;box-shadow:0 2px 12px #101b2c07}.hero{margin-top:13px;background:var(--nav);color:#fff;border-radius:21px;min-height:83px;display:flex;justify-content:space-between;align-items:center;padding:12px 18px}.hero-label{font-size:10px;color:#93a3bf;letter-spacing:1.5px;font-weight:800}.hero-main{font-weight:750;font-size:18px;letter-spacing:-.5px;margin-top:5px}.hero-sub{font-size:10px;color:#bdc7d9;margin-top:4px}.meter{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#9bb4ec var(--progress,0%),#35445d 0);position:relative}.meter::before{content:"";position:absolute;inset:6px;background:var(--nav);border-radius:50%}.meter span{position:relative;font-size:13px;font-weight:800}.main{flex:1;min-height:0;display:flex;flex-direction:column;padding:4px 17px 10px;overflow:hidden}.screen{display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden}.screen.active{display:flex}.screen-head{display:flex;align-items:center;justify-content:space-between;min-height:39px;gap:6px}.screen-title{font-size:17px;font-weight:800;letter-spacing:-.45px}.sub{font-size:10px;color:var(--muted);font-weight:650}.pill-group{display:flex;gap:3px;background:var(--line);padding:3px;border-radius:14px}.pill-group button{border-radius:10px;padding:7px 10px;font-size:11px;font-weight:750;color:var(--muted)}.pill-group button.selected{background:var(--card);color:var(--ink);box-shadow:0 1px 4px #00000013}.board{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:9px;flex:1;min-height:0;padding-top:8px}.quadrant{min-height:0;position:relative;background:var(--card);border:1px solid var(--line);border-radius:19px;padding:12px 10px 8px;display:flex;flex-direction:column;transition:border-color .18s,transform .18s}.quadrant.over{border:2px dashed var(--blue);background:var(--tint);transform:scale(1.02)}.quad-title{display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:20px}.quad-title strong{font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:calc(100% - 26px)}.quad-title span{font-size:10px;color:var(--muted);font-weight:800}.accent{width:21px;height:3px;border-radius:4px;margin-top:5px}.task-area{display:flex;flex:1;min-height:0;flex-direction:column;gap:6px;margin-top:9px;overflow:hidden}.task-card{position:relative;background:var(--bg);border-radius:11px;border:1px solid var(--line);padding:8px 7px;min-height:52px;touch-action:none;user-select:none;cursor:grab;transition:transform .16s,box-shadow .16s}.task-card.dragging{opacity:.75;box-shadow:0 10px 30px #12244340;z-index:20}.task-line{display:flex;align-items:flex-start;gap:5px}.check{width:15px;height:15px;border:1.7px solid #bdc6d5;border-radius:50%;flex:none;display:grid;place-items:center;font-size:9px;line-height:1;background:var(--card);color:var(--green)}.check.done{border-color:var(--green);background:var(--green);color:#fff}.tname{font-size:11px;font-weight:750;line-height:1.35;flex:1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.meta{font-size:9px;font-weight:650;color:var(--muted);margin-left:20px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tiny-pin{color:var(--gold);font-size:10px}.empty{display:flex;justify-content:center;align-items:center;flex:1;color:var(--muted);font-size:10px;text-align:center;line-height:1.6}.pager{min-height:18px;display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-top:auto}.pager button{font-size:13px;color:var(--muted);padding:0 4px}.pager span{font-size:9px;color:var(--muted)}.board-foot{display:flex;justify-content:space-between;align-items:center;padding:9px 1px 0}.link{font-size:11px;color:var(--blue);font-weight:800}.hint{font-size:10px;color:var(--muted)}.nav{height:calc(65px + var(--safe));padding-bottom:var(--safe);flex:none;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;background:var(--nav);color:#a2aec0;border-radius:23px 23px 0 0}.nav-btn{display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;font-size:9px;font-weight:700;min-width:0;height:100%}.nav-btn.active{color:#fff}.nav-btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.add-main{width:50px;height:50px;border-radius:17px;background:#7195d9;color:#fff;font-size:31px;line-height:1;display:grid;place-items:center;box-shadow:0 7px 17px #142c575e;transform:translateY(-10px)}.cal-content,.puzzle-content,.settings-content{min-height:0;flex:1;display:flex;flex-direction:column}.date-nav{display:flex;align-items:center;justify-content:space-between;padding:9px 2px 10px}.date-nav strong{font-size:15px}.date-nav button{font-size:20px;padding:0 12px}.month-box{background:var(--card);border:1px solid var(--line);border-radius:19px;padding:12px 9px;flex:none}.week-labels,.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.week-labels div{text-align:center;color:var(--muted);font-size:10px;font-weight:800;padding-bottom:8px}.day{height:clamp(28px,5.3vh,43px);min-height:27px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;font-size:11px;font-weight:650;cursor:pointer}.day.outside{opacity:.25}.day.sel{color:#fff;background:var(--blue)}.day.today:not(.sel){background:var(--tint);color:var(--blue)}.day-dots{display:flex;gap:2px;height:3px}.dot{height:3px;width:3px;border-radius:50%;background:var(--green)}.day.sel .dot{background:#fff}.agenda{margin-top:11px;flex:1;min-height:0;display:flex;flex-direction:column}.agenda-head{display:flex;justify-content:space-between;align-items:center;padding:3px}.agenda-list{flex:1;min-height:0;display:flex;flex-direction:column;gap:7px;margin-top:5px;overflow:hidden}.agenda-task{padding:11px 12px;border-radius:13px;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;gap:10px;min-height:53px}.agenda-task .line{height:28px;width:3px;border-radius:4px;background:var(--blue)}.agenda-task strong{font-size:12px;display:block}.agenda-task span{font-size:10px;color:var(--muted)}.week-cards{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;padding:10px 0}.week-day{min-height:77px;background:var(--card);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;justify-content:space-around;align-items:center;font-size:9px;color:var(--muted);font-weight:750}.week-day b{font-size:16px;color:var(--ink)}.week-day.active{background:var(--tint);border-color:#8ca9df}.week-day em{font-style:normal;font-size:10px;color:var(--blue)}.gantt{background:var(--card);border:1px solid var(--line);border-radius:17px;padding:12px 10px;flex:1;display:flex;flex-direction:column;min-height:0}.gantt-cols{display:grid;grid-template-columns:90px repeat(7,1fr);gap:1px;font-size:9px;color:var(--muted);font-weight:700;text-align:center;padding-bottom:11px;border-bottom:1px solid var(--line)}.gantt-row{display:grid;grid-template-columns:90px 1fr;gap:5px;align-items:center;min-height:49px;border-bottom:1px solid var(--line)}.gantt-name{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gantt-grid{height:28px;display:grid;grid-template-columns:repeat(7,1fr);position:relative;background:repeating-linear-gradient(to right,transparent 0,transparent calc(14.2857% - 1px),var(--line) calc(14.2857% - 1px),var(--line) 14.2857%)}.gantt-bar{position:absolute;top:8px;height:13px;border-radius:8px;background:var(--blue);min-width:8px}.gantt-due{position:absolute;top:1px;height:25px;width:2px;background:var(--red)}.puzzle-top{background:var(--nav);color:#fff;border-radius:18px;padding:11px;margin-top:9px;flex:none}.puzzle-tophead{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:750}.puzzle-tophead span{font-size:10px;color:#aab9ce}.inbox{display:flex;gap:7px;margin-top:9px;min-height:48px}.puzzle-chip{flex:1;min-width:0;max-width:49%;border:1px solid #51617b;background:#26374f;border-radius:10px;color:#fff;padding:8px 9px;touch-action:none;user-select:none;text-align:left}.puzzle-chip.active{outline:2px solid #9ab6ee}.puzzle-chip strong{font-size:10px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.puzzle-chip span{color:#c0cce0;font-size:9px}.puzzle-day{display:flex;align-items:center;justify-content:space-between;min-height:43px}.time-grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:8px}.time-panel{position:relative;border-radius:15px;background:var(--card);border:1px solid var(--line);padding:8px 6px 6px 31px;display:grid;grid-template-rows:repeat(12,1fr);min-height:0;overflow:hidden}.time-slot{position:relative;border-top:1px dashed var(--line);cursor:pointer;min-height:0}.time-label{position:absolute;left:-25px;top:-7px;font-size:8px;color:var(--muted);pointer-events:none}.slot-hover{background:var(--tint)}.scheduled-chip{position:absolute;left:31px;right:6px;border-radius:7px;background:var(--blue);color:#fff;padding:4px 5px;z-index:2;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:1px}.scheduled-chip strong{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.scheduled-chip small{font-size:8px;color:#e4ebfb}.puzzle-foot{display:flex;align-items:center;justify-content:space-between;padding-top:9px;min-height:34px}.s-card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:12px 14px;margin-top:9px}.s-row{display:flex;align-items:center;justify-content:space-between;min-height:38px;gap:8px;font-size:12px;font-weight:650}.s-row+.s-row{border-top:1px solid var(--line)}.s-row button,.s-row select{font-size:11px;color:var(--blue);font-weight:750;background:var(--tint);padding:8px 10px;border-radius:10px;max-width:60%}.s-row input{max-width:55%;border:1px solid var(--line);color:var(--ink);background:var(--bg);border-radius:8px;padding:7px;font-size:11px}.toggle{position:relative;width:38px;height:22px;border-radius:20px;background:#bcc4cf;flex:none}.toggle.on{background:var(--blue)}.toggle::before{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .18s}.toggle.on::before{transform:translateX(16px)}.progress-stat{margin-top:12px;padding:14px;border-radius:16px;background:var(--nav);color:#fff}.progress-stat strong{font-size:24px}.progress-stat span{font-size:11px;color:#bccbdf;margin-left:8px}.modal-layer{position:absolute;inset:0;background:#040a16a9;z-index:50;display:none;align-items:flex-start;justify-content:center;padding:calc(20px + env(safe-area-inset-top,0px)) 15px 10px}.modal-layer.open{display:flex}.sheet{position:relative;background:var(--card);border-radius:23px;padding:15px;width:100%;max-height:calc(100% - 8px);box-shadow:0 20px 65px #0005;overflow:hidden;animation:pop .24s cubic-bezier(.19,.88,.3,1.15)}@keyframes pop{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}.sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}.sheet-head strong{font-size:16px}.sheet-head button{color:var(--blue);font-size:12px;font-weight:800}
@@ -381,99 +381,80 @@ body,button,input,select{font-synthesis:none}
 }
 
 
-/* v1.9.6 — iPhone layout adapted from tabi/mobile-input.js and styles.css.
-   A single --vh (measured while the keyboard is closed) drives the shell.
-   Bottom navigation has its own flex row, plus a separately reserved safe area. */
-:root{--nav:#0D1626;--safe-bottom:env(safe-area-inset-bottom,0px)}
-.device.dark{--nav:#0D1626}
+/* v2.0 — tabi-aligned, single-source iPhone app shell.
+   Previous 100vh and physical-screen overrides were clipping the bottom bar.
+   Keep the whole app in the measured --vh viewport, including the bottom nav. */
+:root{--safe-bottom:env(safe-area-inset-bottom,0px)}
 @media(max-width:499px){
   html,body{
-    position:fixed!important;inset:0!important;width:100%!important;
-    height:100%!important;min-height:0!important;max-height:none!important;
-    margin:0!important;padding:0!important;overflow:hidden!important;
-    overscroll-behavior:none;background:#0D1626!important
+    position:fixed!important;inset:0!important;
+    width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;
+    padding:0!important;margin:0!important;
+    overflow:hidden!important;overscroll-behavior:none!important;
+    background:#FFFFFF!important;
   }
-  body::after{content:none!important;display:none!important}
+  body::before,body::after{content:none!important;display:none!important}
   .device{
-    position:fixed!important;top:0!important;left:0!important;right:0!important;
-    bottom:auto!important;inset:auto 0 auto 0!important;
-    width:100%!important;height:var(--vh,100svh)!important;
+    position:fixed!important;inset:0 auto auto 0!important;
+    width:100%!important;
+    height:var(--vh,100svh)!important;
     min-height:0!important;max-height:none!important;
     display:flex!important;flex-direction:column!important;
-    overflow:hidden!important;border:0!important;border-radius:0!important;
-    margin:0!important;padding:0!important;background:var(--bg);box-shadow:none!important
+    padding:0!important;margin:0!important;
+    border:0!important;border-radius:0!important;box-shadow:none!important;
+    overflow:hidden!important;
+    background:var(--bg);
   }
-  .top{flex:0 0 auto!important}
-  .main{flex:1 1 0%!important;min-height:0!important;max-height:none!important;overflow:hidden!important}
+  .top{flex:0 0 auto!important;background:var(--bg)}
+  .main{
+    flex:1 1 0%!important;
+    min-height:0!important;max-height:none!important;
+    overflow:hidden!important;
+  }
   .nav{
-    position:relative!important;inset:auto!important;top:auto!important;bottom:auto!important;
-    left:auto!important;right:auto!important;
-    flex:0 0 calc(54px + var(--safe-bottom,env(safe-area-inset-bottom,0px)))!important;
-    height:calc(54px + var(--safe-bottom,env(safe-area-inset-bottom,0px)))!important;
-    min-height:calc(54px + var(--safe-bottom,env(safe-area-inset-bottom,0px)))!important;
-    width:100%!important;max-height:none!important;box-sizing:border-box!important;
-    display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;
-    align-items:stretch!important;gap:0!important;
+    position:relative!important;
+    inset:auto!important;top:auto!important;bottom:auto!important;left:auto!important;right:auto!important;
+    box-sizing:border-box!important;
+    flex:0 0 calc(64px + var(--safe-bottom))!important;
+    height:calc(64px + var(--safe-bottom))!important;
+    min-height:calc(64px + var(--safe-bottom))!important;
+    max-height:none!important;width:100%!important;
+    display:grid!important;
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    gap:0!important;align-items:stretch!important;
     margin:0!important;
-    padding:4px max(12px,env(safe-area-inset-left,0px)) calc(4px + var(--safe-bottom,env(safe-area-inset-bottom,0px)))!important;
-    border:0!important;border-radius:16px 16px 0 0!important;box-shadow:none!important;
-    background:#0D1626!important;color:#A2AEC0!important;
-    z-index:20!important;overflow:visible!important;pointer-events:auto!important
+    padding:3px max(12px,env(safe-area-inset-left,0px)) calc(4px + var(--safe-bottom))!important;
+    border:0!important;border-top:1px solid var(--line)!important;border-radius:0!important;box-shadow:none!important;
+    overflow:visible!important;z-index:20!important;pointer-events:auto!important;
+    background:#FFFFFF!important;color:#7F8DA2!important;
   }
   .nav-btn{
-    min-width:0!important;height:100%!important;min-height:44px!important;
-    padding:0 5px!important;transform:none!important;
+    min-width:0!important;
+    min-height:44px!important;height:100%!important;
+    padding:1px 4px!important;
+    display:flex!important;flex-direction:column!important;
+    justify-content:center!important;align-items:center!important;gap:3px!important;
     position:relative!important;z-index:1!important;
-    pointer-events:auto!important
+    transform:none!important;
+    color:#8491A4!important;pointer-events:auto!important;
   }
-  .nav-btn.active{color:#FFFFFF!important}
-  .add-main{transform:translateY(-3px)!important}
+  .nav-btn.active{color:#17243B!important}
+  .nav-btn svg{width:22px!important;height:22px!important}
+  .add-main{transform:translateY(-4px)!important}
+  .nav-btn:focus-visible{outline:2px solid #506FA9!important;outline-offset:-2px}
+  /* The editor remains fixed. Only the form sheet moves within the keyboard viewport. */
   .modal-layer{
-    height:var(--vh,100svh)!important;max-height:var(--vh,100svh)!important;
-    overflow:hidden!important
+    height:var(--vh,100svh)!important;
+    max-height:var(--vh,100svh)!important;
+    overflow:hidden!important;
   }
   .modal-layer .sheet{
     max-height:calc(var(--sheet-visual-height,var(--vh,100svh)) - env(safe-area-inset-top,0px) - 16px)!important;
-    overscroll-behavior:contain
+    overscroll-behavior:contain;
   }
 }
 @media(max-width:499px) and (display-mode:standalone){
-  .device{height:var(--vh,100svh)!important;min-height:0!important}
-}
-
-/* v1.9.7 — iOS standalone height correction.
-   black-translucent + viewport-fit=cover reports a shortened innerHeight;
-   var(--vh) and height:100% therefore end before the iPhone's bottom edge.
-   CSS 100vh is the full standalone viewport for this status-bar mode. */
-@media(max-width:499px) and (display-mode:standalone){
-  html,body{
-    height:100vh!important;
-    min-height:100vh!important;
-    max-height:100vh!important;
-    overflow:hidden!important;
-  }
-  .device{
-    height:100vh!important;
-    min-height:100vh!important;
-    max-height:100vh!important;
-    bottom:auto!important;
-  }
-  .nav{
-    flex-shrink:0!important;
-    border-bottom-left-radius:0!important;
-    border-bottom-right-radius:0!important;
-  }
-}
-
-/* v1.9.8: Match tabi's light iOS status bar without moving the working
-   four-quadrant layout or the bottom navigation.
-   The bottommost portion remains navy to blend with the home indicator. */
-@media(max-width:499px){
-  html,body{
-    background:linear-gradient(to bottom,#F4F5F6 0%,#F4F5F6 70%,#0D1626 70%,#0D1626 100%)!important;
-  }
-  .top{background:var(--bg)}
-  .nav{background:#0D1626!important}
+  .device{height:var(--vh,100svh)!important}
 }
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
