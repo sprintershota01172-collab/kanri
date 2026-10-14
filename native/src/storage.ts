@@ -44,7 +44,8 @@ export async function readWorkspace(db:SQLiteDatabase):Promise<Workspace>{
     const folders=Array.isArray(source.folders)?source.folders.filter(f=>f&&typeof f.id==='string'&&typeof f.name==='string'):DEFAULT_WORKSPACE.folders.map(f=>({...f}));
     const folderId=source.folderId&&folders.some(f=>f.id===source.folderId)?source.folderId:null;
     const tab=['board','calendar','puzzle','settings'].includes(String(source.tab))?source.tab as Workspace['tab']:'board';
-    return {folders,folderId,tab};
+    const recentFolderIds=(Array.isArray(source.recentFolderIds)?source.recentFolderIds:[]).filter(id=>typeof id==='string'&&folders.some(f=>f.id===id)).slice(0,4);
+    return {folders,folderId,tab,recentFolderIds};
   }catch{return {...DEFAULT_WORKSPACE,folders:DEFAULT_WORKSPACE.folders.map(f=>({...f}))}}
 }
 export async function saveWorkspace(db:SQLiteDatabase,workspace:Workspace){
