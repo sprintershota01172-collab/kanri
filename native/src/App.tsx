@@ -36,6 +36,9 @@ function AppInner(){
   const [loaded,setLoaded]=useState(false);const [tab,setTab]=useState<Tab>('board');
   const [workspace,setWorkspace]=useState<Workspace>({...DEFAULT_WORKSPACE,folders:DEFAULT_WORKSPACE.folders.map(f=>({...f}))});
   const [newFolderOpen,setNewFolderOpen]=useState(false);
+  const [folderDraft,setFolderDraft]=useState<{parentId:string|null,name?:string,renameId?:string,label:string}|null>(null);
+  const [groupAddOpen,setGroupAddOpen]=useState(false);
+  const [groupActionsId,setGroupActionsId]=useState<string|null>(null);
   const [folderMenuOpen,setFolderMenuOpen]=useState(false);
   const [trashOpen,setTrashOpen]=useState(false);
   const [eventEditor,setEventEditor]=useState<Task|'new'|null>(null);
@@ -81,22 +84,46 @@ function AppInner(){
   useEffect(()=>{if(loaded){void saveWorkspace(db,{...workspace,tab}).catch(e=>console.warn('folder state persistence',e))}},[db,workspace,tab,loaded]);
   function selectTab(next:Tab){setTab(next)}
   function selectFolder(id:string|null){setWorkspace(p=>({...p,folderId:id,recentFolderIds:id?[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4):p.recentFolderIds}));setBoardPages([0,0,0,0])}
+  function beginFolderEdit(parentId:string|null,label='子ツリー',renameId?:string){
+    const target=renameId?workspace.folders.find(f=>f.id===renameId):undefined;
+    setGroupAddOpen(false);setGroupActionsId(null);
+    setFolderDraft({parentId,label,renameId,name:target?.name});
+    setFolderMenuOpen(false);setNewFolderOpen(true);
+  }
   function createFolder(name:string){
-    const trimmed=name.trim();if(!trimmed){Alert.alert('フォルダ名を入力してください');return}
-    if(workspace.folders.some(f=>f.parentId===workspace.folderId&&f.name===trimmed)){Alert.alert('同じ名前のフォルダがあります');return}
-    const id='folder_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-    setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId:p.folderId}],folderId:id,recentFolderIds:[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4)}));
-    setNewFolderOpen(false);setBoardPages([0,0,0,0]);
+    const trimmed=name.trim(),parentId=folderDraft?.parentId??null;
+    if(!trimmed){Alert.alert('フォルダ名を入力してください');return}
+    if(workspace.folders.some(f=>f.id!==folderDraft?.renameId&&f.parentId===parentId&&f.name===trimmed)){Alert.alert('同じ名前のフォルダがあります');return}
+    if(folderDraft?.renameId){
+      const id=folderDraft.renameId;
+      setWorkspace(p=>({...p,folders:p.folders.map(f=>f.id===id?{...f,name:trimmed}:f)}));
+    }else{
+      const id='folder_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+      setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId}],folderId:id,recentFolderIds:[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4)}));
+    }
+    setNewFolderOpen(false);setFolderDraft(null);setBoardPages([0,0,0,0]);
+  }
+  function moveFolder(id:string,delta:number){
+    const f=workspace.folders.find(x=>x.id===id);if(!f)return;
+    const siblings=workspace.folders.filter(x=>x.parentId===f.parentId);
+    const from=siblings.findIndex(x=>x.id===id),to=from+delta;
+    if(to<0||to>=siblings.length)return;
+    const [item]=siblings.splice(from,1);siblings.splice(to,0,item);
+    let idx=0;
+    setWorkspace(p=>({...p,folders:p.folders.map(x=>x.parentId===f.parentId?siblings[idx++]:x)}));
+    void Haptics.selectionAsync();
   }
   function deleteFolder(id:string){
     const f=workspace.folders.find(x=>x.id===id);if(!f)return;
-    if(['work','personal','study','other'].includes(id))return;
+    const parent=f.parentId??workspace.folders.find(x=>x.parentId===null&&x.id!==id)?.id??null;
+    if(!parent){Alert.alert('最後のグループは削除できません');return}
     const linked=tasksRef.current.filter(t=>folderForTask(t)===id);
-    Alert.alert('フォルダを削除',f.name+' を削除しますか？ 中のタスクと子フォルダは1つ上へ移動します。',[
+    Alert.alert('グループ・ツリーを削除',f.name+' を削除しますか？ 中のタスクと子ツリーは別のグループまたは親フォルダに移します。',[
       {text:'キャンセル',style:'cancel'},
       {text:'削除',style:'destructive',onPress:()=>{
-        for(const task of linked)void updateTask({...task,folderId:f.parentId,group:f.parentId?folderGroup(workspace.folders,f.parentId):task.group});
-        setWorkspace(p=>({...p,folderId:p.folderId===id?f.parentId:p.folderId,folders:p.folders.filter(x=>x.id!==id).map(x=>x.parentId===id?{...x,parentId:f.parentId}:x),recentFolderIds:(p.recentFolderIds||[]).filter(x=>x!==id)}));
+        for(const task of linked)void updateTask({...task,folderId:parent,group:folderGroup(workspace.folders,parent)});
+        setWorkspace(p=>({...p,folderId:p.folderId===id?parent:p.folderId,folders:p.folders.filter(x=>x.id!==id).map(x=>x.parentId===id?{...x,parentId:parent}:x),recentFolderIds:(p.recentFolderIds||[]).filter(x=>x!==id)}));
+        setGroupActionsId(null);
       }}
     ]);
   }
@@ -225,6 +252,14 @@ function AppInner(){
   {let cursor=workspace.folders.find(f=>f.id===workspace.folderId),guard=0;
    while(cursor&&guard++<20){folderPath.unshift(cursor);cursor=workspace.folders.find(f=>f.id===cursor?.parentId)}}
   const childFolders=workspace.folders.filter(f=>f.parentId===workspace.folderId);
+  const groupEntries:{id:string|null,name:string}[]=[
+    {id:null,name:'すべて'},
+    ...workspace.folders.filter(f=>f.parentId===null).map(f=>({id:f.id,name:f.id==='work'?'業務':f.id==='personal'?'私用':f.name}))
+  ];
+  for(const id of (workspace.recentFolderIds||[]).filter(id=>workspace.folders.some(f=>f.id===id&&f.parentId!==null)).slice(0,3)){
+    if(!groupEntries.some(g=>g.id===id))groupEntries.push({id,name:workspace.folders.find(f=>f.id===id)!.name});
+  }
+  for(const f of childFolders.filter(f=>f.parentId!==null))if(!groupEntries.some(g=>g.id===f.id))groupEntries.push({id:f.id,name:f.name});
 
   if(!loaded)return <View style={[styles.root,{backgroundColor:theme.bg,justifyContent:'center',alignItems:'center'}]}><Text style={typeStyle(theme.ink,28,'800')}>kanri</Text><Text style={typeStyle(theme.muted,12)}>データを準備しています</Text></View>;
   return <View style={[styles.root,{backgroundColor:theme.bg,paddingTop:insets.top}]}>
@@ -241,7 +276,12 @@ function AppInner(){
         const start=swipeStart.current;swipeStart.current=null;
         const t=event.nativeEvent.changedTouches?.[0];if(!start||!t||editor||eventEditor||newFolderOpen)return;
         const dx=t.pageX-start.x,dy=t.pageY-start.y;
-        if(Math.abs(dx)<95||Math.abs(dx)<Math.abs(dy)*1.5||Date.now()-start.time>175)return;
+        if(Math.abs(dx)<75||Math.abs(dx)<Math.abs(dy)*1.35||Date.now()-start.time>850)return;
+        if(tab==='board'){
+          const idx=groupEntries.findIndex(g=>g.id===workspace.folderId),next=idx+(dx<0?1:-1);
+          if(next>=0&&next<groupEntries.length){selectFolder(groupEntries[next].id);void Haptics.selectionAsync()}
+          return;
+        }
         const order:Tab[]=['board','calendar','puzzle','settings'];
         const next=order.indexOf(tab)+(dx<0?1:-1);
         if(next>=0&&next<order.length){selectTab(order[next]);void Haptics.selectionAsync()}
@@ -250,15 +290,13 @@ function AppInner(){
         <View style={[styles.screenHead,{gap:4}]}>
           <Pressable accessibilityRole="button" accessibilityLabel="すべてのフォルダを開く" onPress={()=>setFolderMenuOpen(true)} style={{minHeight:44,minWidth:66,justifyContent:'center',flexDirection:'row',alignItems:'center',gap:3}}><Text style={typeStyle(theme.ink,18,'800')}>TODO</Text><Text style={typeStyle(theme.muted,12,'700')}>⌄</Text></Pressable>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} onTouchStart={e=>{e.stopPropagation();swipeStart.current=null}} style={{flex:1,minWidth:0,marginHorizontal:2}} contentContainerStyle={{alignItems:'center',gap:5,paddingHorizontal:2}}>
-            {([{id:null,name:'すべて'},{id:'work',name:'業務'},{id:'personal',name:'私用'},{id:'study',name:'学習'},{id:'other',name:'その他'}] as {id:string|null,name:string}[]).map(g=>
-              <Pressable key={g.id||'all'} accessibilityRole="button" accessibilityLabel={g.name+'に切り替える'} onPress={()=>selectFolder(g.id)} style={{minHeight:44,minWidth:52,paddingHorizontal:9,justifyContent:'center',alignItems:'center',borderWidth:1,borderColor:workspace.folderId===g.id?'#90A8D5':theme.line,borderRadius:10,backgroundColor:workspace.folderId===g.id?theme.tint:theme.card}}>
-                <Text style={typeStyle(workspace.folderId===g.id?(prefs.dark?'#F4F7FF':'#456DAA'):theme.muted,10,'700')}>{g.name}</Text>
+            {groupEntries.map(g=>
+              <Pressable key={g.id||'all'} accessibilityRole="button" accessibilityLabel={g.name+'。タップで切り替え、長押しで編集・並べ替え'} onPress={()=>selectFolder(g.id)} onLongPress={()=>{if(g.id){setGroupActionsId(g.id);void Haptics.selectionAsync()}}} delayLongPress={420} style={{minHeight:44,minWidth:52,paddingHorizontal:9,justifyContent:'center',alignItems:'center',borderWidth:1,borderColor:workspace.folderId===g.id?'#90A8D5':theme.line,borderRadius:10,backgroundColor:workspace.folderId===g.id?theme.tint:theme.card}}>
+                <Text numberOfLines={1} style={typeStyle(workspace.folderId===g.id?(prefs.dark?'#F4F7FF':'#456DAA'):theme.muted,10,'700')}>{g.name}</Text>
               </Pressable>
             )}
-            {(workspace.recentFolderIds||[]).filter(id=>!['work','personal','study','other'].includes(id)&&workspace.folders.some(f=>f.id===id)).slice(0,3).map(id=><Pressable key={'recent-'+id} accessibilityRole="button" accessibilityLabel={(workspace.folders.find(f=>f.id===id)?.name||'フォルダ')+'を開く'} onPress={()=>selectFolder(id)} style={{minHeight:44,paddingHorizontal:10,justifyContent:'center',borderWidth:1,borderColor:id===workspace.folderId?'#8FAADD':theme.line,borderRadius:10,backgroundColor:id===workspace.folderId?theme.tint:theme.card}}><Text numberOfLines={1} style={typeStyle(id===workspace.folderId?theme.ink:theme.muted,10,'700')}>{workspace.folders.find(f=>f.id===id)?.name||'フォルダ'}</Text></Pressable>)}
-            {workspace.folders.filter(f=>f.parentId===workspace.folderId&&!(workspace.recentFolderIds||[]).slice(0,3).includes(f.id)).map(f=><Pressable key={'child-'+f.id} onPress={()=>selectFolder(f.id)} style={{minHeight:44,paddingHorizontal:10,justifyContent:'center',borderRadius:10,backgroundColor:workspace.folderId===f.id?theme.tint:theme.card,borderWidth:1,borderColor:theme.line}}><Text numberOfLines={1} style={typeStyle(theme.muted,10,'700')}>{f.name}</Text></Pressable>)}
           </ScrollView>
-          <Pressable onPress={()=>setNewFolderOpen(true)} accessibilityLabel="子ツリーを追加" style={{minHeight:44,minWidth:62,justifyContent:'center',alignItems:'center',paddingHorizontal:5,backgroundColor:theme.tint,borderRadius:10,borderWidth:1,borderColor:theme.line}}><Text style={typeStyle(theme.ink,10,'800')}>＋ ツリー</Text></Pressable>
+          <Pressable onPress={()=>setGroupAddOpen(true)} accessibilityLabel="グループまたは子ツリーを追加" style={{minHeight:44,minWidth:62,justifyContent:'center',alignItems:'center',paddingHorizontal:5,backgroundColor:theme.tint,borderRadius:10,borderWidth:1,borderColor:theme.line}}><Text style={typeStyle(theme.ink,10,'800')}>＋ 追加</Text></Pressable>
           <Pressable onPress={()=>{setTasks(t=>[...t]);toastMessage('優先順位を再計算しました')}} accessibilityLabel="優先順位を自動整理" style={{minHeight:44,minWidth:34,justifyContent:'center',alignItems:'center',backgroundColor:theme.card,borderRadius:10,borderWidth:1,borderColor:theme.line}}><Text style={typeStyle(theme.ink,17,'800')}>↕</Text></Pressable>
         </View>
         <View ref={boardRef} style={{flex:1,minHeight:0}}><View style={styles.board}>
@@ -348,8 +386,8 @@ function AppInner(){
         </ScrollView>
       </View>
     </Modal>
-    {folderMenuOpen&&<FolderBrowserSheet theme={theme} insetTop={insets.top} folders={workspace.folders} selectedFolderId={workspace.folderId} onClose={()=>setFolderMenuOpen(false)} onSelect={selectFolder} onCreate={()=>{setFolderMenuOpen(false);setNewFolderOpen(true)}} onDelete={deleteFolder}/>}
-    {newFolderOpen&&<FolderSheet theme={theme} insetTop={insets.top} parentName={folderPath.map(f=>f.name).join(' / ')||'すべて'} onClose={()=>setNewFolderOpen(false)} onCreate={createFolder}/>}{editor&&<TaskEditor key={editor==='new'?'new':editor.id} entry={editor} initialQuadrant={newQuadrant} initialDueDate={calendarDraftDate} prefs={prefs} folders={workspace.folders} initialFolderId={workspace.folderId} theme={theme} insetTop={insets.top} height={stableEditorHeight.current} onClose={()=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null)}} onSave={data=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null);void updateTask(data);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('保存しました')}} onDelete={t=>{Keyboard.dismiss();setEditor(null);void removeTask(t);remember('タスクを削除しました',()=>{void updateTask(t,null)})}}/>}
+    {folderMenuOpen&&<FolderBrowserSheet theme={theme} insetTop={insets.top} folders={workspace.folders} selectedFolderId={workspace.folderId} onClose={()=>setFolderMenuOpen(false)} onSelect={selectFolder} onCreate={()=>beginFolderEdit(workspace.folderId,'子ツリー')} onDelete={deleteFolder}/>}
+    {newFolderOpen&&folderDraft&&<FolderSheet theme={theme} insetTop={insets.top} parentName={folderDraft.parentId?workspace.folders.find(f=>f.id===folderDraft.parentId)?.name||'子ツリー':'最上位グループ'} initialName={folderDraft.name||''} title={folderDraft.renameId?'名前を変更':folderDraft.label+'を追加'} onClose={()=>{setNewFolderOpen(false);setFolderDraft(null)}} onCreate={createFolder}/>}{editor&&<TaskEditor key={editor==='new'?'new':editor.id} entry={editor} initialQuadrant={newQuadrant} initialDueDate={calendarDraftDate} prefs={prefs} folders={workspace.folders} initialFolderId={workspace.folderId} theme={theme} insetTop={insets.top} height={stableEditorHeight.current} onClose={()=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null)}} onSave={data=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null);void updateTask(data);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('保存しました')}} onDelete={t=>{Keyboard.dismiss();setEditor(null);void removeTask(t);remember('タスクを削除しました',()=>{void updateTask(t,null)})}}/>}
 
     {eventEditor&&<EventEditor key={eventEditor==='new'?'new':eventEditor.id} entry={eventEditor} theme={theme} insetTop={insets.top} folders={workspace.folders} initialFolderId={workspace.folderId} initialDate={dateKey(focus)} onClose={()=>{Keyboard.dismiss();setEventEditor(null)}} onSave={item=>{Keyboard.dismiss();setEventEditor(null);void updateTask(item);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('予定を保存しました')}} onDelete={item=>{Keyboard.dismiss();setEventEditor(null);void removeTask(item)}}/>}
     {leadEditor&&<LeadTimeSheet theme={theme} insetTop={insets.top} current={prefs.leadMinutes} onClose={()=>{Keyboard.dismiss();setLeadEditor(false)}} onSave={minutes=>{Keyboard.dismiss();setLeadEditor(false);void updatePreferences({...prefs,leadMinutes:minutes})}}/>}
@@ -554,12 +592,12 @@ function FolderBrowserSheet({theme,insetTop,folders,selectedFolderId,onClose,onS
     </View>
   </Modal>;
 }
-function FolderSheet({theme,insetTop,parentName,onClose,onCreate}:{theme:Theme,insetTop:number,parentName:string,onClose:()=>void,onCreate:(name:string)=>void}){
-  const [name,setName]=useState('');
+function FolderSheet({theme,insetTop,parentName,initialName='',title='子ツリーを追加',onClose,onCreate}:{theme:Theme,insetTop:number,parentName:string,initialName?:string,title?:string,onClose:()=>void,onCreate:(name:string)=>void}){
+  const [name,setName]=useState(initialName);
   return <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={onClose}>
     <View style={styles.overlay}><Pressable onPress={onClose} style={StyleSheet.absoluteFill}/>
       <Animated.View entering={FadeInDown.springify().damping(18)} style={[styles.editorSheet,{top:insetTop+25,backgroundColor:theme.card}]}>
-        <View style={styles.flexBetween}><Text style={typeStyle(theme.ink,16,'800')}>子ツリーを追加</Text><Pressable onPress={onClose} accessibilityLabel="閉じる" style={{minHeight:44,minWidth:44,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.ink,24)}>×</Text></Pressable></View>
+        <View style={styles.flexBetween}><Text style={typeStyle(theme.ink,16,'800')}>{title}</Text><Pressable onPress={onClose} accessibilityLabel="閉じる" style={{minHeight:44,minWidth:44,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.ink,24)}>×</Text></Pressable></View>
         <Text style={[styles.formLabel,{color:theme.muted}]}>名前（車種・案件・工程など自由）</Text>
         <TextInput value={name} maxLength={32} placeholder="例：車種A / 案件 / 工程" placeholderTextColor={theme.muted} onChangeText={setName} returnKeyType="done" onSubmitEditing={()=>onCreate(name)} style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
         <Text style={[typeStyle(theme.muted,11),{marginTop:8}]}>保存先：{parentName}</Text>
