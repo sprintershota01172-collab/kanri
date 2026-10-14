@@ -314,7 +314,7 @@ function confirmFolderRemoval(id){
   const children=folders.filter(f=>f.parentId===id).length;
   confirmAction('フォルダを削除',folder.name+' を削除しますか？ 中の'+count+'件のタスクと'+children+'個の子フォルダは1つ上へ移動します。',()=>{
     const parent=folder.parentId;
-    tasks.forEach(t=>{if(taskFolderId(t)===id){t.folderId=parent;t.group=rootCategory(parent)}});
+    tasks.forEach(t=>{if(taskFolderId(t)===id){t.folderId=parent;if(parent)t.group=rootCategory(parent)}});
     folders.forEach(f=>{if(f.parentId===id)f.parentId=parent});
     folders=folders.filter(f=>f.id!==id);
     save();saveFolders();
