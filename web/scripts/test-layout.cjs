@@ -130,6 +130,41 @@ async function checkLongGantt(browser){
  await context.close();
  return '26 tasks rendered, 20-row viewport, synced vertical scrolling';
 }
+async function checkGroupGestures(browser){
+ const context=await browser.newContext({viewport:{width:393,height:852},deviceScaleFactor:3,isMobile:true,hasTouch:true});
+ const page=await context.newPage();
+ await page.goto('http://127.0.0.1:'+server.address().port+'/index.html',{waitUntil:'load'});
+ await page.locator('[data-quick-folder="work"]').click();
+ assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('kanri_v2_view')).folderId),'work','selected group is work');
+ const rect=await page.locator('#board .quadrant').first().boundingBox();
+ assert.ok(rect&&rect.width>100,'TODO board must provide a swipe surface');
+ const client=await context.newCDPSession(page);
+ const x=rect.x+rect.width-14,y=rect.y+rect.height*.45;
+ await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
+ for(let i=1;i<=8;i++){
+   await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-i*13,y,id:1}]});
+   await page.waitForTimeout(12);
+ }
+ await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await page.waitForTimeout(70);
+ assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('kanri_v2_view')).folderId),'personal','left swipe on TODO board changes to adjacent group');
+ assert.ok(await page.locator('#boardScreen').evaluate(el=>el.classList.contains('active')),'group swipe must not switch bottom tabs');
+ const work=page.locator('[data-quick-folder="work"]');
+ await work.scrollIntoViewIfNeeded();
+ const box=await work.boundingBox();
+ assert.ok(box,'work group chip is visible to long-press');
+ await page.mouse.move(box.x+box.width/2,box.y+box.height/2);
+ await page.mouse.down();
+ await page.waitForTimeout(490);
+ await page.mouse.up();
+ await page.waitForSelector('#groupMoveNext');
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('kanri_v2_folders')).filter(f=>f.parentId===null).map(f=>f.id));
+ await page.locator('#groupMoveNext').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('kanri_v2_folders')).filter(f=>f.parentId===null).map(f=>f.id));
+ assert.ok(after.indexOf('work')>before.indexOf('work'),'long-press menu moves group right');
+ await context.close();
+ return 'touch swipe switches groups and long press reorders group buttons';
+}
 (async()=>{
  await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
@@ -142,5 +177,6 @@ async function checkLongGantt(browser){
   console.log('PASS',await check(browser,393,780,34,852));
   console.log('PASS',await check(browser,402,800,34,874));
   console.log('PASS',await checkLongGantt(browser));
+  console.log('PASS',await checkGroupGestures(browser));
  }finally{await browser.close();await new Promise(ok=>server.close(ok))}
 })().catch(error=>{console.error(error);process.exitCode=1;server.close()});
