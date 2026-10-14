@@ -433,7 +433,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
     })}</View>}
     {mode==='gantt'?<View style={[styles.ganttBox,{backgroundColor:theme.card,borderColor:theme.line,padding:9}]}>
       <View style={{flexDirection:'row',flex:1,minHeight:0,alignSelf:'stretch',borderWidth:1,borderColor:theme.line,borderRadius:9,overflow:'hidden'}}>
-        <View style={{width:224,flexShrink:0,backgroundColor:theme.card,zIndex:2,height:'100%'}}>
+        <View style={{width:148,flexShrink:0,backgroundColor:theme.card,zIndex:2,height:'100%'}}>
           <View style={{height:46,justifyContent:'center',paddingLeft:7,backgroundColor:theme.tint,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line}}>
             <Text style={typeStyle(theme.ink,10,'800')}>タスク名　　　　　　　 LT</Text>
           </View>
