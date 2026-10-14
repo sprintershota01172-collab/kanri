@@ -1,7 +1,24 @@
 export type Group = '仕事' | 'プライベート' | '学習' | 'その他';
 export type BoardMode = 'priority' | 'group';
+export type Folder = {id:string;name:string;parentId:string|null};
+export const DEFAULT_FOLDERS:Folder[]=[
+  {id:'work',name:'業務',parentId:null},
+  {id:'personal',name:'プライベート',parentId:null},
+  {id:'study',name:'学習',parentId:null},
+  {id:'other',name:'その他',parentId:null}
+];
+export type Workspace = {folders:Folder[];folderId:string|null;tab:'board'|'calendar'|'puzzle'|'settings'};
+export const DEFAULT_WORKSPACE:Workspace={folders:DEFAULT_FOLDERS,folderId:null,tab:'board'};
+export function folderForTask(t:Task){return t.folderId===undefined?({'仕事':'work','プライベート':'personal','学習':'study','その他':'other'}[t.group]||null):t.folderId;}
+export function folderGroup(folders:Folder[],id:string|null):Group{
+  let node=folders.find(f=>f.id===id),guard=0;
+  while(node?.parentId&&guard++<30)node=folders.find(f=>f.id===node!.parentId);
+  return node?.id==='work'?'仕事':node?.id==='personal'?'プライベート':node?.id==='study'?'学習':'その他';
+}
+
 export type Task = {
   id: string;
+  folderId?: string | null;
   title: string;
   important: boolean;
   urgent: boolean;
