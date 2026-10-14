@@ -61,7 +61,9 @@
         const safeTop=Number(window.KanriStatusTopInset?.())||0;
         const topStatus=Math.max(44,Math.min(62,safeTop||50));
         const usable=Math.max(layoutHeight,physical-topStatus);
-        lastBottomStep=Math.max(0,Math.min(180,Math.round(usable-layoutHeight)));
+        const conservativeStep=physical-layoutHeight>=54&&physical-layoutHeight<=160?
+          Math.min(48,Math.max(0,physical-layoutHeight-34)):0;
+        lastBottomStep=Math.max(conservativeStep,Math.max(0,Math.min(180,Math.round(usable-layoutHeight))));
       }else lastBottomStep=0;
     }
     root.style.setProperty('--kanri-bottom-step',lastBottomStep+'px');
