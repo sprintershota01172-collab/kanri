@@ -19,3 +19,8 @@ jobs:
       - name: Run model tests
         working-directory: native
         run: npm test
+      - name: Validate web syntax and Gantt grid
+        run: node web/scripts/check-syntax.cjs
+      - name: TypeScript check
+        working-directory: native
+        run: npm run check
