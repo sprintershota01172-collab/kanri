@@ -529,6 +529,9 @@ body,button,input,select{font-synthesis:none}
 .group-action-list button:disabled{opacity:.32}
 .group-action-list button small{display:block;font-size:10px;color:var(--muted);font-weight:600;margin-top:3px}
 .group-action-list .group-action-danger{color:#AE4854;border-color:#D5ADB0}
+/* Native touch events preserve horizontal group swipes when mobile browsers cancel pointer events. */
+#board{touch-action:pan-y}
+#board .quadrant{touch-action:pan-y}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="グループまたは子ツリーを追加">＋ 追加</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
@@ -987,10 +990,28 @@ function openModal(){
   $('#modal').classList.add('open');
 }function closeModal(){const active=document.activeElement;if(active&&$('#sheet').contains(active)&&typeof active.blur==='function')active.blur();$('#modal').classList.remove('open');$('#sheet').innerHTML=''}$('#modal').addEventListener('pointerdown',e=>{if(e.target===$('#modal'))closeModal()});$('#addButton').onclick=()=>openEdit();$('#addEventTop').onclick=()=>openEdit(null,null,dateKey(focusDay),'event');$('#trashCalendar').onclick=openTrash;$('#themeQuick').onclick=()=>{prefs.dark=!prefs.dark;savePrefs();render()};$('#undoBtn').onclick=undo;$('#undoTop').onclick=undo;$('#sortButton').onclick=()=>{let candidates=sorted(tasks.filter(t=>!t.done));let index=0;candidates.forEach(t=>{if(!t.pin){t.rank=null}else t.rank=index++});save();render();flash('優先順位を更新しました')};$('#resetRank').onclick=()=>{tasks.forEach(t=>{t.pin=false;t.rank=null});save();render();flash('すべて自動順位に戻しました')};$$('.nav-btn[data-tab]').forEach(el=>el.onclick=()=>navigateTab(el.dataset.tab));
 
+
+let boardTouchSwipe=null;
+$('#board').addEventListener('touchstart',e=>{
+  if(tab!=='board'||$('#modal').classList.contains('open')||e.target.closest('button,.task-wrap,.task-card')){boardTouchSwipe=null;return}
+  const t=e.touches[0];if(!t)return;
+  boardTouchSwipe={x:t.clientX,y:t.clientY,t:Date.now()};
+},{passive:true});
+$('#board').addEventListener('touchend',e=>{
+  if(!boardTouchSwipe)return;
+  const from=boardTouchSwipe;boardTouchSwipe=null;
+  const t=e.changedTouches[0];if(!t)return;
+  const dx=t.clientX-from.x,dy=t.clientY-from.y;
+  if(Math.abs(dx)<65||Math.abs(dx)<Math.abs(dy)*1.2||Date.now()-from.t>1500)return;
+  const entries=visibleGroupEntries(),idx=entries.findIndex(g=>g.id===currentFolderId),next=idx+(dx<0?1:-1);
+  if(next>=0&&next<entries.length){setFolder(entries[next].id);haptic()}
+},{passive:true});
+$('#board').addEventListener('touchcancel',()=>{boardTouchSwipe=null},{passive:true});
 const tabOrder=['board','calendar','puzzle','settings'];
 let tabGesture=null;
 $('.main').addEventListener('pointerdown',e=>{
   if(e.pointerType==='mouse'&&e.button!==0)return;
+  if(e.pointerType==='touch'&&e.target.closest('#board')){tabGesture=null;return}
   if($('#modal').classList.contains('open')||e.target.closest('button,input,select,textarea,.task-wrap,.folder-strip,.group-quick-switch,.gantt-scroll,.time-panel,.puzzle-chip')){tabGesture=null;return}
   tabGesture={x:e.clientX,y:e.clientY,time:Date.now(),tab};
 },{passive:true});
