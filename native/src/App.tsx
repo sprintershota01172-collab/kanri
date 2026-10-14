@@ -29,6 +29,7 @@ function AppInner(){
   const [loaded,setLoaded]=useState(false);const [tab,setTab]=useState<Tab>('board');
   const [workspace,setWorkspace]=useState<Workspace>({...DEFAULT_WORKSPACE,folders:DEFAULT_WORKSPACE.folders.map(f=>({...f}))});
   const [newFolderOpen,setNewFolderOpen]=useState(false);
+  const [folderMenuOpen,setFolderMenuOpen]=useState(false);
   const swipeStart=useRef<{x:number;y:number;time:number}|null>(null);
   const [editor,setEditor]=useState<Task|'new'|null>(null);const [newQuadrant,setNewQuadrant]=useState<number|null>(null);
   const [renaming,setRenaming]=useState(false);
@@ -218,19 +219,7 @@ function AppInner(){
         if(next>=0&&next<order.length){selectTab(order[next]);void Haptics.selectionAsync()}
       }}>
       {tab==='board'&&<>
-        <View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>FOUR FOCUS</Text></View><IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/></View>
-        <View style={{flexDirection:'row',alignItems:'center',gap:5,minHeight:35}}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flex:1,minWidth:0}} contentContainerStyle={{alignItems:'center',gap:5}}>
-            <Pressable onPress={()=>selectFolder(null)} style={{paddingHorizontal:9,paddingVertical:8,backgroundColor:workspace.folderId===null?theme.tint:theme.card,borderColor:theme.line,borderWidth:1,borderRadius:10}}><Text style={typeStyle(theme.ink,11,'800')}>⌂ すべて</Text></Pressable>
-            {folderPath.map(f=><React.Fragment key={f.id}><Text style={typeStyle(theme.muted,12)}>›</Text><Pressable onPress={()=>selectFolder(f.id)} style={{paddingHorizontal:9,paddingVertical:8,backgroundColor:f.id===workspace.folderId?theme.tint:theme.card,borderColor:theme.line,borderWidth:1,borderRadius:10}}><Text style={typeStyle(theme.ink,11,'800')}>{f.name}</Text></Pressable></React.Fragment>)}
-          </ScrollView>
-          <Pressable accessibilityLabel="フォルダを追加" onPress={()=>setNewFolderOpen(true)} style={{minWidth:44,minHeight:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint}}><Text style={typeStyle(theme===DARK?'#EDF2FF':'#486EB2',22,'700')}>＋</Text></Pressable>
-        </View>
-        {childFolders.length>0&&<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0,marginBottom:4}} contentContainerStyle={{gap:6,paddingVertical:3}}>
-          {childFolders.map(f=><Pressable key={f.id} onPress={()=>selectFolder(f.id)} onLongPress={()=>deleteFolder(f.id)} delayLongPress={480} accessibilityLabel={f.name+'を開く'} style={{minHeight:41,backgroundColor:theme.card,borderColor:theme.line,borderWidth:1,borderRadius:10,paddingHorizontal:13,flexDirection:'row',alignItems:'center',gap:6}}>
-            <Text style={typeStyle('#D1A752',15)}>▰</Text><Text style={typeStyle(theme.ink,11,'800')}>{f.name}</Text>
-          </Pressable>)}
-        </ScrollView>}
+        <View style={styles.screenHead}><Pressable accessibilityRole="button" accessibilityLabel="フォルダを開く" onPress={()=>setFolderMenuOpen(true)} style={{minHeight:37,flexDirection:'row',alignItems:'center',gap:5}}><Text style={typeStyle(theme.ink,18,'800')}>TODO</Text><Text style={typeStyle(theme.muted,14,'700')}>⌄</Text></Pressable><IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/></View>
         <View ref={boardRef} style={{flex:1,minHeight:0}}><View style={styles.board}>
           {[0,1,2,3].map(q=>{
             const items=sortTasks(tasks.filter(t=>!t.completed&&quadrant(t,prefs)===q&&(workspace.folderId===null||folderForTask(t)===workspace.folderId)));
@@ -298,6 +287,7 @@ function AppInner(){
     </View>
     {undo&&<View style={[styles.undo,{bottom:insets.bottom+78}]}><Text style={typeStyle('#FFFFFF',11)}>{undo.label}</Text><Pressable onPress={undoAction}><Text style={typeStyle('#B4D0FF',11,'800')}>元に戻す</Text></Pressable></View>}
     {!!toast&&<Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(140)} style={[styles.toast,{top:insets.top+149}]}><Text style={typeStyle('#FFFFFF',11)}>{toast}</Text></Animated.View>}
+    {folderMenuOpen&&<FolderBrowserSheet theme={theme} insetTop={insets.top} folders={workspace.folders} selectedFolderId={workspace.folderId} onClose={()=>setFolderMenuOpen(false)} onSelect={selectFolder} onCreate={()=>{setFolderMenuOpen(false);setNewFolderOpen(true)}} onDelete={deleteFolder}/>}
     {newFolderOpen&&<FolderSheet theme={theme} insetTop={insets.top} parentName={folderPath.map(f=>f.name).join(' / ')||'すべて'} onClose={()=>setNewFolderOpen(false)} onCreate={createFolder}/>}{editor&&<TaskEditor key={editor==='new'?'new':editor.id} entry={editor} initialQuadrant={newQuadrant} prefs={prefs} folders={workspace.folders} initialFolderId={workspace.folderId} theme={theme} insetTop={insets.top} height={winHeight} onClose={()=>{Keyboard.dismiss();setEditor(null)}} onSave={data=>{Keyboard.dismiss();setEditor(null);void updateTask(data);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('保存しました')}} onDelete={t=>{Keyboard.dismiss();setEditor(null);void removeTask(t);remember('タスクを削除しました',()=>{void updateTask(t,null)})}}/>}
     {leadEditor&&<LeadTimeSheet theme={theme} insetTop={insets.top} current={prefs.leadMinutes} onClose={()=>{Keyboard.dismiss();setLeadEditor(false)}} onSave={minutes=>{Keyboard.dismiss();setLeadEditor(false);void updatePreferences({...prefs,leadMinutes:minutes})}}/>}
     {renaming&&<RenameSheet prefs={prefs} theme={theme} insetTop={insets.top} onClose={()=>setRenaming(false)} onSave={names=>{setRenaming(false);void updatePreferences({...prefs,names})}}/>}
@@ -430,6 +420,39 @@ function SettingsPanel({theme,prefs,tasks,onMode,onRename,onDark,onReminder,onLe
 }
 function SettingRow({theme,title,value,onPress,last=false}:{theme:Theme,title:string,value:string,onPress:()=>void,last?:boolean}){
   return <Pressable onPress={onPress} style={[styles.settingRow,!last&&{borderBottomWidth:1,borderColor:theme.line}]}><Text style={typeStyle(theme.ink,12,'700')}>{title}</Text><Text style={typeStyle(theme===DARK?'#CEE0FF':'#5979B5',11,'800')}>{value}</Text></Pressable>;
+}
+function FolderBrowserSheet({theme,insetTop,folders,selectedFolderId,onClose,onSelect,onCreate,onDelete}:{theme:Theme,insetTop:number,folders:Folder[],selectedFolderId:string|null,onClose:()=>void,onSelect:(id:string|null)=>void,onCreate:()=>void,onDelete:(id:string)=>void}){
+  const path:Folder[]=[];
+  let current=folders.find(f=>f.id===selectedFolderId),guard=0;
+  while(current&&guard++<20){path.unshift(current);current=folders.find(f=>f.id===current?.parentId)}
+  const children=folders.filter(f=>f.parentId===selectedFolderId);
+  const [page,setPage]=useState(0);
+  const pages=Math.max(1,Math.ceil(children.length/6));
+  const pageSafe=Math.min(page,pages-1);
+  const changeFolder=(id:string|null)=>{onSelect(id);setPage(0)};
+  return <Modal transparent visible statusBarTranslucent animationType="fade" onRequestClose={onClose}>
+    <View style={styles.overlay}><Pressable onPress={onClose} style={StyleSheet.absoluteFill}/>
+      <Animated.View entering={FadeInDown.springify().damping(18)} style={[styles.editorSheet,{top:insetTop+20,maxHeight:'80%',backgroundColor:theme.card}]}>
+        <View style={styles.flexBetween}>
+          <View style={{flexDirection:'row',alignItems:'center',gap:9}}><Pressable accessibilityLabel="フォルダを閉じる" onPress={onClose} style={{height:44,width:44,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:theme.line,borderRadius:11}}><Text style={typeStyle(theme.ink,24)}>×</Text></Pressable><Text style={typeStyle(theme.ink,16,'800')}>フォルダ</Text></View>
+          <Pressable onPress={onCreate} style={{minHeight:44,justifyContent:'center',paddingHorizontal:9,backgroundColor:theme.tint,borderRadius:11}}><Text style={typeStyle(theme.ink,12,'800')}>＋ 追加</Text></Pressable>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0,marginTop:6,marginBottom:7}} contentContainerStyle={{alignItems:'center',gap:5}}>
+          <Pressable onPress={()=>changeFolder(null)} style={{backgroundColor:selectedFolderId===null?theme.tint:theme.bg,padding:8,borderRadius:9}}><Text style={typeStyle(theme.ink,11,'700')}>すべて</Text></Pressable>
+          {path.map(f=><React.Fragment key={f.id}><Text style={typeStyle(theme.muted,12)}>›</Text><Pressable onPress={()=>changeFolder(f.id)} style={{backgroundColor:f.id===selectedFolderId?theme.tint:theme.bg,padding:8,borderRadius:9}}><Text style={typeStyle(theme.ink,11,'700')}>{f.name}</Text></Pressable></React.Fragment>)}
+        </ScrollView>
+        {children.slice(pageSafe*6,pageSafe*6+6).map(f=><Pressable key={f.id} onPress={()=>changeFolder(f.id)} onLongPress={()=>onDelete(f.id)} delayLongPress={450} style={{minHeight:47,paddingHorizontal:11,marginBottom:5,borderRadius:11,borderWidth:1,borderColor:theme.line,backgroundColor:theme.bg,flexDirection:'row',alignItems:'center',gap:8}}>
+          <Text style={typeStyle('#D1A752',17)}>▰</Text><Text numberOfLines={1} style={[typeStyle(theme.ink,12,'700'),{flex:1}]}>{f.name}</Text><Text style={typeStyle(theme.muted,19)}>›</Text>
+        </Pressable>)}
+        {children.length===0&&<View style={{minHeight:46,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>フォルダなし</Text></View>}
+        {pages>1&&<View style={[styles.pager,{justifyContent:'center',gap:14,marginTop:5,minHeight:36}]}>
+          <Pressable disabled={pageSafe===0} onPress={()=>setPage(n=>Math.max(0,n-1))} style={{minWidth:44,minHeight:36,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,21)}>‹</Text></Pressable><Text style={typeStyle(theme.muted,11)}>{pageSafe+1}/{pages}</Text>
+          <Pressable disabled={pageSafe>=pages-1} onPress={()=>setPage(n=>n+1)} style={{minWidth:44,minHeight:36,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,21)}>›</Text></Pressable>
+        </View>}
+        <Pressable onPress={onClose} style={[styles.primaryButton,{backgroundColor:theme.navy,minHeight:44,marginTop:10}]}><Text style={typeStyle('#FFFFFF',12,'800')}>この場所のタスクを見る</Text></Pressable>
+      </Animated.View>
+    </View>
+  </Modal>;
 }
 function FolderSheet({theme,insetTop,parentName,onClose,onCreate}:{theme:Theme,insetTop:number,parentName:string,onClose:()=>void,onCreate:(name:string)=>void}){
   const [name,setName]=useState('');
