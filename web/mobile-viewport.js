@@ -64,9 +64,9 @@
         const conservativeStep=physical-layoutHeight>=54&&physical-layoutHeight<=160?
           Math.min(48,Math.max(0,physical-layoutHeight-34)):0;
         const baseStep=Math.max(conservativeStep,Math.max(0,Math.min(180,Math.round(usable-layoutHeight))));
-        // Fine-tune the position by up to 12px, while keeping at least 34px
+        // Fine-tune the position by up to 24px, while keeping at least 34px
         // of the physical screen below the web shell for the home indicator.
-        const extra=Math.min(12,Math.max(0,physical-layoutHeight-baseStep-34));
+        const extra=Math.min(24,Math.max(0,physical-layoutHeight-baseStep-34));
         lastBottomStep=baseStep+extra;
       }else lastBottomStep=0;
     }
