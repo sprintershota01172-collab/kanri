@@ -374,8 +374,8 @@ body,button,input,select{font-synthesis:none}
 }
 @media(max-width:499px) and (display-mode:standalone){
  html,body{background-color:#0D1626!important}
- .device{height:var(--kanri-standalone-height,100dvh)!important}
- body::after{content:"";position:fixed;left:0;right:0;bottom:-32px;height:calc(78px + env(safe-area-inset-bottom,0px));background:var(--nav,#101D32);pointer-events:none;z-index:19}
+ .device{height:var(--kanri-standalone-height,100dvh)!important;z-index:1}
+ body::after{content:"";position:fixed;left:0;right:0;bottom:-32px;height:calc(78px + env(safe-area-inset-bottom,0px));background:var(--nav,#101D32);pointer-events:none;z-index:0}
  .nav{position:absolute;bottom:0!important;z-index:20;height:calc(58px + env(safe-area-inset-bottom,0px));min-height:58px;padding-bottom:env(safe-area-inset-bottom,0px);background:var(--nav)}
 }
 </style></head>
