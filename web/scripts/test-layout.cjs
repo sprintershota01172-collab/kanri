@@ -104,6 +104,21 @@ async function checkLongGantt(browser){
  assert.ok(horizontal.nameWidth>=210,'task labels need room for approximately fifteen Japanese characters '+JSON.stringify(horizontal));
  assert.ok(horizontal.titleWidth>=145,'title column should hold approximately fifteen characters '+JSON.stringify(horizontal));
  assert.ok(horizontal.ltWidth<=34,'LT column must remain compact '+JSON.stringify(horizontal));
+ // Emulate a real finger swipe on the date header, not only programmatic scrollLeft.
+ await page.evaluate(()=>{document.querySelector('#ganttScroll').scrollLeft=0});
+ const rect=await page.locator('#ganttScroll').boundingBox();
+ assert.ok(rect&&rect.width>55,'Gantt date viewport must remain tappable');
+ const client=await context.newCDPSession(page);
+ const sx=rect.x+rect.width-13,sy=rect.y+18;
+ await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:sx,y:sy,id:1}]});
+ for(let step=1;step<=6;step++){
+   await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:sx-step*17,y:sy,id:1}]});
+   await page.waitForTimeout(16);
+ }
+ await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await page.waitForTimeout(80);
+ const swipeX=await page.locator('#ganttScroll').evaluate(el=>el.scrollLeft);
+ assert.ok(swipeX>10,'real horizontal touch swipe must move Gantt dates: '+swipeX);
  const scrolled=await page.evaluate(()=>{
   const left=document.querySelector('#ganttNameBody'),right=document.querySelector('#ganttDayBody');
   left.scrollTop=left.scrollHeight-left.clientHeight;
