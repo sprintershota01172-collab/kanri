@@ -24,3 +24,9 @@ jobs:
       - name: TypeScript check
         working-directory: native
         run: npm run check
+      - name: Install Web UI test dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+      - name: Test folder UI and gestures
+        working-directory: web
+        run: npm run test:ui
