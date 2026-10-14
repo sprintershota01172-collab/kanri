@@ -340,7 +340,7 @@ function renderQuickGroups(){
   const recent=read(RECENT_FOLDERS,[]).filter(id=>getFolder(id)&&!['work','personal','study','other'].includes(id));
   const entries=[{id:null,name:'すべて'},...folders.filter(f=>!f.parentId).map(f=>({id:f.id,name:f.id==='personal'?'私用':f.id==='work'?'業務':f.name})),...recent.slice(0,3).map(id=>({id,name:getFolder(id).name}))];
   $('#groupQuickSwitch').innerHTML=entries.map(g=>`<button type="button" class="group-quick-chip ${currentFolderId===g.id?'active':''}" data-quick-folder="${esc(g.id??'__all__')}" aria-pressed="${String(currentFolderId===g.id)}">${esc(g.name)}</button>`).join('');
-  $('[data-quick-folder]').forEach(el=>el.onclick=e=>{e.stopPropagation();setFolder(el.dataset.quickFolder==='__all__'?null:el.dataset.quickFolder)});
+  $$('[data-quick-folder]').forEach(el=>el.onclick=e=>{e.stopPropagation();setFolder(el.dataset.quickFolder==='__all__'?null:el.dataset.quickFolder)});
   const active=$('.group-quick-chip.active');
   if(active)active.scrollIntoView?.({block:'nearest',inline:'nearest'});
 }
