@@ -86,7 +86,7 @@ function AppInner(){
     if(!trimmed){Alert.alert('車種名を入力してください');return}
     if(workspace.folders.some(f=>f.parentId==='work'&&f.name===trimmed)){Alert.alert('同じ車種名があります');return}
     const id='vehicle_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-    setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId:'work',kind:'vehicle'}],folderId:id,recentFolderIds:[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4)}));
+    setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId:'work',kind:'vehicle' as const}],folderId:id,recentFolderIds:[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4)}));
     setVehicleEditorOpen(false);setBoardPages([0,0,0,0]);
   }
   function deleteFolder(id:string){
