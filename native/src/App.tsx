@@ -25,7 +25,7 @@ function IconButton({label,onPress,theme}:{label:string,onPress:()=>void,theme:T
   return <Pressable accessibilityRole="button" onPress={onPress} style={[styles.iconButton,{backgroundColor:theme.card,borderColor:theme.line}]}><Text style={typeStyle(theme.ink,12,'700')}>{label}</Text></Pressable>;
 }
 function AppInner(){
-  const db=useSQLiteContext();const insets=useSafeAreaInsets();const {height:winHeight}=useWindowDimensions();
+  const db=useSQLiteContext();const insets=useSafeAreaInsets();const {height:winHeight}=useWindowDimensions();const stableEditorHeight=useRef(winHeight);
   const [tasks,setTasks]=useState<Task[]>([]);const [prefs,setPrefs]=useState<Preferences>(DEFAULT_PREFS);
   const [loaded,setLoaded]=useState(false);const [tab,setTab]=useState<Tab>('board');
   const [workspace,setWorkspace]=useState<Workspace>({...DEFAULT_WORKSPACE,folders:DEFAULT_WORKSPACE.folders.map(f=>({...f}))});
@@ -300,7 +300,7 @@ function AppInner(){
     {undo&&<View style={[styles.undo,{bottom:insets.bottom+78}]}><Text style={typeStyle('#FFFFFF',11)}>{undo.label}</Text><Pressable onPress={undoAction}><Text style={typeStyle('#B4D0FF',11,'800')}>元に戻す</Text></Pressable></View>}
     {!!toast&&<Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(140)} style={[styles.toast,{top:insets.top+149}]}><Text style={typeStyle('#FFFFFF',11)}>{toast}</Text></Animated.View>}
     {folderMenuOpen&&<FolderBrowserSheet theme={theme} insetTop={insets.top} folders={workspace.folders} selectedFolderId={workspace.folderId} onClose={()=>setFolderMenuOpen(false)} onSelect={selectFolder} onCreate={()=>{setFolderMenuOpen(false);setNewFolderOpen(true)}} onDelete={deleteFolder}/>}
-    {newFolderOpen&&<FolderSheet theme={theme} insetTop={insets.top} parentName={folderPath.map(f=>f.name).join(' / ')||'すべて'} onClose={()=>setNewFolderOpen(false)} onCreate={createFolder}/>}{editor&&<TaskEditor key={editor==='new'?'new':editor.id} entry={editor} initialQuadrant={newQuadrant} initialDueDate={calendarDraftDate} prefs={prefs} folders={workspace.folders} initialFolderId={workspace.folderId} theme={theme} insetTop={insets.top} height={winHeight} onClose={()=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null)}} onSave={data=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null);void updateTask(data);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('保存しました')}} onDelete={t=>{Keyboard.dismiss();setEditor(null);void removeTask(t);remember('タスクを削除しました',()=>{void updateTask(t,null)})}}/>}
+    {newFolderOpen&&<FolderSheet theme={theme} insetTop={insets.top} parentName={folderPath.map(f=>f.name).join(' / ')||'すべて'} onClose={()=>setNewFolderOpen(false)} onCreate={createFolder}/>}{editor&&<TaskEditor key={editor==='new'?'new':editor.id} entry={editor} initialQuadrant={newQuadrant} initialDueDate={calendarDraftDate} prefs={prefs} folders={workspace.folders} initialFolderId={workspace.folderId} theme={theme} insetTop={insets.top} height={stableEditorHeight.current} onClose={()=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null)}} onSave={data=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null);void updateTask(data);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('保存しました')}} onDelete={t=>{Keyboard.dismiss();setEditor(null);void removeTask(t);remember('タスクを削除しました',()=>{void updateTask(t,null)})}}/>}
     {leadEditor&&<LeadTimeSheet theme={theme} insetTop={insets.top} current={prefs.leadMinutes} onClose={()=>{Keyboard.dismiss();setLeadEditor(false)}} onSave={minutes=>{Keyboard.dismiss();setLeadEditor(false);void updatePreferences({...prefs,leadMinutes:minutes})}}/>}
     {renaming&&<RenameSheet prefs={prefs} theme={theme} insetTop={insets.top} onClose={()=>setRenaming(false)} onSave={names=>{setRenaming(false);void updatePreferences({...prefs,names})}}/>}
   </View>;
@@ -506,12 +506,47 @@ function FolderSheet({theme,insetTop,parentName,onClose,onCreate}:{theme:Theme,i
     </View>
   </Modal>;
 }
-function TaskEditor({entry,initialQuadrant,prefs,theme,insetTop,height,folders,initialFolderId,onClose,onSave,onDelete}:{entry:Task|'new',initialQuadrant:number|null,prefs:Preferences,theme:Theme,insetTop:number,height:number,folders:Folder[],initialFolderId:string|null,onClose:()=>void,onSave:(item:Task)=>void,onDelete:(task:Task)=>void}){
+function DueCalendarPicker({value,theme,onSelect,onClose}:{value:string,theme:Theme,onSelect:(date:string)=>void,onClose:()=>void}){
+  const initial=parseDateKey(value)||new Date();
+  const [visibleMonth,setVisibleMonth]=useState(new Date(initial.getFullYear(),initial.getMonth(),1));
+  const year=visibleMonth.getFullYear(),month=visibleMonth.getMonth();
+  const shift=(n:number)=>setVisibleMonth(new Date(year,month+n,1));
+  const initialOffset=visibleMonth.getDay();
+  return <View style={{...StyleSheet.absoluteFillObject,zIndex:120,backgroundColor:theme.card,borderRadius:16,padding:10,justifyContent:'flex-start'}}>
+    <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',minHeight:44}}>
+      <Pressable onPress={()=>shift(-1)} accessibilityLabel="前月" style={{width:44,minHeight:44,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.ink,23)}>‹</Text></Pressable>
+      <Text style={typeStyle(theme.ink,15,'800')}>{year}年 {month+1}月</Text>
+      <Pressable onPress={()=>shift(1)} accessibilityLabel="翌月" style={{width:44,minHeight:44,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.ink,23)}>›</Text></Pressable>
+    </View>
+    <View style={{flexDirection:'row',marginBottom:6}}>
+      {'日月火水木金土'.split('').map((d,i)=><Text key={i} style={[typeStyle(theme.muted,10,'700'),{width:'14.2857%',textAlign:'center'}]}>{d}</Text>)}
+    </View>
+    <View style={{flexDirection:'row',flexWrap:'wrap',minHeight:0,justifyContent:'flex-start'}}>
+      {Array.from({length:42},(_,i)=>{
+        const day=new Date(year,month,i-initialOffset+1),key=dateKey(day);
+        const selected=value===key,outside=day.getMonth()!==month;
+        return <Pressable key={key} accessibilityRole="button" accessibilityLabel={key+'を納期に設定'} onPress={()=>onSelect(key)}
+          style={{width:'14.2857%',height:41,alignItems:'center',justifyContent:'center',padding:2}}>
+          <View style={{borderRadius:9,minWidth:35,minHeight:36,alignItems:'center',justifyContent:'center',backgroundColor:selected?'#5879B5':theme.bg,opacity:outside?.5:1}}>
+            <Text style={typeStyle(selected?'#FFFFFF':theme.ink,12,'700')}>{day.getDate()}</Text>
+          </View>
+        </Pressable>;
+      })}
+    </View>
+    <View style={{flexDirection:'row',gap:6,marginTop:'auto'}}>
+      <Pressable onPress={()=>onSelect('')} style={{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:10,backgroundColor:theme.tint}}><Text style={typeStyle(theme.ink,12,'700')}>納期なし</Text></Pressable>
+      <Pressable onPress={()=>onSelect(dateKey(new Date()))} style={{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:10,backgroundColor:theme.tint}}><Text style={typeStyle(theme.ink,12,'700')}>今日</Text></Pressable>
+      <Pressable onPress={onClose} style={{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:10,backgroundColor:theme.tint}}><Text style={typeStyle(theme.ink,12,'700')}>戻る</Text></Pressable>
+    </View>
+  </View>;
+}
+function TaskEditor({entry,initialQuadrant,initialDueDate,prefs,theme,insetTop,height,folders,initialFolderId,onClose,onSave,onDelete}:{entry:Task|'new',initialQuadrant:number|null,initialDueDate:string|null,prefs:Preferences,theme:Theme,insetTop:number,height:number,folders:Folder[],initialFolderId:string|null,onClose:()=>void,onSave:(item:Task)=>void,onDelete:(task:Task)=>void}){
   const original=entry==='new'?null:entry;
   const [title,setTitle]=useState(original?.title??'');const [important,setImportant]=useState(original?.important??(initialQuadrant===null?true:initialQuadrant<=1));const [urgent,setUrgent]=useState(original?.urgent??(initialQuadrant===null?false:initialQuadrant===0||initialQuadrant===2));
   const [group,setGroup]=useState<Group>(original?.group??(initialQuadrant===null?'プライベート':GROUPS[initialQuadrant]));
   const [duration,setDuration]=useState(original?.durationMin??60);const [leadDays,setLeadDays]=useState(String(original?.leadDays??1));
-  const [date,setDate]=useState(original?.dueDate??dateKey(addDays(new Date(),1)));
+  const [date,setDate]=useState(original?.dueDate??initialDueDate??dateKey(addDays(new Date(),1)));
+  const [showDueCalendar,setShowDueCalendar]=useState(false);
   const [pin,setPin]=useState(original?.pinned??false);
   const [selectedFolder,setSelectedFolder]=useState<string|null>(original?folderForTask(original):(initialFolderId||(['work','personal','study','other'][initialQuadrant??1])));
   const folderList:Folder[]=[];
@@ -535,9 +570,11 @@ function TaskEditor({entry,initialQuadrant,prefs,theme,insetTop,height,folders,i
       </ScrollView>
       <Text style={[styles.formLabel,{color:theme.muted}]}>所要時間</Text><View style={styles.formChoices}>{[30,60,90,120,180].map(n=><Chip key={n} theme={theme} title={`${n}分`} selected={n===duration} onPress={()=>setDuration(n)}/>)}</View>
       <Text style={[styles.formLabel,{color:theme.muted}]}>ガントチャート LT（日数・1〜90）</Text><TextInput value={leadDays} onChangeText={setLeadDays} keyboardType="number-pad" style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
-      <Text style={[styles.formLabel,{color:theme.muted}]}>納期（YYYY-MM-DD）</Text><TextInput value={date} onChangeText={setDate} placeholder="2026-10-20" keyboardType="numbers-and-punctuation" autoCorrect={false} placeholderTextColor={theme.muted} style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
+      <Text style={[styles.formLabel,{color:theme.muted}]}>納期</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="納期をカレンダーから選ぶ" onPress={()=>{Keyboard.dismiss();setShowDueCalendar(true)}} style={[styles.input,{backgroundColor:theme.bg,borderColor:theme.line,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}]}><Text style={typeStyle(theme.ink,14,'700')}>{date||'納期なし'}</Text><Text style={typeStyle('#6F91CA',21)}>▦</Text></Pressable>
       <Text style={[styles.formLabel,{color:theme.muted}]}>MANUAL ORDER</Text><View style={styles.formChoices}><Chip theme={theme} title="◆ 手動順位を固定" selected={pin} onPress={()=>setPin(!pin)}/><Chip theme={theme} title="自動に戻す" selected={!pin} onPress={()=>setPin(false)}/></View>
       <View style={{flexDirection:'row',gap:12,marginTop:8,alignItems:'center'}}>{original&&<Pressable onPress={()=>Alert.alert('タスクを削除','このタスクを削除しますか？',[{text:'キャンセル',style:'cancel'},{text:'削除',style:'destructive',onPress:()=>onDelete(original)}])}><Text style={typeStyle('#C98087',12,'700')}>削除</Text></Pressable>}<Pressable onPress={onClose} accessibilityRole='button' accessibilityLabel='キャンセルして戻る' style={{minHeight:44,paddingHorizontal:13,justifyContent:'center',alignItems:'center',borderWidth:1,borderColor:theme.line,borderRadius:13,backgroundColor:theme.bg}}><Text style={typeStyle(theme.ink,12,'800')}>キャンセル</Text></Pressable><Pressable onPress={commit} style={[styles.primaryButton,{backgroundColor:theme.navy,minHeight:44}]}><Text style={typeStyle('#FFFFFF',12,'800')}>{original?'変更を保存':'タスクを作成'}</Text></Pressable></View>
+      {showDueCalendar&&<DueCalendarPicker value={date} theme={theme} onSelect={value=>{setDate(value);setShowDueCalendar(false)}} onClose={()=>setShowDueCalendar(false)}/>}
     </Animated.View></View>
   </Modal>;
 }
