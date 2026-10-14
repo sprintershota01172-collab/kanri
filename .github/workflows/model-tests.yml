@@ -21,8 +21,6 @@ jobs:
         run: npm test
       - name: Validate web syntax and Gantt grid
         run: node web/scripts/check-syntax.cjs
-      - name: Validate generated Excel workbook
-        run: node web/scripts/test-export.cjs
       - name: TypeScript check
         working-directory: native
         run: npm run check
@@ -32,3 +30,5 @@ jobs:
       - name: Test folder UI and gestures
         working-directory: web
         run: npm run test:ui
+      - name: Validate generated Excel workbook
+        run: node web/scripts/test-export.cjs
