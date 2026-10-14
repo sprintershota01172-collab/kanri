@@ -670,7 +670,7 @@ function wireGroupChip(el){
 function renderQuickGroups(){
   const entries=visibleGroupEntries();
   $('#groupQuickSwitch').innerHTML=entries.map(g=>`<button type="button" class="group-quick-chip ${currentFolderId===g.id?'active':''}" data-quick-folder="${esc(g.id??'__all__')}" aria-pressed="${String(currentFolderId===g.id)}" aria-label="${esc(g.name)}。タップで切り替え、長押しで操作">${esc(g.name)}</button>`).join('');
-  $('[data-quick-folder]').forEach(wireGroupChip);
+  $$('[data-quick-folder]').forEach(wireGroupChip);
 
   const active=$('.group-quick-chip.active');
   if(active){const strip=$('#groupQuickSwitch');strip.scrollLeft=Math.max(0,active.offsetLeft-strip.offsetLeft-18)}
