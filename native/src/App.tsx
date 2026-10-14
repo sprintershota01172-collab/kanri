@@ -7,18 +7,18 @@ import {Gesture,GestureDetector,GestureHandlerRootView} from 'react-native-gestu
 import {scheduleOnRN} from 'react-native-worklets';
 import Animated,{FadeIn,FadeInDown,FadeOut,withSpring,useAnimatedStyle,useSharedValue} from 'react-native-reanimated';
 import {SafeAreaProvider,useSafeAreaInsets} from 'react-native-safe-area-context';
-import {addDays,canSchedule,COLORS,createTask,dateKey,DEFAULT_PREFS,daysUntil,dueLabel,GROUPS,Group,moveToQuadrant,pad,parseDateKey,parseScheduleMinutes,Preferences,priorityScore,quadrant,sortTasks,Task,timeText} from './model';
-import {deleteTask,migrate,readPreferences,readTasks,savePreferences,saveTask} from './storage';
+import {addDays,canSchedule,COLORS,createTask,dateKey,DEFAULT_PREFS,daysUntil,dueLabel,GROUPS,Group,moveToQuadrant,pad,parseDateKey,parseScheduleMinutes,Preferences,priorityScore,quadrant,sortTasks,Task,timeText,Folder,Workspace,DEFAULT_WORKSPACE,folderForTask,folderGroup} from './model';
+import {deleteTask,migrate,readPreferences,readTasks,savePreferences,saveTask,readWorkspace,saveWorkspace} from './storage';
 import {cancelTaskNotifications,registerNotifications,requestLocalPermissions,scheduleTaskNotifications,snoozeTask} from './reminders';
 
 type Tab = 'board'|'calendar'|'puzzle'|'settings';
 type Mode = 'month'|'week'|'gantt';
 type Theme = {bg:string,card:string,ink:string,muted:string,line:string,tint:string,navy:string,inverse:string};
 const LIGHT:Theme={bg:'#F3F5F7',card:'#FFFFFF',ink:'#152238',muted:'#8591A3',line:'#E7EBF0',tint:'#E8EDF8',navy:'#101D32',inverse:'#FFFFFF'};
-const DARK:Theme={bg:'#0F1727',card:'#1B293C',ink:'#EDF1F8',muted:'#A1ABBC',line:'#2A384C',tint:'#283A58',navy:'#08111F',inverse:'#FFFFFF'};
+const DARK:Theme={bg:'#0F1727',card:'#213048',ink:'#FFFFFF',muted:'#D0D8E7',line:'#50617C',tint:'#334D71',navy:'#08111F',inverse:'#FFFFFF'};
 function typeStyle(color:string,size=12,weight:'400'|'500'|'600'|'700'|'800'='600') {return {color,fontSize:size,fontWeight:weight} as const;}
 function Chip({title,selected,onPress,theme,flex=1}:{title:string,selected?:boolean,onPress:()=>void,theme:Theme,flex?:number}){
-  return <Pressable onPress={onPress} style={[styles.chip,{flex,backgroundColor:selected?theme.tint:theme.bg,borderColor:selected?'#8FAADD':theme.line}]}><Text numberOfLines={1} style={typeStyle(selected?'#5475B6':theme.ink,10,'700')}>{title}</Text></Pressable>;
+  return <Pressable onPress={onPress} style={[styles.chip,{flex,backgroundColor:selected?theme.tint:theme.bg,borderColor:selected?'#8FAADD':theme.line}]}><Text numberOfLines={1} style={typeStyle(selected?(theme===DARK?'#E6EFFF':'#5475B6'):theme.ink,10,'700')}>{title}</Text></Pressable>;
 }
 function IconButton({label,onPress,theme}:{label:string,onPress:()=>void,theme:Theme}){
   return <Pressable accessibilityRole="button" onPress={onPress} style={[styles.iconButton,{backgroundColor:theme.card,borderColor:theme.line}]}><Text style={typeStyle(theme.ink,12,'700')}>{label}</Text></Pressable>;
@@ -27,6 +27,9 @@ function AppInner(){
   const db=useSQLiteContext();const insets=useSafeAreaInsets();const {height:winHeight}=useWindowDimensions();
   const [tasks,setTasks]=useState<Task[]>([]);const [prefs,setPrefs]=useState<Preferences>(DEFAULT_PREFS);
   const [loaded,setLoaded]=useState(false);const [tab,setTab]=useState<Tab>('board');
+  const [workspace,setWorkspace]=useState<Workspace>({...DEFAULT_WORKSPACE,folders:DEFAULT_WORKSPACE.folders.map(f=>({...f}))});
+  const [newFolderOpen,setNewFolderOpen]=useState(false);
+  const swipeStart=useRef<{x:number;y:number;time:number}|null>(null);
   const [editor,setEditor]=useState<Task|'new'|null>(null);const [newQuadrant,setNewQuadrant]=useState<number|null>(null);
   const [renaming,setRenaming]=useState(false);
   const [leadEditor,setLeadEditor]=useState(false);
@@ -51,13 +54,34 @@ function AppInner(){
     async function init(){
       try{
         await registerNotifications();
-        const [list,config]=await Promise.all([readTasks(db),readPreferences(db)]);
-        if(active){setTasks(list);setPrefs(config);setLoaded(true)}
+        const [list,config,savedWorkspace]=await Promise.all([readTasks(db),readPreferences(db),readWorkspace(db)]);
+        if(active){setTasks(list);setPrefs(config);setWorkspace(savedWorkspace);setTab(savedWorkspace.tab);setLoaded(true)}
       }catch(error){console.error(error);if(active){setLoaded(true);Alert.alert('データ読み込みに失敗','アプリを再起動してください')}}
     }
     void init();return ()=>{active=false};
   },[db]);
 
+  useEffect(()=>{if(loaded){void saveWorkspace(db,{...workspace,tab}).catch(e=>console.warn('folder state persistence',e))}},[db,workspace,tab,loaded]);
+  function selectTab(next:Tab){setTab(next)}
+  function selectFolder(id:string|null){setWorkspace(p=>({...p,folderId:id}));setBoardPages([0,0,0,0])}
+  function createFolder(name:string){
+    const trimmed=name.trim();if(!trimmed){Alert.alert('フォルダ名を入力してください');return}
+    if(workspace.folders.some(f=>f.parentId===workspace.folderId&&f.name===trimmed)){Alert.alert('同じ名前のフォルダがあります');return}
+    const id='folder_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+    setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId:p.folderId}],folderId:id}));
+    setNewFolderOpen(false);setBoardPages([0,0,0,0]);
+  }
+  function deleteFolder(id:string){
+    const f=workspace.folders.find(x=>x.id===id);if(!f)return;
+    const linked=tasksRef.current.filter(t=>folderForTask(t)===id);
+    Alert.alert('フォルダを削除',f.name+' を削除しますか？ 中のタスクと子フォルダは1つ上へ移動します。',[
+      {text:'キャンセル',style:'cancel'},
+      {text:'削除',style:'destructive',onPress:()=>{
+        for(const task of linked)void updateTask({...task,folderId:f.parentId,group:f.parentId?folderGroup(workspace.folders,f.parentId):task.group});
+        setWorkspace(p=>({...p,folderId:p.folderId===id?f.parentId:p.folderId,folders:p.folders.filter(x=>x.id!==id).map(x=>x.parentId===id?{...x,parentId:f.parentId}:x)}));
+      }}
+    ]);
+  }
   async function updateTask(next:Task,old:Task|null=tasksRef.current.find(t=>t.id===next.id)??null){
     const item={...next,updatedAt:new Date().toISOString(),notificationIds:[]};
     setTasks(previous=>[...previous.filter(t=>t.id!==item.id),item]);
@@ -118,7 +142,7 @@ function AppInner(){
   },[editor,renaming,leadEditor,tab]);
 
   function moveTask(id:string,q:number){const before=tasksRef.current.find(x=>x.id===id);if(!before)return;
-    const after=moveToQuadrant(before,q,prefsRef.current);
+    const after={...moveToQuadrant(before,q,prefsRef.current),...(prefs.mode==='group'?{folderId:['work','personal','study','other'][q]}:{})};
     if(quadrant(before,prefsRef.current)===q){
       const pinned=tasksRef.current.filter(t=>t.pinned&&quadrant(t,prefsRef.current)===q);
       const best=Math.min(0,...pinned.map(t=>t.manualOrder??0))-1;
@@ -365,7 +389,7 @@ function SettingsPanel({theme,prefs,tasks,onMode,onRename,onDark,onReminder,onLe
   </View>;
 }
 function SettingRow({theme,title,value,onPress,last=false}:{theme:Theme,title:string,value:string,onPress:()=>void,last?:boolean}){
-  return <Pressable onPress={onPress} style={[styles.settingRow,!last&&{borderBottomWidth:1,borderColor:theme.line}]}><Text style={typeStyle(theme.ink,12,'700')}>{title}</Text><Text style={typeStyle('#5979B5',11,'800')}>{value}</Text></Pressable>;
+  return <Pressable onPress={onPress} style={[styles.settingRow,!last&&{borderBottomWidth:1,borderColor:theme.line}]}><Text style={typeStyle(theme.ink,12,'700')}>{title}</Text><Text style={typeStyle(theme===DARK?'#CEE0FF':'#5979B5',11,'800')}>{value}</Text></Pressable>;
 }
 function TaskEditor({entry,initialQuadrant,prefs,theme,insetTop,height,onClose,onSave,onDelete}:{entry:Task|'new',initialQuadrant:number|null,prefs:Preferences,theme:Theme,insetTop:number,height:number,onClose:()=>void,onSave:(item:Task)=>void,onDelete:(task:Task)=>void}){
   const original=entry==='new'?null:entry;
