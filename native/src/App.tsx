@@ -386,6 +386,42 @@ function AppInner(){
         </ScrollView>
       </View>
     </Modal>
+    <Modal visible={groupAddOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={()=>setGroupAddOpen(false)}>
+      <View style={styles.overlay}><Pressable onPress={()=>setGroupAddOpen(false)} style={StyleSheet.absoluteFill}/>
+        <View style={[styles.editorSheet,{top:insets.top+25,backgroundColor:theme.card}]}>
+          <View style={styles.flexBetween}><Text style={typeStyle(theme.ink,17,'800')}>グループ・ツリーを追加</Text><Pressable onPress={()=>setGroupAddOpen(false)} accessibilityLabel="閉じる" style={{width:44,height:44,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.ink,24)}>×</Text></Pressable></View>
+          <Pressable onPress={()=>beginFolderEdit(null,'グループ')} style={{minHeight:60,backgroundColor:theme.bg,borderColor:theme.line,borderWidth:1,borderRadius:12,padding:12,marginTop:8,justifyContent:'center'}}>
+            <Text style={typeStyle(theme.ink,13,'800')}>＋ グループを追加</Text><Text style={typeStyle(theme.muted,10)}>「業務」「私用」と並ぶ項目を作成</Text>
+          </Pressable>
+          <Pressable onPress={()=>beginFolderEdit(workspace.folderId,'子ツリー')} style={{minHeight:60,backgroundColor:theme.bg,borderColor:theme.line,borderWidth:1,borderRadius:12,padding:12,marginTop:8,justifyContent:'center'}}>
+            <Text style={typeStyle(theme.ink,13,'800')}>＋ 子ツリーを追加</Text><Text style={typeStyle(theme.muted,10)}>現在選択中のグループの内側に追加</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+    {groupActionsId&&workspace.folders.some(f=>f.id===groupActionsId)&&(()=>{
+      const f=workspace.folders.find(x=>x.id===groupActionsId)!;
+      const siblings=workspace.folders.filter(x=>x.parentId===f.parentId);
+      const pos=siblings.findIndex(x=>x.id===f.id);
+      const action=(label:string,handler:()=>void,destructive=false,disabled=false)=>(
+        <Pressable accessibilityRole="button" disabled={disabled} onPress={handler} style={{minHeight:47,justifyContent:'center',paddingHorizontal:12,marginTop:6,borderWidth:1,borderColor:theme.line,borderRadius:11,backgroundColor:theme.bg,opacity:disabled?.35:1}}>
+          <Text style={typeStyle(destructive?'#BA5A63':theme.ink,12,'800')}>{label}</Text>
+        </Pressable>
+      );
+      return <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={()=>setGroupActionsId(null)}>
+        <View style={styles.overlay}><Pressable onPress={()=>setGroupActionsId(null)} style={StyleSheet.absoluteFill}/>
+          <View style={[styles.editorSheet,{top:insets.top+25,backgroundColor:theme.card}]}>
+            <View style={styles.flexBetween}><Text numberOfLines={1} style={[typeStyle(theme.ink,16,'800'),{flex:1}]}>{f.name} を操作</Text><Pressable accessibilityLabel="閉じる" onPress={()=>setGroupActionsId(null)} style={{width:44,height:44,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.ink,23)}>×</Text></Pressable></View>
+            <Text style={[typeStyle(theme.muted,10),{marginBottom:6}]}>長押しで編集・移動・削除</Text>
+            {action('名前を変更',()=>beginFolderEdit(f.parentId,'グループ',f.id))}
+            {action('＋ 子ツリーを追加',()=>beginFolderEdit(f.id,'子ツリー'))}
+            {action('← 左へ並び替え',()=>{moveFolder(f.id,-1);setGroupActionsId(null)},false,pos<=0)}
+            {action('右へ並び替え →',()=>{moveFolder(f.id,1);setGroupActionsId(null)},false,pos>=siblings.length-1)}
+            {action('グループ・ツリーを削除',()=>{setGroupActionsId(null);deleteFolder(f.id)},true)}
+          </View>
+        </View>
+      </Modal>;
+    })()}
     {folderMenuOpen&&<FolderBrowserSheet theme={theme} insetTop={insets.top} folders={workspace.folders} selectedFolderId={workspace.folderId} onClose={()=>setFolderMenuOpen(false)} onSelect={selectFolder} onCreate={()=>beginFolderEdit(workspace.folderId,'子ツリー')} onDelete={deleteFolder}/>}
     {newFolderOpen&&folderDraft&&<FolderSheet theme={theme} insetTop={insets.top} parentName={folderDraft.parentId?workspace.folders.find(f=>f.id===folderDraft.parentId)?.name||'子ツリー':'最上位グループ'} initialName={folderDraft.name||''} title={folderDraft.renameId?'名前を変更':folderDraft.label+'を追加'} onClose={()=>{setNewFolderOpen(false);setFolderDraft(null)}} onCreate={createFolder}/>}{editor&&<TaskEditor key={editor==='new'?'new':editor.id} entry={editor} initialQuadrant={newQuadrant} initialDueDate={calendarDraftDate} prefs={prefs} folders={workspace.folders} initialFolderId={workspace.folderId} theme={theme} insetTop={insets.top} height={stableEditorHeight.current} onClose={()=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null)}} onSave={data=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null);void updateTask(data);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('保存しました')}} onDelete={t=>{Keyboard.dismiss();setEditor(null);void removeTask(t);remember('タスクを削除しました',()=>{void updateTask(t,null)})}}/>}
 
