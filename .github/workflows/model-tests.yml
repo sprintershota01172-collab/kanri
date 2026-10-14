@@ -36,3 +36,9 @@ jobs:
         run: node web/scripts/test-calendar.cjs
       - name: Validate iPhone full-screen PWA geometry
         run: node web/scripts/test-standalone.cjs
+      - name: Install headless Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: Verify iPhone navigation pixel geometry
+        working-directory: web
+        run: npm run test:layout
