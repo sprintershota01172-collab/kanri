@@ -26,7 +26,7 @@ while(p+30<data.length){
 }
 for(const expected of ['[Content_Types].xml','xl/workbook.xml','xl/styles.xml','xl/worksheets/sheet1.xml','xl/worksheets/sheet2.xml','xl/worksheets/sheet3.xml'])
  assert.ok(files.has(expected),'missing XLSX part '+expected);
-const parser=new JSDOM().window.DOMParser();
+const dom=new JSDOM();const parser=new dom.window.DOMParser();
 for(const [name,xml] of files){
  const doc=parser.parseFromString(xml,'text/xml');
  assert.equal(doc.querySelector('parsererror'),null,'malformed XML '+name);
