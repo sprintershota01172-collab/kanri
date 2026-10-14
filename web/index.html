@@ -375,8 +375,9 @@ body,button,input,select{font-synthesis:none}
 @media(max-width:499px) and (display-mode:standalone){
  html,body{background-color:#0D1626!important}
  .device{height:var(--kanri-standalone-height,100dvh)!important;z-index:1}
- body::after{content:"";position:fixed;left:0;right:0;bottom:-32px;height:calc(78px + env(safe-area-inset-bottom,0px));background:var(--nav,#101D32);pointer-events:none;z-index:0}
- .nav{position:absolute;bottom:0!important;z-index:20;height:calc(58px + env(safe-area-inset-bottom,0px));min-height:58px;padding-bottom:env(safe-area-inset-bottom,0px);background:var(--nav)}
+ /* No body overlay: the previous pseudo-element masked the bottom nav. */
+ body::after{content:none!important;display:none!important}
+ .nav{position:absolute;bottom:0!important;z-index:100;height:calc(58px + env(safe-area-inset-bottom,0px));min-height:58px;padding-bottom:env(safe-area-inset-bottom,0px);background:var(--nav);pointer-events:auto}
 }
 
 /* v1.9.2 — iPhone physical aspect ratio is authoritative in standalone mode.
