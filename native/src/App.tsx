@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {Alert,Keyboard,Modal,Pressable,StatusBar,StyleSheet,Text,TextInput,View,useWindowDimensions,BackHandler,ScrollView} from 'react-native';
+import {Alert,Keyboard,Modal,Pressable,StatusBar,StyleSheet,Text,TextInput,View,useWindowDimensions,BackHandler,ScrollView,Platform} from 'react-native';
 import {SQLiteProvider,useSQLiteContext} from 'expo-sqlite';
 import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
@@ -10,13 +10,14 @@ import {SafeAreaProvider,useSafeAreaInsets} from 'react-native-safe-area-context
 import {addDays,canSchedule,COLORS,createTask,dateKey,DEFAULT_PREFS,daysUntil,dueLabel,GROUPS,Group,moveToQuadrant,pad,parseDateKey,parseScheduleMinutes,Preferences,priorityScore,quadrant,sortTasks,Task,timeText,Folder,Workspace,DEFAULT_WORKSPACE,folderForTask,folderGroup} from './model';
 import {deleteTask,migrate,readPreferences,readTasks,savePreferences,saveTask,readWorkspace,saveWorkspace} from './storage';
 import {cancelTaskNotifications,registerNotifications,requestLocalPermissions,scheduleTaskNotifications,snoozeTask} from './reminders';
+import {shareExcel} from './xlsxExport';
 
 type Tab = 'board'|'calendar'|'puzzle'|'settings';
 type Mode = 'month'|'week'|'gantt';
 type Theme = {bg:string,card:string,ink:string,muted:string,line:string,tint:string,navy:string,inverse:string};
 const LIGHT:Theme={bg:'#F3F5F7',card:'#FFFFFF',ink:'#152238',muted:'#8591A3',line:'#E7EBF0',tint:'#E8EDF8',navy:'#101D32',inverse:'#FFFFFF'};
 const DARK:Theme={bg:'#0F1727',card:'#213048',ink:'#FFFFFF',muted:'#D0D8E7',line:'#50617C',tint:'#334D71',navy:'#08111F',inverse:'#FFFFFF'};
-function typeStyle(color:string,size=12,weight:'400'|'500'|'600'|'700'|'800'='600') {return {color,fontSize:size,fontWeight:weight} as const;}
+function typeStyle(color:string,size=12,weight:'400'|'500'|'600'|'700'|'800'='600') {return {color,fontSize:size,fontWeight:weight,fontFamily:Platform.OS==='ios'?'HiraginoSans-W3':'sans-serif',letterSpacing:size<=11?0.03:-0.12} as const;}
 function Chip({title,selected,onPress,theme,flex=1}:{title:string,selected?:boolean,onPress:()=>void,theme:Theme,flex?:number}){
   return <Pressable onPress={onPress} style={[styles.chip,{flex,backgroundColor:selected?theme.tint:theme.bg,borderColor:selected?'#8FAADD':theme.line}]}><Text numberOfLines={1} style={typeStyle(selected?(theme===DARK?'#E6EFFF':'#5475B6'):theme.ink,10,'700')}>{title}</Text></Pressable>;
 }
@@ -219,7 +220,18 @@ function AppInner(){
         if(next>=0&&next<order.length){selectTab(order[next]);void Haptics.selectionAsync()}
       }}>
       {tab==='board'&&<>
-        <View style={styles.screenHead}><Pressable accessibilityRole="button" accessibilityLabel="フォルダを開く" onPress={()=>setFolderMenuOpen(true)} style={{minHeight:37,flexDirection:'row',alignItems:'center',gap:5}}><Text style={typeStyle(theme.ink,18,'800')}>TODO</Text>{workspace.folderId&&<Text numberOfLines={1} style={[typeStyle(theme.muted,10,'700'),{maxWidth:85}]}>{workspace.folders.find(f=>f.id===workspace.folderId)?.name}</Text>}<Text style={typeStyle(theme.muted,14,'700')}>⌄</Text></Pressable><IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/></View>
+        <View style={styles.screenHead}>
+          <Pressable accessibilityRole="button" accessibilityLabel="すべてのフォルダを開く" onPress={()=>setFolderMenuOpen(true)} style={{minHeight:37,flexDirection:'row',alignItems:'center',gap:3}}><Text style={typeStyle(theme.ink,18,'800')}>TODO</Text><Text style={typeStyle(theme.muted,12,'700')}>⌄</Text></Pressable>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} onTouchStart={e=>{e.stopPropagation();swipeStart.current=null}} style={{flex:1,minWidth:0,marginHorizontal:3}} contentContainerStyle={{alignItems:'center',gap:4}}>
+            {([{id:null,name:'すべて'},{id:'work',name:'業務'},{id:'personal',name:'私用'},{id:'study',name:'学習'},{id:'other',name:'その他'}] as {id:string|null,name:string}[]).map(g=>
+              <Pressable key={g.id||'all'} accessibilityRole="button" accessibilityLabel={g.name+'に切り替える'} onPress={()=>selectFolder(g.id)} style={{minHeight:36,paddingHorizontal:8,justifyContent:'center',borderWidth:1,borderColor:workspace.folderId===g.id?'#90A8D5':theme.line,borderRadius:10,backgroundColor:workspace.folderId===g.id?theme.tint:theme.card}}>
+                <Text style={typeStyle(workspace.folderId===g.id?(prefs.dark?'#F4F7FF':'#456DAA'):theme.muted,10,'700')}>{g.name}</Text>
+              </Pressable>
+            )}
+            {workspace.folderId&&!['work','personal','study','other'].includes(workspace.folderId)&&<Pressable onPress={()=>setFolderMenuOpen(true)} style={{minHeight:36,paddingHorizontal:8,justifyContent:'center',borderWidth:1,borderColor:'#8FAADD',borderRadius:10,backgroundColor:theme.tint}}><Text numberOfLines={1} style={typeStyle(theme.ink,10,'700')}>{workspace.folders.find(f=>f.id===workspace.folderId)?.name||'フォルダ'}</Text></Pressable>}
+          </ScrollView>
+          <IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/>
+        </View>
         <View ref={boardRef} style={{flex:1,minHeight:0}}><View style={styles.board}>
           {[0,1,2,3].map(q=>{
             const items=sortTasks(tasks.filter(t=>!t.completed&&quadrant(t,prefs)===q&&(workspace.folderId===null||folderForTask(t)===workspace.folderId)));
@@ -280,7 +292,7 @@ function AppInner(){
           }}><Text style={typeStyle('#5578BB',11,'800')}>予定を外す</Text></Pressable></View>
         </View>
       </>}
-      {tab==='settings'&&<SettingsPanel theme={theme} prefs={prefs} tasks={tasks} onMode={mode=>{void updatePreferences({...prefs,mode,names:(mode==='group'?[...GROUPS]:[...DEFAULT_PREFS.names]) as Preferences['names']})}} onRename={()=>setRenaming(true)} onDark={()=>void updatePreferences({...prefs,dark:!prefs.dark})} onReminder={()=>void changeNotificationEnabled()} onLeadEdit={()=>setLeadEditor(true)} onStart={()=>void updatePreferences({...prefs,startReminder:!prefs.startReminder})}/>}
+      {tab==='settings'&&<SettingsPanel theme={theme} prefs={prefs} tasks={tasks} onExport={()=>{void shareExcel(tasksRef.current,workspace.folders,focus).catch(e=>{console.warn('Excel export failed',e);Alert.alert('Excel出力できませんでした',String(e?.message||'再試行してください'))})}} onMode={mode=>{void updatePreferences({...prefs,mode,names:(mode==='group'?[...GROUPS]:[...DEFAULT_PREFS.names]) as Preferences['names']})}} onRename={()=>setRenaming(true)} onDark={()=>void updatePreferences({...prefs,dark:!prefs.dark})} onReminder={()=>void changeNotificationEnabled()} onLeadEdit={()=>setLeadEditor(true)} onStart={()=>void updatePreferences({...prefs,startReminder:!prefs.startReminder})}/>}
     </View>
     <View style={[styles.nav,{backgroundColor:theme.navy,paddingBottom:insets.bottom,height:59+insets.bottom}]}>
       {([['board','▦','FOCUS'],['calendar','▤','PLAN'],['add','+',''],['puzzle','▧','PUZZLE'],['settings','☷','SETUP']] as const).map(([id,icon,label])=>id==='add'?<Pressable accessibilityLabel="タスクを追加" key="add" onPress={()=>{setNewQuadrant(null);setEditor('new')}} style={styles.navButton}><View style={styles.navAdd}><Text style={typeStyle('#FFFFFF',30,'400')}>+</Text></View></Pressable>:<Pressable key={id} onPress={()=>selectTab(id)} style={styles.navButton}><Text style={typeStyle(tab===id?'#FFFFFF':'#9BA9C0',24,'400')}>{icon}</Text><Text style={typeStyle(tab===id?'#FFFFFF':'#9BA9C0',9,'700')}>{label}</Text></Pressable>)}
@@ -403,7 +415,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
     </View>}
   </View>;
 }
-function SettingsPanel({theme,prefs,tasks,onMode,onRename,onDark,onReminder,onLeadEdit,onStart}:{theme:Theme,prefs:Preferences,tasks:Task[],onMode:(m:'priority'|'group')=>void,onRename:()=>void,onDark:()=>void,onReminder:()=>void,onLeadEdit:()=>void,onStart:()=>void}){
+function SettingsPanel({theme,prefs,tasks,onMode,onRename,onDark,onReminder,onLeadEdit,onStart,onExport}:{theme:Theme,prefs:Preferences,tasks:Task[],onMode:(m:'priority'|'group')=>void,onRename:()=>void,onDark:()=>void,onReminder:()=>void,onLeadEdit:()=>void,onStart:()=>void,onExport:()=>void}){
   return <View style={{flex:1,minHeight:0}}><View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>PREFERENCES</Text></View></View>
     <View style={[styles.settingsBox,{backgroundColor:theme.card,borderColor:theme.line}]}>
       <SettingRow theme={theme} title="分類方法" value={prefs.mode==='priority'?'優先度':'グループ'} onPress={()=>onMode(prefs.mode==='priority'?'group':'priority')}/>
@@ -414,6 +426,9 @@ function SettingsPanel({theme,prefs,tasks,onMode,onRename,onDark,onReminder,onLe
       <SettingRow theme={theme} title="リマインダー" value={prefs.remindersEnabled?'ON':'OFF'} onPress={onReminder}/>
       <SettingRow theme={theme} title="納期前の通知" value={prefs.leadMinutes===60?'1時間前':prefs.leadMinutes===1440?'前日':prefs.leadMinutes===0?'当日':`${prefs.leadMinutes}分前`} onPress={onLeadEdit}/>
       <SettingRow theme={theme} title="予定開始時の通知" value={prefs.startReminder?'ON':'OFF'} onPress={onStart} last/>
+    </View>
+    <View style={[styles.settingsBox,{backgroundColor:theme.card,borderColor:theme.line}]}>
+      <SettingRow theme={theme} title="データ出力" value="Excel出力 ↗" onPress={onExport} last/>
     </View>
     <View style={[styles.statsBox,{backgroundColor:theme.navy}]}><Text style={typeStyle('#FFFFFF',25,'800')}>{tasks.filter(t=>t.completed).length} <Text style={typeStyle('#B8C9E1',12)}>/ {tasks.length} タスク完了</Text></Text><Text style={[typeStyle('#C3CFE1',11),{marginTop:7}]}></Text></View>
     <Text style={[typeStyle(theme.muted,10),{marginTop:12}]}>データは端末内のSQLiteに保存されます。ログイン不要・オフライン対応。</Text>
