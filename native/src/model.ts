@@ -1,6 +1,6 @@
 export type Group = '仕事' | 'プライベート' | '学習' | 'その他';
 export type BoardMode = 'priority' | 'group';
-export type Folder = {id:string;name:string;parentId:string|null};
+export type Folder = {id:string;name:string;parentId:string|null;kind?:'vehicle'};
 export const DEFAULT_FOLDERS:Folder[]=[
   {id:'work',name:'業務',parentId:null},
   {id:'personal',name:'プライベート',parentId:null},
@@ -19,6 +19,7 @@ export function folderGroup(folders:Folder[],id:string|null):Group{
 export type Task = {
   id: string;
   folderId?: string | null;
+  event?: boolean; // calendar appointment, not a completable focus task
   title: string;
   important: boolean;
   urgent: boolean;
