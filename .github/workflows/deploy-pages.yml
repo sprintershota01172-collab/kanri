@@ -18,6 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare rounded app icons
+        run: |
+          base64 --decode icons/icon-rounded.png.b64 > web/icon-rounded.png
+          base64 --decode icons/apple-touch-icon.png.b64 > web/apple-touch-icon.png
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
