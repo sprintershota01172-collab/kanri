@@ -130,6 +130,43 @@ async function checkLongGantt(browser){
  await context.close();
  return '26 tasks rendered, 20-row viewport, synced vertical scrolling';
 }
+async function checkCompactMonthAgenda(browser){
+ const context=await browser.newContext({viewport:{width:393,height:852},deviceScaleFactor:3,isMobile:true,hasTouch:true});
+ const page=await context.newPage();
+ const url='http://127.0.0.1:'+server.address().port+'/index.html';
+ await page.goto(url,{waitUntil:'load'});
+ await page.evaluate(()=>{
+   const d=new Date();
+   const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+   const tasks=Array.from({length:9},(_,i)=>({id:'month-agenda-'+i,title:'月予定 '+i,important:true,urgent:true,group:'仕事',folderId:'work',duration:30,due:key,scheduled:null,leadDays:1,ganttStart:null,pin:false,rank:null,done:false,created:d.toISOString()}));
+   localStorage.setItem('kanri_v1_tasks',JSON.stringify(tasks));
+ });
+ await page.reload({waitUntil:'load'});
+ await page.locator('[data-tab="calendar"]').click();
+ assert.ok(await page.locator('[data-mode="gantt"]').evaluate(el=>el.classList.contains('selected')),'PLAN defaults to Gantt');
+ assert.ok(await page.locator('.gantt-excel').count(),'Gantt renders when PLAN initially opens');
+ await page.locator('[data-mode="month"]').click();
+ const layout=await page.evaluate(()=>{
+  const month=document.querySelector('.month-box'),calendar=document.querySelector('#calendarContent'),list=document.querySelector('.agenda-list');
+  const cards=[...list.querySelectorAll('.agenda-task')];
+  const visibleTop=list.getBoundingClientRect().top,visibleBottom=list.getBoundingClientRect().bottom;
+  return {
+    calendarHeight:calendar.getBoundingClientRect().height,
+    monthHeight:month.getBoundingClientRect().height,
+    visibleCards:cards.filter(el=>el.getBoundingClientRect().top>=visibleTop-1&&el.getBoundingClientRect().bottom<=visibleBottom+1).length,
+    allCards:cards.length,
+    listHeight:list.clientHeight,listScrollHeight:list.scrollHeight,
+    sixWeeks:document.querySelectorAll('.month-grid .day').length,
+  };
+ });
+ assert.equal(layout.sixWeeks,42,'month grid keeps 42 date cells');
+ assert.ok(layout.monthHeight/layout.calendarHeight<0.52,'month grid is compact: '+JSON.stringify(layout));
+ assert.ok(layout.visibleCards>=5,'about five appointment cards remain visible below month grid: '+JSON.stringify(layout));
+ assert.equal(layout.allCards,9,'no events are silently omitted');
+ assert.ok(layout.listScrollHeight>layout.listHeight,'additional appointments are scrollable');
+ await context.close();
+ return 'Gantt default; compact month with at least five visible appointments and scrollable overflow';
+}
 async function checkGroupGestures(browser){
  const context=await browser.newContext({viewport:{width:393,height:852},deviceScaleFactor:3,isMobile:true,hasTouch:true});
  const page=await context.newPage();
@@ -177,6 +214,7 @@ async function checkGroupGestures(browser){
   console.log('PASS',await check(browser,393,780,34,852));
   console.log('PASS',await check(browser,402,800,34,874));
   console.log('PASS',await checkLongGantt(browser));
+  console.log('PASS',await checkCompactMonthAgenda(browser));
   console.log('PASS',await checkGroupGestures(browser));
  }finally{await browser.close();await new Promise(ok=>server.close(ok))}
 })().catch(error=>{console.error(error);process.exitCode=1;server.close()});
