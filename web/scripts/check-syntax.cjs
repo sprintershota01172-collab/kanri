@@ -24,4 +24,5 @@ for(const key of ['/* v1.6 - dense, content-first UI','board-foot[hidden]','head
  assert.ok(html.includes(key),'Missing compact UI rule '+key);
 }
 assert.ok(html.includes("$('#boardScreen .board-foot').hidden=!tasks.some(t=>t.pin)"),'Unneeded ranking controls should be hidden');
+assert.doesNotMatch(html,/(?<!\$)\$\([^()\n]+\)\.forEach\(/,'Do not use querySelector on collection loops');
 console.log('Web syntax, full Gantt grid, viewport, and compact UI checks passed');
