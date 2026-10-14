@@ -1,11 +1,13 @@
 {
   "name": "kanri-web-tests",
   "private": true,
-  "version": "1.9.0",
+  "version": "2.0.0",
   "scripts": {
-    "test:ui": "node scripts/test-ui.cjs"
+    "test:ui": "node scripts/test-ui.cjs",
+    "test:layout": "node scripts/test-layout.cjs"
   },
   "devDependencies": {
-    "jsdom": "^26.1.0"
+    "jsdom": "^26.1.0",
+    "playwright": "^1.55.0"
   }
 }
