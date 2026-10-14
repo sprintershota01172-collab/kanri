@@ -50,7 +50,7 @@ function AppInner(){
   const [undo,setUndo]=useState<{label:string,fn:()=>void}|null>(null);
   const undoTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const [boardPages,setBoardPages]=useState([0,0,0,0]);
-  const [calMode,setCalMode]=useState<Mode>('month');const [focus,setFocus]=useState(new Date());const [ganttPage,setGanttPage]=useState(0);
+  const [calMode,setCalMode]=useState<Mode>('gantt');const [focus,setFocus]=useState(new Date());const [ganttPage,setGanttPage]=useState(0);
   const [puzzleDate,setPuzzleDate]=useState(new Date());const [selectedBlock,setSelectedBlock]=useState<string|null>(null);const [inboxPage,setInboxPage]=useState(0);
   const boardRef=useRef<View>(null);const morningRef=useRef<View>(null);const afternoonRef=useRef<View>(null);
   const [panelHeight,setPanelHeight]=useState(290);const tasksRef=useRef(tasks);const prefsRef=useRef(prefs);
@@ -465,7 +465,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
   const weekStart=addDays(focus,-focus.getDay());
   const title=mode==='gantt'?`${focus.getFullYear()}年 ${focus.getMonth()+1}月`:mode==='month'?`${focus.getFullYear()}年 ${focus.getMonth()+1}月`:mode==='week'?`${weekStart.getMonth()+1}/${weekStart.getDate()} – ${addDays(weekStart,6).getMonth()+1}/${addDays(weekStart,6).getDate()}`:`${focus.getMonth()+1}/${focus.getDate()}から7日間`;
   const selectedDate=dateKey(focus);
-  const agenda=sortTasks(shownTasks.filter(t=>!t.completed&&(t.dueDate===selectedDate||t.scheduledStart?.slice(0,10)===selectedDate))).sort((a,b)=>Number(!!b.event)-Number(!!a.event)||(a.scheduledStart||'').localeCompare(b.scheduledStart||'')).slice(0,4);
+  const agenda=sortTasks(shownTasks.filter(t=>!t.completed&&(t.dueDate===selectedDate||t.scheduledStart?.slice(0,10)===selectedDate))).sort((a,b)=>Number(!!b.event)-Number(!!a.event)||(a.scheduledStart||'').localeCompare(b.scheduledStart||''));
   const ganttItems=sortTasks(shownTasks.filter(t=>!t.completed));
   const daysInMonth=new Date(focus.getFullYear(),focus.getMonth()+1,0).getDate();
   const [ganttBodyHeight,setGanttBodyHeight]=useState(400);
@@ -482,7 +482,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
   const ganttBlankCount=Math.max(0,ganttRows-ganttVisible.length);
   return <View style={{flex:1,minHeight:0}}>
     <View style={[styles.dateNav,{minHeight:47}]}><Pressable onPress={()=>setFocus(mode==='week'?addDays(focus,-7):new Date(focus.getFullYear(),focus.getMonth()-1,Math.min(28,focus.getDate())))}><Text style={typeStyle(theme.ink,21)}>‹</Text></Pressable><Text style={typeStyle(theme.ink,15,'800')}>{title}</Text><Pressable onPress={()=>setFocus(mode==='week'?addDays(focus,7):new Date(focus.getFullYear(),focus.getMonth()+1,Math.min(28,focus.getDate())))}><Text style={typeStyle(theme.ink,21)}>›</Text></Pressable></View>
-    {mode==='month'&&<View style={[styles.monthBox,{backgroundColor:theme.card,borderColor:theme.line,flex:1,minHeight:0}]}>
+    {mode==='month'&&<View style={[styles.monthBox,{backgroundColor:theme.card,borderColor:theme.line,flexGrow:0,flexShrink:0,height:'40%',minHeight:0}]}>
       <View style={styles.weekHeading}>{'日月火水木金土'.split('').map((x,i)=><Text key={i} style={[styles.weekLabel,{color:theme.muted}]}>{x}</Text>)}</View>
       <View style={{flexDirection:'row',flexWrap:'wrap',flex:1,minHeight:0}}>{Array.from({length:42},(_,i)=>{
         const day=addDays(first,-first.getDay()+i),key=dateKey(day);
@@ -564,8 +564,8 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
         <Text style={typeStyle(theme.muted,10)}>{ganttItems.length}件</Text>
         <Text style={typeStyle(theme.muted,10)}>{ganttItems.length>20?'上下スクロールで全件表示':'20行表示'} ↕</Text>
       </View>
-    </View>:<View style={{flex:mode==='month'?0:1,minHeight:0,marginTop:mode==='month'?5:8}}><View style={styles.flexBetween}><Text style={typeStyle(theme.ink,12,'800')}>{focus.getMonth()+1}/{focus.getDate()} の予定</Text><Text style={typeStyle(theme.muted,10)}>{agenda.length}件表示</Text></View>
-      <View style={{gap:7,marginTop:9,flex:1,minHeight:0}}>{agenda.length?agenda.map(t=><Pressable key={t.id} onPress={()=>onOpen(t)} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line}]}><View style={{height:28,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/><View style={{flex:1}}><Text numberOfLines={1} style={typeStyle(theme.ink,12,'800')}>{t.title}</Text><Text numberOfLines={1} style={typeStyle(theme.muted,10)}>{t.event?'予定 · ':''}{t.scheduledStart?.slice(11,16)??'未配置'} · {t.durationMin}分 {t.event?'':' · '+dueLabel(t.dueDate)}</Text></View><Text style={typeStyle(theme.muted,17)}>›</Text></Pressable>):<View style={{flex:1,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>予定なし</Text></View>}</View>
+    </View>:<View style={{flex:1,minHeight:0,marginTop:mode==='month'?5:8}}><View style={styles.flexBetween}><Text style={typeStyle(theme.ink,12,'800')}>{focus.getMonth()+1}/{focus.getDate()} の予定</Text><Text style={typeStyle(theme.muted,10)}>{agenda.length}件表示</Text></View>
+      <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={agenda.length>5} style={{flex:1,minHeight:0,marginTop:5}} contentContainerStyle={{gap:5,paddingBottom:7}}>{agenda.length?agenda.map(t=><Pressable key={t.id} onPress={()=>onOpen(t)} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line}]}><View style={{height:28,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/><View style={{flex:1}}><Text numberOfLines={1} style={typeStyle(theme.ink,12,'800')}>{t.title}</Text><Text numberOfLines={1} style={typeStyle(theme.muted,10)}>{t.event?'予定 · ':''}{t.scheduledStart?.slice(11,16)??'未配置'} · {t.durationMin}分 {t.event?'':' · '+dueLabel(t.dueDate)}</Text></View><Text style={typeStyle(theme.muted,17)}>›</Text></Pressable>):<View style={{minHeight:90,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>予定なし</Text></View>}</ScrollView>
     </View>}
   </View>;
 }
