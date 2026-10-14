@@ -254,7 +254,7 @@ function AppInner(){
   const childFolders=workspace.folders.filter(f=>f.parentId===workspace.folderId);
   const groupEntries:{id:string|null,name:string}[]=[
     {id:null,name:'すべて'},
-    ...workspace.folders.filter(f=>f.parentId===null).map(f=>({id:f.id,name:f.id==='work'?'業務':f.id==='personal'?'私用':f.name}))
+    ...workspace.folders.filter(f=>f.parentId===null).map(f=>({id:f.id,name:f.id==='personal'&&f.name==='プライベート'?'私用':f.name}))
   ];
   for(const id of (workspace.recentFolderIds||[]).filter(id=>workspace.folders.some(f=>f.id===id&&f.parentId!==null)).slice(0,3)){
     if(!groupEntries.some(g=>g.id===id))groupEntries.push({id,name:workspace.folders.find(f=>f.id===id)!.name});
@@ -404,7 +404,7 @@ function AppInner(){
       const siblings=workspace.folders.filter(x=>x.parentId===f.parentId);
       const pos=siblings.findIndex(x=>x.id===f.id);
       const action=(label:string,handler:()=>void,destructive=false,disabled=false)=>(
-        <Pressable accessibilityRole="button" disabled={disabled} onPress={handler} style={{minHeight:47,justifyContent:'center',paddingHorizontal:12,marginTop:6,borderWidth:1,borderColor:theme.line,borderRadius:11,backgroundColor:theme.bg,opacity:disabled?.35:1}}>
+        <Pressable accessibilityRole="button" disabled={disabled} onPress={handler} style={{minHeight:47,justifyContent:'center',paddingHorizontal:12,marginTop:6,borderWidth:1,borderColor:theme.line,borderRadius:11,backgroundColor:theme.bg,opacity:disabled?0.35:1}}>
           <Text style={typeStyle(destructive?'#BA5A63':theme.ink,12,'800')}>{label}</Text>
         </Pressable>
       );
@@ -746,7 +746,7 @@ function TaskEditor({entry,initialQuadrant,initialDueDate,prefs,theme,insetTop,h
   const [date,setDate]=useState(original?.dueDate??initialDueDate??dateKey(addDays(new Date(),1)));
   const [showDueCalendar,setShowDueCalendar]=useState(false);
   const [pin,setPin]=useState(original?.pinned??false);
-  const [selectedFolder,setSelectedFolder]=useState<string|null>(original?folderForTask(original):(initialFolderId||(['work','personal','study','other'][initialQuadrant??1])));
+  const [selectedFolder,setSelectedFolder]=useState<string|null>(original?folderForTask(original):(()=>{const preferred=initialFolderId||(['work','personal','study','other'][initialQuadrant??1]);return folders.some(f=>f.id===preferred)?preferred:(folders.find(f=>f.parentId===null)?.id||null)})());
   const folderList:Folder[]=[];
   function walk(parent:string|null,depth=0){if(depth>16)return;for(const f of folders.filter(f=>f.parentId===parent)){folderList.push({...f,name:'　'.repeat(depth)+f.name});walk(f.id,depth+1)}}
   walk(null);
