@@ -57,6 +57,10 @@ assert.equal(JSON.parse(dom.window.localStorage.getItem('kanri_v2_view')).folder
 click(d,'[data-tab="settings"]');
 assert.equal(JSON.parse(dom.window.localStorage.getItem('kanri_v2_view')).tab,'settings','persist tab');
 assert.ok(q(d,'#exportExcel'),'Excel export action exists');
+let exported=false;
+dom.window.kanriXlsx={exportExcel:payload=>{exported=Array.isArray(payload.tasks)&&payload.tasks.length===1&&Array.isArray(payload.folders);return 'kanri_test.xlsx';}};
+click(d,'#exportExcel');
+assert.ok(exported,'Excel export uses all local task and folder data');
 click(d,'#darkToggle');
 assert.ok(q(d,'.device').classList.contains('dark'),'dark mode toggled');
 const main=q(d,'.main');
