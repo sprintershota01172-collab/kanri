@@ -316,7 +316,7 @@ function read(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{retur
 function score(t){let d=diffDays(t.due);const U=d<0?1: d===999?0:1/(1+Math.max(0,d)/3);const P=((+t.important)+(+t.urgent))/2;const T=Math.min(t.duration,180)/180;return Math.round(45*U+35*P+20*T+(d<0?20:0))}function quadrant(t){if(prefs.mode==='group')return ['仕事','プライベート','学習','その他'].indexOf(t.group);return t.important?(t.urgent?0:1):(t.urgent?2:3)}function sorted(items){return [...items].sort((a,b)=>{if(a.pin!==b.pin)return a.pin?-1:1;if(a.pin&&b.pin)return (a.rank??999)-(b.rank??999);return score(b)-score(a)||new Date(a.created).getTime()-new Date(b.created).getTime()})}function isDone(t){return !!t.done}function mutate(id,patch){const t=tasks.find(t=>t.id===id);if(!t)return;Object.assign(t,patch);save();render()}function haptic(){try{navigator.vibrate?.(12)}catch{}}function flash(msg){clearTimeout(toastTimer);$('#toast').textContent=msg;$('#toast').classList.add('show');toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),1800)}function setUndo(label,fn){undoState=fn;$('#undoLabel').textContent=label;$('#undoBar').classList.add('show');clearTimeout(undoTimer);undoTimer=setTimeout(()=>{$('#undoBar').classList.remove('show');undoState=null},7000)}function undo(){if(!undoState){flash('戻せる操作はありません');return}let f=undoState;undoState=null;clearTimeout(undoTimer);$('#undoBar').classList.remove('show');f();flash('元に戻しました')}
 function render(){document.getElementById('app').classList.toggle('dark',prefs.dark);let n=new Date();$('#todayText').textContent=`${n.getMonth()+1}/${n.getDate()} ${'日月火水木金土'[n.getDay()]}`; $$('.nav-btn[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.screen').forEach(el=>el.classList.toggle('active',el.id===tab+'Screen'));if(tab==='board')renderBoard();if(tab==='calendar')renderCalendar();if(tab==='puzzle')renderPuzzle();if(tab==='settings')renderSettings()}
 
-function closeSwipeItems(except=null){$$('.task-wrap,.folder-wrap').forEach(w=>{if(w===except)return;const card=w.querySelector('.task-card,.folder-tile');if(card){card.style.transform='';w.classList.remove('revealed')}})}
+function closeSwipeItems(except=null){$$('.task-wrap,.folder-wrap').forEach(w=>{if(w===except)return;const card=w.querySelector('.task-card,.folder-tile');if(card){card.style.transform='';w.classList.remove('revealed','swiping')}})}
 function confirmAction(title,message,onConfirm){
   $('#sheet').innerHTML='<div class="sheet-head"><strong>'+esc(title)+'</strong><button id="confirmClose" class="sheet-dismiss" aria-label="閉じる">×</button></div>'+
     '<div class="confirm-description">'+esc(message)+'</div>'+
@@ -370,11 +370,11 @@ function wireFolderSwipe(el){
     if(!el.hasPointerCapture(e.pointerId))return;
     const dx=e.clientX-startX,dy=e.clientY-startY;
     if(Math.abs(dy)>30)return;
-    if(dx< -14){swiping=true;el.style.transform='translateX('+Math.max(-58,dx)+'px)'}
+    if(dx< -14){swiping=true;el.parentElement.classList.add('swiping');el.style.transform='translateX('+Math.max(-58,dx)+'px)'}
   });
   el.addEventListener('pointerup',e=>{
     const dx=e.clientX-startX;
-    if(swiping){el.dataset.swiped='1';const opened=dx< -38;closeSwipeItems(el.parentElement);el.parentElement.classList.toggle('revealed',opened);el.style.transform=opened?'translateX(-58px)':''}
+    if(swiping){el.dataset.swiped='1';const opened=dx< -38;closeSwipeItems(el.parentElement);el.parentElement.classList.remove('swiping');el.parentElement.classList.toggle('revealed',opened);el.style.transform=opened?'translateX(-58px)':''}
   });
   el.addEventListener('pointercancel',()=>{if(!el.parentElement.classList.contains('revealed'))el.style.transform=''});
 }
@@ -424,7 +424,7 @@ function setupDrag(el){
     if(!el.hasPointerCapture(e.pointerId))return;
     const dx=e.clientX-sx,dy=e.clientY-sy;
     if(!armed&&Math.abs(dy)<32&&dx < -18){
-      clearTimeout(timer);swiping=true;
+      clearTimeout(timer);swiping=true;wrap.classList.add('swiping');
       el.style.transform='translateX('+Math.max(-64,dx)+'px)';
       return;
     }
@@ -441,7 +441,7 @@ function setupDrag(el){
     if(swiping){
       const reveal=e.clientX-sx < -42;
       closeSwipeItems(wrap);
-      wrap.classList.toggle('revealed',reveal);
+      wrap.classList.remove('swiping');wrap.classList.toggle('revealed',reveal);
       el.style.transform=reveal?'translateX(-64px)':'';
       return;
     }
@@ -460,7 +460,7 @@ function setupDrag(el){
     if(wrap.classList.contains('revealed')){closeSwipeItems();return}
     openEdit(el.dataset.task);
   };
-  el.onpointercancel=()=>{clearTimeout(timer);el.classList.remove('dragging');if(!wrap.classList.contains('revealed'))el.style.transform=''};
+  el.onpointercancel=()=>{clearTimeout(timer);el.classList.remove('dragging');wrap.classList.remove('swiping');if(!wrap.classList.contains('revealed'))el.style.transform=''};
 }
 function changeDay(d,forPuzzle=false){if(forPuzzle)puzzleDay=d;else focusDay=d;render()}
 function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><button id="prevDate">‹</button><strong>${calMode==='month'?`${base.getFullYear()}年 ${base.getMonth()+1}月`:calMode==='week'?`${dayName(startWeek(base))} – ${dayName(addDays(startWeek(base),6))}`:`${base.getFullYear()}年 ${base.getMonth()+1}月`}</strong><button id="nextDate">›</button></div>`;let html=nav;if(calMode==='month'){let first=new Date(base.getFullYear(),base.getMonth(),1),start=addDays(first,-first.getDay());html+='<div class="month-box"><div class="week-labels">'+[...'日月火水木金土'].map(x=>`<div>${x}</div>`).join('')+'</div><div class="month-grid">';for(let i=0;i<42;i++){let d=addDays(start,i),k=dateKey(d),dayTasks=tasks.filter(t=>!t.done&&(t.due===k||t.scheduled?.slice(0,10)===k));html+=`<button class="day ${d.getMonth()!==base.getMonth()?'outside':''} ${sameDay(d,base)?'sel':''} ${sameDay(d,new Date())?'today':''}" data-caldate="${k}">${d.getDate()}<div class="day-dots">${dayTasks.slice(0,3).map(()=>'<i class="dot"></i>').join('')}</div></button>`}html+='</div></div>'+agendaHtml(base)}else if(calMode==='week'){let start=startWeek(base);html+='<div class="week-cards">';for(let i=0;i<7;i++){let d=addDays(start,i),k=dateKey(d);let n=tasks.filter(t=>t.due===k||t.scheduled?.slice(0,10)===k).length;html+=`<button class="week-day ${sameDay(d,base)?'active':''}" data-caldate="${k}"><span>${'日月火水木金土'[d.getDay()]}</span><b>${d.getDate()}</b><em>${n}件</em></button>`}html+='</div>'+agendaHtml(base)}else{
