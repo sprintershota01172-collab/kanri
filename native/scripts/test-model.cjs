@@ -64,4 +64,17 @@ test('Gantt falls back to scheduled start and tolerates old tasks without LT',()
  assert.equal(m.ganttCellFilled(task,'2026-10-14'),true);
  assert.equal(m.ganttCellFilled(task,'2026-10-15'),false);
 });
+test('completed task is kept for seven days then expires',()=>{
+ const completedAt=new Date('2026-10-15T00:00:00.000Z');
+ const done=m.completeTaskForTrash(base,completedAt);
+ assert.equal(done.completed,true);
+ assert.equal(done.completedAt,'2026-10-15T00:00:00.000Z');
+ assert.equal(m.completedTaskExpired(done,new Date('2026-10-21T23:59:59.999Z').getTime()),false);
+ assert.equal(m.completedTaskExpired(done,new Date('2026-10-22T00:00:00.000Z').getTime()),true);
+ const restored=m.restoreCompletedTask(done);
+ assert.equal(restored.completed,false);
+ assert.equal(restored.completedAt,null);
+ assert.equal(m.completedTaskExpired(restored,new Date('2026-11-01T00:00:00.000Z').getTime()),false);
+ assert.equal(base.completed,false,'original task is not mutated');
+});
 console.log('Model tests completed.');
