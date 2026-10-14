@@ -40,4 +40,12 @@ assert.ok(html.includes('body::after{content:none!important;display:none!importa
 assert.ok(html.includes('height:100dvh!important'),'native CSS dynamic viewport determines app height');
 assert.doesNotMatch(html,/const physical=Number\(window\.screen\?\.height\)/,'do not use larger screen.height to position touchable controls');
 
-console.log('PASS: nav constrained to visible iPhone viewport, keyboard freeze, overlay removed');
+const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'..','manifest.webmanifest'),'utf8'));
+assert.equal(manifest.background_color,'#0D1626','iPhone launch background matches nav');
+assert.equal(manifest.theme_color,'#0D1626','iPhone theme color matches nav');
+assert.ok(html.includes('v1.9.4 — seamless iPhone bottom edge'),'last CSS override targets bottom boundary');
+assert.ok(html.includes(':root{--nav:#0D1626}'),'nav matches OS bottom background');
+assert.ok(html.includes('html,body{background:#0D1626!important}'),'outside the app has same navy');
+assert.ok(html.includes('height:calc(54px + env(safe-area-inset-bottom,0px))!important'),'nav extends to the iPhone safe-area boundary');
+assert.ok(html.includes('.nav-btn{min-height:48px!important;transform:translateY(2px)}'),'nav controls stay within tappable area');
+console.log('PASS: nav constrained to visible iPhone viewport, keyboard freeze, seamless bottom colors');
