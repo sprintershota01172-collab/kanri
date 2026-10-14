@@ -1,0 +1,11 @@
+{
+  "name": "kanri-web-tests",
+  "private": true,
+  "version": "1.7.0",
+  "scripts": {
+    "test:ui": "node scripts/test-ui.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
+  }
+}
