@@ -56,6 +56,13 @@ assert.equal(doc.querySelectorAll('.gantt-names .gantt-label-row').length,20,'ex
 assert.equal(doc.querySelectorAll('.gantt-scroll-table .gantt-task-row').length,20,'exactly 20 Gantt rows');
 assert.equal(element(doc,'.gantt-excel').style.getPropertyValue('--display-rows'),'20');
 assert.ok(element(doc,'.gantt-names').textContent.includes('車種Bの定例会議'));
+click(doc,'[data-tab="puzzle"]');
+const meetingTile=element(doc,'[data-remove="'+meeting.id+'"]');
+meetingTile.click();
+assert.ok(element(doc,'#eventTitle'),'meeting chip opens schedule editor, not an unschedule action');
+click(doc,'#eventCancel');
+click(doc,'#clearDay');
+assert.equal(tasks(dom.window).find(t=>t.id===meeting.id).scheduled,chosenDate+'T15:30','puzzle clear must never unschedule meetings');
 click(doc,'[data-tab="board"]');
 assert.equal(doc.querySelectorAll('.task-card').length,0,'calendar-only events are not focus tasks');
 click(doc,'[data-quick-folder="work"]');
