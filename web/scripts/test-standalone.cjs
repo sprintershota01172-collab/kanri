@@ -12,7 +12,7 @@ assert.ok(layout.length>1600,'Latest tidy iPhone shell should exist');
 assert.ok(layout.includes('height:var(--vh,100svh)!important'),'The mobile shell follows tabi measured height');
 assert.ok(layout.includes('flex:1 1 0%!important'),'Main work area receives remaining height');
 assert.ok(layout.includes('flex:0 0 calc(64px + var(--safe-bottom))!important'),'Navigation reserves both buttons and safe-area');
-assert.ok(layout.includes('padding:11px max(12px,env(safe-area-inset-left,0px)) max(0px,calc(var(--safe-bottom) - 4px))!important'),'Home-indicator inset is inside navigation');
+assert.ok(layout.includes('padding:7px max(12px,env(safe-area-inset-left,0px)) max(4px,var(--safe-bottom))!important'),'Home-indicator inset is inside navigation');
 assert.ok(layout.includes('min-height:44px!important'),'Navigation buttons stay touchable');
 assert.ok(layout.includes('background:#FFFFFF!important'),'Tabi-inspired white navigation matches iPhone lower system area');
 assert.ok(layout.includes('.nav-btn.active{color:#17243B!important}'),'Active tab remains visible on white');

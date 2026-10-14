@@ -34,7 +34,7 @@ assert.ok(html.includes('week-day')&&html.includes('week-cards'),'Restore compac
 assert.ok(html.includes('body::before,body::after{content:none!important;display:none!important}'),'No overlays allowed above navigation');
 assert.ok(html.includes('height:var(--vh,100svh)!important'),'App must use viewport height from same strategy as tabi');
 assert.ok(html.includes('flex:0 0 calc(64px + var(--safe-bottom))!important'),'Navigation is full-height and reserves safe area');
-assert.ok(html.includes('padding:11px max(12px,env(safe-area-inset-left,0px)) max(0px,calc(var(--safe-bottom) - 4px))!important'),'Navigation never masks home indicator');
+assert.ok(html.includes('padding:7px max(12px,env(safe-area-inset-left,0px)) max(4px,var(--safe-bottom))!important'),'Navigation never masks home indicator');
 assert.ok(html.includes('background:#FFFFFF!important'),'Lower system bar matches navigation background');
 assert.ok(!html.includes('/* v1.9.7 — iOS standalone height correction'),'Outdated standalone 100vh hack removed');
 assert.ok(html.includes('<script src="./mobile-viewport.js"></script>'),'Viewport helper is loaded');
