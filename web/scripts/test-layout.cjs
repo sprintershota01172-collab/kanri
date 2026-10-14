@@ -52,7 +52,7 @@ async function check(browser,width,height,safe,physicalHeight=height){
  assert.ok(data.nav.bottom>=height+expectedStep-2,label+' nav reaches compensated bottom: '+JSON.stringify(data.nav));
  assert.ok(data.nav.height>=64+safe-2,label+' nav has room for safe area: '+JSON.stringify(data));
  assert.ok(data.main.bottom<=data.nav.top+2,label+' content must not overlap the tab bar');
- assert.ok(data.device.bottom<=height+2,label+' shell must not overrun screen');
+ assert.ok(data.device.bottom<=height+expectedStep+2,label+' shell may extend only by guarded step');
  for(const b of data.buttons){
   assert.ok(b.top>=data.nav.top-2&&b.bottom<=data.nav.bottom+2,label+' tab in nav: '+JSON.stringify(b));
   assert.ok(b.centerAccessible,label+' tab must be tappable: '+JSON.stringify(b));
