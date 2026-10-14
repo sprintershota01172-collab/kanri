@@ -219,7 +219,7 @@ function AppInner(){
         if(next>=0&&next<order.length){selectTab(order[next]);void Haptics.selectionAsync()}
       }}>
       {tab==='board'&&<>
-        <View style={styles.screenHead}><Pressable accessibilityRole="button" accessibilityLabel="フォルダを開く" onPress={()=>setFolderMenuOpen(true)} style={{minHeight:37,flexDirection:'row',alignItems:'center',gap:5}}><Text style={typeStyle(theme.ink,18,'800')}>TODO</Text><Text style={typeStyle(theme.muted,14,'700')}>⌄</Text></Pressable><IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/></View>
+        <View style={styles.screenHead}><Pressable accessibilityRole="button" accessibilityLabel="フォルダを開く" onPress={()=>setFolderMenuOpen(true)} style={{minHeight:37,flexDirection:'row',alignItems:'center',gap:5}}><Text style={typeStyle(theme.ink,18,'800')}>TODO</Text>{workspace.folderId&&<Text numberOfLines={1} style={[typeStyle(theme.muted,10,'700'),{maxWidth:85}]}>{workspace.folders.find(f=>f.id===workspace.folderId)?.name}</Text>}<Text style={typeStyle(theme.muted,14,'700')}>⌄</Text></Pressable><IconButton theme={theme} label="↕ 自動整理" onPress={()=>{setTasks(t=>[...t]);toastMessage('現在の優先順位を再計算しました')}}/></View>
         <View ref={boardRef} style={{flex:1,minHeight:0}}><View style={styles.board}>
           {[0,1,2,3].map(q=>{
             const items=sortTasks(tasks.filter(t=>!t.completed&&quadrant(t,prefs)===q&&(workspace.folderId===null||folderForTask(t)===workspace.folderId)));
