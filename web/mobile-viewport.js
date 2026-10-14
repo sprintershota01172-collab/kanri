@@ -29,14 +29,14 @@
       lastTop=visualTop;
     }
     // iPhone home-screen mode can expose a narrow strip below innerHeight.
-    // Advance one small 24px step toward it, retaining the system indicator margin.
+    // Advance at most 38 CSS px toward it, retaining the system indicator margin.
     // Keep the same step while typing so the keyboard cannot move the app shell.
     if(!editing){
       const installed=window.navigator?.standalone===true||window.matchMedia?.('(display-mode: standalone)').matches===true;
       const physical=Number(window.screen?.height)||0;
       const gap=physical-layoutHeight;
       const canExtend=installed&&window.innerHeight>=window.innerWidth&&gap>=54&&gap<=160;
-      lastBottomStep=canExtend?Math.min(24,Math.max(0,gap-34)):0;
+      lastBottomStep=canExtend?Math.min(38,Math.max(0,gap-34)):0;
     }
     root.style.setProperty('--kanri-bottom-step',lastBottomStep+'px');
     root.style.setProperty('--vh',(layoutHeight+lastBottomStep)+'px');
