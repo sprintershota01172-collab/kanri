@@ -13,8 +13,8 @@ const server=http.createServer((req,res)=>{
  const target=filename===root?path.join(root,'index.html'):filename;
  fs.readFile(target,(err,data)=>{if(err){res.writeHead(404);res.end();return}res.writeHead(200,{'content-type':mime[path.extname(target)]||'text/plain'});res.end(data)});
 });
-async function check(browser,width,height,safe){
- const context=await browser.newContext({viewport:{width,height},screen:{width,height},deviceScaleFactor:3,isMobile:true,hasTouch:true});
+async function check(browser,width,height,safe,physicalHeight=height){
+ const context=await browser.newContext({viewport:{width,height},screen:{width,height:physicalHeight},deviceScaleFactor:3,isMobile:true,hasTouch:true});
  await context.addInitScript((bottom)=>{
   Object.defineProperty(navigator,'standalone',{configurable:true,value:true});
   const native=window.matchMedia.bind(window);
@@ -38,15 +38,18 @@ async function check(browser,width,height,safe){
       display:getComputedStyle(el).display,visibility:getComputedStyle(el).visibility};
    });
    const css=getComputedStyle(document.querySelector('.device'));
-   return {innerHeight:window.innerHeight,rootHeight:getComputedStyle(document.documentElement).height,
+   return {step:document.documentElement.style.getPropertyValue('--kanri-bottom-step'),innerHeight:window.innerHeight,rootHeight:getComputedStyle(document.documentElement).height,
      vh:document.documentElement.style.getPropertyValue('--vh'),nav:rect('.nav'),main:rect('.main'),device:rect('.device'),
      buttons,background:getComputedStyle(document.querySelector('.nav')).backgroundColor,
      deviceHeight:parseFloat(css.height)};
  });
- const label=width+'x'+height+' safe '+safe;
+ const label=width+'x'+height+' safe '+safe+' physical '+physicalHeight;
+ const gap=physicalHeight-height;
+ const expectedStep=gap>=54&&gap<=160?Math.min(24,Math.max(0,gap-34)):0;
+ assert.equal(data.step,expectedStep+'px',label+' extension must be limited');
  assert.equal(data.buttons.length,5,label+' has exactly 5 tabs');
- assert.ok(data.nav.top>=0&&data.nav.bottom<=height+1,label+' nav within viewport: '+JSON.stringify(data));
- assert.ok(data.nav.bottom>=height-2,label+' nav reaches bottom: '+JSON.stringify(data.nav));
+ assert.ok(data.nav.top>=0&&data.nav.bottom<=height+expectedStep+1,label+' nav extension within guarded limit: '+JSON.stringify(data));
+ assert.ok(data.nav.bottom>=height+expectedStep-2,label+' nav reaches compensated bottom: '+JSON.stringify(data.nav));
  assert.ok(data.nav.height>=64+safe-2,label+' nav has room for safe area: '+JSON.stringify(data));
  assert.ok(data.main.bottom<=data.nav.top+2,label+' content must not overlap the tab bar');
  assert.ok(data.device.bottom<=height+2,label+' shell must not overrun screen');
@@ -70,5 +73,9 @@ async function check(browser,width,height,safe){
   for(const [w,h] of [[375,812],[393,852],[402,874],[430,932]]){
    for(const safe of [0,34])console.log('PASS',await check(browser,w,h,safe));
   }
+  // PWA receives a shorter innerHeight than the iPhone CSS-pixel screen.
+  // Only the lower shell extends; all five button hit targets must remain usable.
+  console.log('PASS',await check(browser,393,780,34,852));
+  console.log('PASS',await check(browser,402,800,34,874));
  }finally{await browser.close();await new Promise(ok=>server.close(ok))}
 })().catch(error=>{console.error(error);process.exitCode=1;server.close()});
