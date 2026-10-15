@@ -907,6 +907,7 @@ function setupDrag(el){
     }
   };
   el.onpointerup=e=>{
+    if(e.target.closest('button'))return; // Buttons own their tap, never open task editor.
     clearTimeout(timer);el.classList.remove('dragging');$$('.quadrant').forEach(q=>q.classList.remove('over'));
     if(swiping){
       const reveal=e.clientX-sx < -42;
