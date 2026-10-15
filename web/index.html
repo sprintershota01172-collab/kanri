@@ -1176,7 +1176,7 @@ function renderPuzzle(){
   }
   html+='</div>';
  }
- html+=`</div><div class="puzzle-foot"><span class="hint">${activePuzzleSlot?'黄色い枠の↓で伸縮・本体で移動':'先にタスクをタップして黄色い枠に'}</span>${activePuzzleSlot?'<button type="button" class="puzzle-adjust" data-duration-step="-30">−30分</button><button type="button" class="puzzle-adjust" data-duration-step="30">＋30分</button><button type="button" class="puzzle-unplace" id="removeSelected">外す</button>':'<button class="link" id="clearDay">一括解除</button>'}</div>`;
+ html+=`</div><div class="puzzle-foot"><span class="hint">${activePuzzleSlot?'上の未配置欄にドラッグで戻す':'タスクをタップして黄色い枠に'}</span>${activePuzzleSlot?'<button type="button" class="puzzle-adjust" data-duration-step="-30">−30分</button><button type="button" class="puzzle-adjust" data-duration-step="30">＋30分</button><button type="button" class="puzzle-unplace" id="removeSelected">外す</button>':'<button class="link" id="clearDay">一括解除</button>'}</div>`;
  $('#puzzleContent').innerHTML=html;
  $$('[data-puzzle]').forEach(el=>{el.onclick=()=>{if(activePuzzle===el.dataset.puzzle&&activePuzzleSlot===null){activePuzzle=null}else{activePuzzle=el.dataset.puzzle;activePuzzleSlot=null}renderPuzzle();if(activePuzzle)flash('黄色い枠になりました。時間枠へ配置できます')};if(activePuzzle===el.dataset.puzzle&&activePuzzleSlot===null)setupPuzzleDrag(el)});
  $$('[data-min]').forEach(el=>el.onclick=()=>{if(!activePuzzle){flash('タスクを選んでください');return}trySchedule(activePuzzle,+el.dataset.min)});
@@ -1266,6 +1266,15 @@ function setupPuzzleResize(handle){
  });
  handle.addEventListener('pointercancel',()=>{gesture=null;suppressClick=false;reset()});
 }
+function returnPuzzleToInbox(id,oldSlot){
+  if(!oldSlot||activePuzzle!==id||activePuzzleSlot!==oldSlot)return;
+  const t=tasks.find(t=>t.id===id);
+  if(!t||!taskSlots(t).includes(oldSlot))return;
+  const before=puzzleSnapshot(t);
+  setTaskSlots(t,before.slots.filter(s=>s!==oldSlot));
+  activePuzzle=null;activePuzzleSlot=null;save();render();haptic();flash('本日の対象タスクに戻しました');
+  setUndo('配置を戻しました',()=>{restorePuzzleSnapshot(t,before);save();render()});
+}
 function setupPuzzleDrag(el,oldSlot=null){
  let start=null,dragged=false,ignoreNextClick=false;
  // A drag must not produce a synthetic tap on release.
@@ -1299,12 +1308,24 @@ function setupPuzzleDrag(el,oldSlot=null){
   const moved=dragged,id=oldSlot?el.dataset.move:el.dataset.puzzle,minute=puzzleSlotAt(e.clientX,e.clientY);
   start=null;clear();
   if(moved){ignoreNextClick=true;e.preventDefault();e.stopPropagation();
-   if(minute!==null)trySchedule(id,minute,oldSlot,'drag');
-   else flash('時間枠内に移動してください');
+   const inbox=$('#puzzleContent .puzzle-top');
+   const rect=inbox?.getBoundingClientRect();
+   const droppedInInbox=!!oldSlot&&!!rect&&e.clientX>=rect.left&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
+   if(droppedInInbox)returnPuzzleToInbox(id,oldSlot);
+   else if(minute!==null)trySchedule(id,minute,oldSlot,'drag');
+   else flash('時間枠か上の未配置エリアへ移動してください');
   }
  };
  el.onpointercancel=()=>{start=null;clear()};
 }
+document.addEventListener('click',e=>{
+  if(tab!=='puzzle'||!activePuzzle)return;
+  if(e.target.closest('[data-puzzle],[data-move],[data-resize],[data-min],[data-duration-step],#removeSelected,[data-puzzle-done]'))return;
+  activePuzzle=null;activePuzzleSlot=null;
+  // A click on a navigation control first runs its own handler; do not render
+  // a stale puzzle over a different view or day.
+  if(tab==='puzzle')renderPuzzle();
+});
 function renderSettings(){let html=`<div class="s-card"><div class="s-row"><span>分類方法</span><button id="modeSelect">${prefs.mode==='priority'?'優先度（4象限）':'グループ（4分類）'} ⌄</button></div><div class="s-row"><span>エリア名を編集</span><button id="rename">編集する ›</button></div><div class="s-row"><span>ダークモード</span><button class="toggle ${prefs.dark?'on':''}" id="darkToggle" aria-label="ダークモード切り替え"></button></div></div><div class="s-card"><div class="s-row"><span>通知</span><span class="settings-status">アプリ版のみ</span></div><div class="s-row"><span>納期前・開始時刻</span><span class="settings-status">端末内通知</span></div></div><div class="s-card"><div class="s-row"><span>完了・削除一覧</span><button id="openTrash">一覧を開く（${tasks.filter(t=>t.done).length}件） ›</button></div></div><div class="s-card"><div class="s-row"><span>データ出力</span><button id="exportExcel" aria-label="タスクをExcel形式で出力">Excel出力 ↗</button></div></div><div class="progress-stat"><strong>${tasks.filter(t=>t.done).length}<span>/ ${tasks.length} タスク完了</span></strong></div>`;$('#settingsContent').innerHTML=html;
 $('#openTrash').onclick=openTrash;$('#exportExcel').onclick=()=>{
   try{
