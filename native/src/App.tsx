@@ -85,7 +85,8 @@ function AppInner(){
     return ()=>{subscription.remove();clearInterval(interval)};
   },[db,loaded]);
   useEffect(()=>{if(loaded){void saveWorkspace(db,{...workspace,tab}).catch(e=>console.warn('folder state persistence',e))}},[db,workspace,tab,loaded]);
-  function selectTab(next:Tab){setTab(next)}
+  function clearPuzzleSelection(){setSelectedBlock(null);setSelectedPuzzleSlot(null)}
+  function selectTab(next:Tab){if(next!=='puzzle')clearPuzzleSelection();setTab(next)}
   function selectFolder(id:string|null){setWorkspace(p=>({...p,folderId:id,recentFolderIds:id?[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4):p.recentFolderIds}));setBoardPages([0,0,0,0]);boardScrollRef.current?.scrollTo({y:0,animated:false})}
   function beginFolderEdit(parentId:string|null,label='子ツリー',renameId?:string){
     const target=renameId?workspace.folders.find(f=>f.id===renameId):undefined;
@@ -445,16 +446,16 @@ function AppInner(){
         <CalendarPanel theme={theme} mode={calMode} focus={focus} setFocus={setFocus} tasks={tasks} prefs={prefs} ganttPage={ganttPage} setGanttPage={setGanttPage} folderId={workspace.folderId} folders={workspace.folders} onOpen={task=>task.event?setEventEditor(task):setEditor(task)} onGanttComplete={markCompleted} onGanttStart={(task,date)=>{if(task.event){setEventEditor(task);return}const before={...task};void updateTask({...task,dueDate:date,ganttStart:null});void Haptics.selectionAsync();remember('納期を変更しました',()=>{void updateTask(before)});}}/>
       </>}
       {tab==='puzzle'&&<>
-        <View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>TIME PUZZLE</Text></View><IconButton label="↶ 戻す" theme={theme} onPress={undoAction}/></View>
-        <View style={{flex:1,minHeight:0}}><View ref={puzzleInboxRef} style={[styles.puzzleInbox,{backgroundColor:theme.navy}]}>
-          <View style={styles.flexBetween}><Text style={typeStyle('#F3F7FF',11,'800')}>本日の対象タスク</Text><Text style={typeStyle('#A3B5D0',10)}>{puzzleEligible.length} 件 · 納期／LT</Text></View>
+        <View style={styles.screenHead}><Pressable onPress={clearPuzzleSelection} style={{minHeight:35,justifyContent:'center'}}><Text style={typeStyle(theme.ink,18,'800')}>TIME PUZZLE</Text></Pressable><IconButton label="↶ 戻す" theme={theme} onPress={undoAction}/></View>
+        <View style={{flex:1,minHeight:0}}><View ref={puzzleInboxRef} collapsable={false} style={[styles.puzzleInbox,{backgroundColor:theme.navy}]}>
+          <Pressable onPress={clearPuzzleSelection} style={styles.flexBetween}><Text style={typeStyle('#F3F7FF',11,'800')}>本日の対象タスク</Text><Text style={typeStyle('#A3B5D0',10)}>{puzzleEligible.length} 件 · 納期／LT</Text></Pressable>
           <View style={{flexDirection:'row',gap:7,marginTop:8,minHeight:70,alignItems:'flex-start'}}> 
             {puzzleEligible.slice(puzzlePage*2,puzzlePage*2+2).map(t=><PuzzleTile key={t.id} task={t} selected={selectedBlock===t.id} onSelect={()=>{if(selectedBlock===t.id&&selectedPuzzleSlot===null){setSelectedBlock(null)}else{setSelectedBlock(t.id);setSelectedPuzzleSlot(null);toastMessage('黄色い枠になりました。移動できます')}}} onDrop={puzzleDrop}/>)}
             {!puzzleEligible.length&&<Text style={typeStyle('#AAB9D0',11)}>この日の未配置タスクはありません</Text>}
           </View>
           <View style={[styles.pager,{marginTop:2}]}><Pressable onPress={()=>setInboxPage(n=>Math.max(0,n-1))}><Text style={typeStyle('#B7C6DB',16)}>‹</Text></Pressable><Text style={typeStyle('#B7C6DB',9)}>{puzzlePage+1}/{puzzlePages}</Text><Pressable onPress={()=>setInboxPage(n=>Math.min(puzzlePages-1,n+1))}><Text style={typeStyle('#B7C6DB',16)}>›</Text></Pressable></View>
         </View>
-          <View style={[styles.dateNav,{height:43}]}><Pressable onPress={()=>{setSelectedBlock(null);setSelectedPuzzleSlot(null);setInboxPage(0);setPuzzleDate(d=>addDays(d,-1))}}><Text style={typeStyle('#5578BB',11,'800')}>‹ 前日</Text></Pressable><Text style={typeStyle(theme.ink,12,'800')}>{puzzleDate.getMonth()+1}月{puzzleDate.getDate()}日 {'日月火水木金土'[puzzleDate.getDay()]}曜日</Text><Pressable onPress={()=>{setSelectedBlock(null);setSelectedPuzzleSlot(null);setInboxPage(0);setPuzzleDate(d=>addDays(d,1))}}><Text style={typeStyle('#5578BB',11,'800')}>翌日 ›</Text></Pressable></View>
+          <View style={[styles.dateNav,{height:43}]}><Pressable onPress={()=>{setSelectedBlock(null);setSelectedPuzzleSlot(null);setInboxPage(0);setPuzzleDate(d=>addDays(d,-1))}}><Text style={typeStyle('#5578BB',11,'800')}>‹ 前日</Text></Pressable><Pressable onPress={clearPuzzleSelection} style={{minHeight:35,justifyContent:'center'}}><Text style={typeStyle(theme.ink,12,'800')}>{puzzleDate.getMonth()+1}月{puzzleDate.getDate()}日 {'日月火水木金土'[puzzleDate.getDay()]}曜日</Text></Pressable><Pressable onPress={()=>{setSelectedBlock(null);setSelectedPuzzleSlot(null);setInboxPage(0);setPuzzleDate(d=>addDays(d,1))}}><Text style={typeStyle('#5578BB',11,'800')}>翌日 ›</Text></Pressable></View>
           <View style={{flex:1,flexDirection:'row',gap:8,minHeight:0}}>
             {[0,1].map((col)=>{
               const ref=col===0?morningRef:afternoonRef;const base=col===0?8*60:14*60;
@@ -483,7 +484,7 @@ function AppInner(){
               </View>;
             })}
           </View>
-          <View style={[styles.bottomHint,{gap:5}]}><Text numberOfLines={1} style={[typeStyle(theme.muted,9),{flex:1,minWidth:0}]}>{selectedPuzzleSlot?'黄色い枠の↓で伸縮':'タップして黄色い枠で選択'}</Text>{selectedPuzzleSlot&&<><Pressable onPress={()=>{
+          <View style={[styles.bottomHint,{gap:5}]}><Pressable onPress={clearPuzzleSelection} style={{flex:1,minWidth:0,justifyContent:'center'}}><Text numberOfLines={1} style={typeStyle(theme.muted,9)}>{selectedPuzzleSlot?'タップで選択解除':'タップして黄色い枠で選択'}</Text></Pressable>{selectedPuzzleSlot&&<><Pressable onPress={()=>{
              const t=tasksRef.current.find(t=>t.id===selectedBlock);
              if(t)resizePuzzleSlot(t.id,selectedPuzzleSlot,durationForSlot(t,selectedPuzzleSlot)-30);
            }} style={{minWidth:39,minHeight:24,backgroundColor:theme.tint,borderRadius:6,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle('#5578BB',9,'800')}>−30分</Text></Pressable><Pressable onPress={()=>{
