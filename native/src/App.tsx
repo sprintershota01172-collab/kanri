@@ -451,7 +451,7 @@ function AppInner(){
 }
 
 function CheckGlyph(){
-  return <View pointerEvents="none" style={{width:8,height:12,borderRightWidth:2.5,borderBottomWidth:2.5,borderColor:'#588F77',transform:[{rotate:'45deg'}],marginTop:-3,marginLeft:-1}}/>;
+  return <View pointerEvents="none" style={{width:8,height:12,borderRightWidth:2.5,borderBottomWidth:2.5,borderColor:'#588F77',transform:[{rotate:'45deg'},{translateY:-0.5}],marginTop:-1,marginLeft:0}}/>;
 }
 function FullTitle({title,theme}:{title:string,theme:Theme}){
  return <Pressable accessibilityRole="button" accessibilityLabel={title+'の全文を表示'} onPress={()=>Alert.alert('タスク名',title,[{text:'閉じる'}])}
