@@ -867,7 +867,7 @@ function openFolderBrowser(page=0){
 }
 function setupMarquees(){
   // Render immediately after inserting rows; animation frames may be deferred in a PWA.
-  $('.ticker-window').forEach(view=>{
+  $$('.ticker-window').forEach(view=>{
       if(!view.isConnected)return;
       const track=view.querySelector('.ticker-track'),text=track?.querySelector('.ticker-text');
       if(!track||!text)return;
