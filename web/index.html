@@ -1241,7 +1241,7 @@ $('.main').addEventListener('pointerup',e=>{
   const idx=tabOrder.indexOf(from.tab),next=idx+(dx<0?1:-1);
   if(next>=0&&next<tabOrder.length){navigateTab(tabOrder[next]);haptic()}
 },{passive:true});
-$('.main').addEventListener('pointercancel',()=>{tabGesture=null},{passive:true});$$('#calModes button').forEach(el=>el.onclick=()=>{calMode=el.dataset.mode;ganttPage=0;ganttScrollX=0;ganttScrollY=0;$$('#calModes button').forEach(b=>b.classList.toggle('selected',b===el));renderCalendar()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
+$('.main').addEventListener('pointercancel',()=>{tabGesture=null},{passive:true});$$('#calModes button').forEach(el=>el.onclick=()=>{calMode=el.dataset.mode;ganttPage=0;ganttScrollX=calMode==='gantt'?-1:0;ganttScrollY=0;$$('#calModes button').forEach(b=>b.classList.toggle('selected',b===el));renderCalendar()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
   const hadController=!!navigator.serviceWorker.controller;
   let pendingReload=false,reloading=false,lastCheck=0,registration;
   function applyUpdate(){
