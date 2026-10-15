@@ -79,16 +79,16 @@ body{min-height:0;height:100%;height:100dvh;overflow:hidden;background:#101d32}
 .gantt-empty{font-size:11px;color:var(--muted)}
 .gantt-scroll{flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-x;overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:#93A5C0 transparent}
 .gantt-scroll-table{width:max-content;min-width:100%}
-.gantt-grid-row{display:grid;grid-template-columns:repeat(var(--days),36px);width:max-content;min-width:0}
+.gantt-grid-row{display:grid;grid-template-columns:repeat(var(--days),30px);width:max-content;min-width:0}
 .gantt-days-header{height:46px;background:var(--tint)}
-.gantt-date-cell{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;width:36px;height:46px;border-right:1px solid var(--grid,#CFD5DF);border-bottom:1px solid var(--grid,#CFD5DF);color:var(--ink);font-variant-numeric:tabular-nums}
+.gantt-date-cell{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;width:30px;height:46px;border-right:1px solid var(--grid,#CFD5DF);border-bottom:1px solid var(--grid,#CFD5DF);color:var(--ink);font-variant-numeric:tabular-nums}
 .gantt-date-cell b{font-size:12px;line-height:1;font-weight:800}
 .gantt-date-cell small{font-size:9px;color:var(--muted)}
 .gantt-date-cell.sun,.gantt-square.sun{background-color:color-mix(in srgb,var(--red) 8%,var(--card))}
 .gantt-date-cell.sat,.gantt-square.sat{background-color:color-mix(in srgb,var(--blue) 8%,var(--card))}
 .gantt-date-cell.today-cell{box-shadow:inset 0 3px 0 var(--blue)}
 .gantt-task-row{height:49px}
-.gantt-square{width:36px;height:49px;display:block;position:relative;border-radius:0;border:0;border-right:1px solid var(--grid,#CFD5DF);border-bottom:1px solid var(--grid,#CFD5DF);background-color:var(--card);padding:0;appearance:none;touch-action:pan-x}
+.gantt-square{width:30px;height:49px;display:block;position:relative;border-radius:0;border:0;border-right:1px solid var(--grid,#CFD5DF);border-bottom:1px solid var(--grid,#CFD5DF);background-color:var(--card);padding:0;appearance:none;touch-action:pan-x}
 .gantt-square.filled{background-color:var(--fill)}
 .gantt-square.filled.sun,.gantt-square.filled.sat{background-color:var(--fill)}
 .gantt-square.due:after{content:"";position:absolute;right:2px;top:2px;width:4px;height:4px;border-radius:100%;background:var(--red)}
@@ -599,7 +599,16 @@ body,button,input,select{font-synthesis:none}
 }
 
 /* One-line static labels with tap-to-reveal full text. No marquee animation. */
-.static-task-title{display:block;flex:1 1 0%;min-width:0;width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:800;text-align:left;line-height:1.2}
+.static-task-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;flex:1 1 0%;min-width:0;width:0;overflow:hidden;white-space:normal;overflow-wrap:anywhere;font-size:8px;font-weight:760;text-align:left;line-height:10px;max-height:22px}
+.static-task-title.title-long{font-size:7px;line-height:9px}
+.static-task-title.title-extra-long{font-size:6.5px;line-height:9px}
+.gantt-status-legend{display:flex;align-items:center;flex-wrap:wrap;gap:9px;font-size:9px;color:var(--muted)}
+.gantt-status-legend i{display:inline-block;vertical-align:-1px;width:8px;height:8px;border-radius:2px;margin-right:3px}
+.task-card .static-task-title{display:-webkit-box;align-content:center;align-self:center;min-height:18px;height:auto!important;max-height:25px;padding:0 1px}
+.task-card .task-meta-compact{font-size:7px;max-width:32px;overflow:hidden}
+.task-card:focus-within{scroll-margin:0}
+.task-card,.task-card button{ -webkit-touch-callout:none; touch-action:manipulation }
+
 button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
 .agenda-full-btn{flex:0 0 23px;width:23px;height:24px;display:grid;place-items:center;border-radius:6px;background:var(--tint);color:var(--blue);font-size:12px;font-weight:900}
 .title-preview[hidden]{display:none!important}
@@ -619,7 +628,7 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
 <script src="./xlsx-export.js"></script>
 <script>
 (()=>{'use strict';
-const KEY='kanri_v1_tasks',PREF='kanri_v1_prefs',FOLDERS_KEY='kanri_v2_folders',VIEW_KEY='kanri_v2_view';const defaults={mode:'priority',names:['重要・緊急','重要・余裕あり','緊急・軽め','あとで考える'],dark:false,notify:true,lead:60};let prefs={...defaults,...read(PREF,{})};let tasks=read(KEY,[]);if(!Array.isArray(tasks))tasks=[];let tab='board',calMode='gantt',focusDay=new Date(),puzzleDay=new Date(),qpages=[0,0,0,0],ganttPage=0,ganttScrollX=0,ganttScrollY=0,inboxPage=0,activePuzzle=null,undoState=null,undoTimer=null,toastTimer=null,sortingManual=false;const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];const palette=['#c78086','#6381bd','#c7aa74','#719a91'];
+const KEY='kanri_v1_tasks',PREF='kanri_v1_prefs',FOLDERS_KEY='kanri_v2_folders',VIEW_KEY='kanri_v2_view';const defaults={mode:'priority',names:['重要・緊急','重要・余裕あり','緊急・軽め','あとで考える'],dark:false,notify:true,lead:60};let prefs={...defaults,...read(PREF,{})};let tasks=read(KEY,[]);if(!Array.isArray(tasks))tasks=[];let tab='board',calMode='gantt',focusDay=new Date(),puzzleDay=new Date(),qpages=[0,0,0,0],ganttPage=0,ganttScrollX=-1,ganttScrollY=0,inboxPage=0,activePuzzle=null,undoState=null,undoTimer=null,toastTimer=null,sortingManual=false;const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];const palette=['#c78086','#6381bd','#c7aa74','#719a91'];
 const initialFolders=[{id:'work',name:'業務',parentId:null},{id:'personal',name:'プライベート',parentId:null},{id:'study',name:'学習',parentId:null},{id:'other',name:'その他',parentId:null}];
 let folders=read(FOLDERS_KEY,null);
 if(!Array.isArray(folders)){folders=initialFolders.map(x=>({...x}));localStorage.setItem(FOLDERS_KEY,JSON.stringify(folders))}
@@ -900,6 +909,7 @@ function openFolderBrowser(page=0){
 }
 function showFullTitle(anchor,title){
  const popup=$('#titlePreview'),frame=$('#app');
+ // Do not focus or scroll the underlying page when opening the full-title overlay.
  if(!popup||!frame)return;
  $('#titlePreviewText').textContent=title;popup.hidden=false;
  const button=anchor.getBoundingClientRect(),shell=frame.getBoundingClientRect();
@@ -917,7 +927,7 @@ function bindTitlePreviews(){
 }
 $('#titlePreviewClose').onclick=()=>{$('#titlePreview').hidden=true};
 document.addEventListener('pointerdown',e=>{if(!e.target.closest('#titlePreview,[data-title-preview]'))$('#titlePreview').hidden=true},{passive:true});
-function renderBoard(){renderQuickGroups();$("#folderMenuButton").onclick=()=>openFolderBrowser();$("#folderMenuButton").setAttribute("aria-label",(getFolder(currentFolderId)?.name||"すべて")+"：フォルダを開く");$("#currentFolderLabel").textContent=getFolder(currentFolderId)?.name||"";$("#currentFolderLabel").hidden=!getFolder(currentFolderId);$('#boardScreen .board-foot').hidden=!tasks.some(t=>t.pin);let html='';for(let q=0;q<4;q++){const items=sorted(tasks.filter(t=>!t.done&&!t.event&&quadrant(t)===q&&inFolder(t,currentFolderId)));const pageSize=window.innerHeight>=820?8:window.innerHeight>=690?6:4;const pages=Math.max(1,Math.ceil(items.length/pageSize));qpages[q]=Math.min(qpages[q],pages-1);let showing=items.slice(qpages[q]*pageSize,qpages[q]*pageSize+pageSize);html+=`<section class="quadrant" data-q="${q}" role="button" tabindex="0" aria-label="${esc(prefs.names[q])} にタスクを追加"><div class="quad-title"><strong>${esc(prefs.names[q])}</strong><span>${items.length.toString().padStart(2,'0')}</span></div><div class="accent" style="background:${palette[q]}"></div><div class="task-area">${showing.length?showing.map(t=>`<div class="task-wrap"><button type="button" class="task-swipe-delete" data-task-trash="${t.id}" aria-label="${esc(t.title)}を削除">削除</button><article class="task-card" data-task="${t.id}"><div class="task-line"><button type="button" aria-label="${esc(t.title)}を完了" title="完了" class="check" data-done="${t.id}"><svg class="check-icon" width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.5 10.2 8.3 14 15.5 6.7" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="static-task-title" data-title-preview="${t.id}" aria-label="${esc(t.title)}の全文を表示" title="${esc(t.title)}">${esc(t.title)}</button><span class="task-meta-compact">${esc(shortDue(t.due))} · ${t.duration}m</span><button type="button" class="tiny-pin" data-top="${t.id}" aria-label="最上位に固定">${t.pin?'◆':'◇'}</button></div></article></div>`).join(''):'<div class="empty"><span aria-hidden="true">＋</span></div>'}</div><div class="pager"><button data-page="${q}" data-dir="-1" ${qpages[q]<=0?'disabled':''}>‹</button><span>${qpages[q]+1}/${pages}</span><button data-page="${q}" data-dir="1" ${qpages[q]>=pages-1?'disabled':''}>›</button></div></section>`}$('#board').innerHTML=html;$('#childQuickAdd').onclick=openGroupAddMenu;$$('[data-page]').forEach(el=>el.onclick=()=>{qpages[+el.dataset.page]+=+el.dataset.dir;renderBoard()});$$('.quadrant').forEach(el=>{el.onclick=e=>{if(e.target.closest('button,.task-card'))return;openEdit(null,+el.dataset.q)};el.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target===el){e.preventDefault();openEdit(null,+el.dataset.q)}}});$$('.task-card').forEach(setupDrag);$$('[data-task-trash]').forEach(el=>el.onclick=e=>{e.stopPropagation();confirmTaskRemoval(el.dataset.taskTrash)});$$('[data-done]').forEach(el=>{
+function renderBoard(){renderQuickGroups();$("#folderMenuButton").onclick=()=>openFolderBrowser();$("#folderMenuButton").setAttribute("aria-label",(getFolder(currentFolderId)?.name||"すべて")+"：フォルダを開く");$("#currentFolderLabel").textContent=getFolder(currentFolderId)?.name||"";$("#currentFolderLabel").hidden=!getFolder(currentFolderId);$('#boardScreen .board-foot').hidden=!tasks.some(t=>t.pin);let html='';for(let q=0;q<4;q++){const items=sorted(tasks.filter(t=>!t.done&&!t.event&&quadrant(t)===q&&inFolder(t,currentFolderId)));const pageSize=window.innerHeight>=820?8:window.innerHeight>=690?6:4;const pages=Math.max(1,Math.ceil(items.length/pageSize));qpages[q]=Math.min(qpages[q],pages-1);let showing=items.slice(qpages[q]*pageSize,qpages[q]*pageSize+pageSize);html+=`<section class="quadrant" data-q="${q}" role="button" tabindex="0" aria-label="${esc(prefs.names[q])} にタスクを追加"><div class="quad-title"><strong>${esc(prefs.names[q])}</strong><span>${items.length.toString().padStart(2,'0')}</span></div><div class="accent" style="background:${palette[q]}"></div><div class="task-area">${showing.length?showing.map(t=>`<div class="task-wrap"><button type="button" class="task-swipe-delete" data-task-trash="${t.id}" aria-label="${esc(t.title)}を削除">削除</button><article class="task-card" data-task="${t.id}"><div class="task-line"><button type="button" aria-label="${esc(t.title)}を完了" title="完了" class="check" data-done="${t.id}"><svg class="check-icon" width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.5 10.2 8.3 14 15.5 6.7" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="static-task-title ${t.title.length>44?'title-extra-long':t.title.length>22?'title-long':''}" data-title-preview="${t.id}" aria-label="${esc(t.title)}の全文を表示" title="${esc(t.title)}">${esc(t.title)}</button><span class="task-meta-compact" title="納期：${esc(t.due||'なし')}・所要時間：${t.duration}分">${esc(shortDue(t.due))}</span><button type="button" class="tiny-pin" data-top="${t.id}" aria-label="最上位に固定">${t.pin?'◆':'◇'}</button></div></article></div>`).join(''):'<div class="empty"><span aria-hidden="true">＋</span></div>'}</div><div class="pager"><button data-page="${q}" data-dir="-1" ${qpages[q]<=0?'disabled':''}>‹</button><span>${qpages[q]+1}/${pages}</span><button data-page="${q}" data-dir="1" ${qpages[q]>=pages-1?'disabled':''}>›</button></div></section>`}$('#board').innerHTML=html;$('#childQuickAdd').onclick=openGroupAddMenu;$$('[data-page]').forEach(el=>el.onclick=()=>{qpages[+el.dataset.page]+=+el.dataset.dir;renderBoard()});$$('.quadrant').forEach(el=>{el.onclick=e=>{if(e.target.closest('button,.task-card'))return;openEdit(null,+el.dataset.q)};el.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target===el){e.preventDefault();openEdit(null,+el.dataset.q)}}});$$('.task-card').forEach(setupDrag);$$('[data-task-trash]').forEach(el=>el.onclick=e=>{e.stopPropagation();confirmTaskRemoval(el.dataset.taskTrash)});$$('[data-done]').forEach(el=>{
   el.addEventListener('pointerdown',e=>e.stopPropagation());
   el.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
   el.addEventListener('pointerup',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
@@ -1002,13 +1012,15 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
   for(const t of view){
     const lt=t.event?1:Math.max(1,Math.min(90,Number(t.leadDays)||1));
     const workdays=new Set(t.event?(t.scheduled?[t.scheduled.slice(0,10)]:[]):workdayKeys(t.due,lt));
+    const daysLeft=t.due===null?999:diffDays(t.due);
+    const fillColor=t.event?palette[quadrant(t)]:daysLeft<0?'#D96B74':daysLeft<=2?'#E9C454':'#66A889';
     names+=`<div class="gantt-label-complete-row">${t.event?'':`<button type="button" class="gantt-one-tap" data-gantt-done="${t.id}" aria-label="${esc(t.title)}を完了">✓</button>`}<button type="button" class="gantt-label-row" data-edit="${t.id}" title="${esc(t.title)}"><strong>${esc(t.title)}</strong><small class="gantt-lt">${t.event?'予定':'LT '+lt}</small></button></div>`;
     rows+=`<div class="gantt-grid-row gantt-task-row" style="--days:${days}">`;
     for(let i=0;i<days;i++){
       const day=new Date(base.getFullYear(),base.getMonth(),i+1),key=dateKey(day);
       const filled=workdays.has(key);
       const weekend=day.getDay()===0?'sun':day.getDay()===6?'sat':'';
-      rows+=`<button type="button" class="gantt-square ${weekend} ${filled?'filled':''} ${t.due===key?'due':''} " style="--fill:${palette[quadrant(t)]}" data-gantt="${t.id}" data-day="${key}" aria-label="${esc(t.title)} ${key}を納期に設定" title="${esc(t.title)} / ${key}"></button>`;
+      rows+=`<button type="button" class="gantt-square ${weekend} ${filled?'filled':''} ${t.due===key?'due':''} " style="--fill:${fillColor}" data-gantt="${t.id}" data-day="${key}" aria-label="${esc(t.title)} ${key}を納期に設定" title="${esc(t.title)} / ${key}"></button>`;
     }
     rows+='</div>';
   }
@@ -1020,11 +1032,11 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
     <div class="gantt-sheet">
       <div class="gantt-names"><div class="gantt-label-head">タスク名 <span class="gantt-head-lt">LT</span></div><div class="gantt-name-body" id="ganttNameBody">${names}</div></div>
       <div class="gantt-scroll" id="ganttScroll" role="region" aria-label="ガント日付" tabindex="0">
-        <div class="gantt-scroll-table" style="width:${days*36}px;--days:${days}">${header}<div class="gantt-day-body" id="ganttDayBody">${rows}</div></div>
+        <div class="gantt-scroll-table" style="width:${days*30}px;--days:${days}">${header}<div class="gantt-day-body" id="ganttDayBody">${rows}</div></div>
       </div>
     </div>
     <div class="gantt-controls"><span class="gantt-count">${list.length}件</span>
-      <span class="gantt-scroll-help">${list.length>20?'上下にスクロール':'20行表示'} ↕</span>
+      <span class="gantt-status-legend"><span><i style="background:#66A889"></i>納期前</span><span><i style="background:#E9C454"></i>残2日以内</span><span><i style="background:#D96B74"></i>期限超過</span></span>
     </div>
   </div>`;
 }$('#calendarContent').innerHTML=html;$('#prevDate').onclick=()=>{ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(base.getFullYear(),base.getMonth()-1,Math.min(base.getDate(),28)):addDays(base,-7))};$('#nextDate').onclick=()=>{ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(base.getFullYear(),base.getMonth()+1,Math.min(base.getDate(),28)):addDays(base,7))};$$('[data-caldate]').forEach(el=>el.onclick=()=>changeDay(parseLocal(el.dataset.caldate)));$$('[data-edit]').forEach(el=>el.onclick=()=>openEdit(el.dataset.edit));
@@ -1034,7 +1046,13 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
     el.addEventListener('pointerup',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
     el.addEventListener('touchend',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)},{passive:false});
     el.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
-  });$$('[data-gantt-done]').forEach(el=>el.onclick=()=>completeTask(el.dataset.ganttDone));$$('[data-gantt]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.gantt);if(!t)return;if(t.event){openEdit(t.id);return}const before={due:t.due,ganttStart:t.ganttStart};t.due=el.dataset.day;t.ganttStart=null;save();renderCalendar();haptic();setUndo('納期を変更しました',()=>{Object.assign(t,before);save();renderCalendar()})});if(calMode==='gantt'){const scroll=$('#ganttScroll'),names=$('#ganttNameBody'),days=$('#ganttDayBody');if(scroll&&names&&days){scroll.scrollLeft=ganttScrollX;const initialY=Math.max(0,Math.min(ganttScrollY,Math.max(0,names.scrollHeight-names.clientHeight)));names.scrollTop=initialY;days.scrollTop=initialY;const sync=(source,target)=>{if(Math.abs(target.scrollTop-source.scrollTop)>1)target.scrollTop=source.scrollTop;ganttScrollY=source.scrollTop};names.addEventListener('scroll',()=>sync(names,days),{passive:true});days.addEventListener('scroll',()=>sync(days,names),{passive:true});scroll.addEventListener('scroll',()=>{ganttScrollX=scroll.scrollLeft},{passive:true})}}bindTitlePreviews();}
+  });$$('[data-gantt-done]').forEach(el=>el.onclick=()=>completeTask(el.dataset.ganttDone));$$('[data-gantt]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.gantt);if(!t)return;if(t.event){openEdit(t.id);return}const before={due:t.due,ganttStart:t.ganttStart};t.due=el.dataset.day;t.ganttStart=null;save();renderCalendar();haptic();setUndo('納期を変更しました',()=>{Object.assign(t,before);save();renderCalendar()})});if(calMode==='gantt'){const scroll=$('#ganttScroll'),names=$('#ganttNameBody'),days=$('#ganttDayBody');if(scroll&&names&&days){if(ganttScrollX<0){
+ const today=new Date();
+ const sameMonth=base.getFullYear()===today.getFullYear()&&base.getMonth()===today.getMonth();
+ ganttScrollX=sameMonth?Math.max(0,(today.getDate()-2)*30):0;
+ }
+ scroll.scrollLeft=ganttScrollX;
+ const initialY=Math.max(0,Math.min(ganttScrollY,Math.max(0,names.scrollHeight-names.clientHeight)));names.scrollTop=initialY;days.scrollTop=initialY;const sync=(source,target)=>{if(Math.abs(target.scrollTop-source.scrollTop)>1)target.scrollTop=source.scrollTop;ganttScrollY=source.scrollTop};names.addEventListener('scroll',()=>sync(names,days),{passive:true});days.addEventListener('scroll',()=>sync(days,names),{passive:true});scroll.addEventListener('scroll',()=>{ganttScrollX=scroll.scrollLeft},{passive:true})}}bindTitlePreviews();}
 function agendaHtml(day){
  const k=dateKey(day),items=sorted(tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||!!slotOnDay(t,k)))).sort((a,b)=>Number(!!b.event)-Number(!!a.event)||(slotOnDay(a,k)||'').localeCompare(slotOnDay(b,k)||''));
  return `<div class="agenda"><div class="agenda-head"><strong style="font-size:12px">${dayName(day)} の予定</strong><span class="sub">${items.length}件を表示</span></div><div class="agenda-list">${items.length?items.map(t=>`<div class="agenda-task ${t.event?'event-entry':''}"><span class="line" style="background:${palette[quadrant(t)]}"></span>${t.event?'':`<button type="button" class="agenda-check" data-done="${t.id}" aria-label="${esc(t.title)}を完了"><svg class="check-icon" width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.5 10.2 8.3 14 15.5 6.7" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`}<button type="button" class="agenda-open" data-edit="${t.id}" aria-label="${esc(t.title)}を編集"><span class="static-task-title">${esc(t.title)}</span><span class="agenda-meta">${slotOnDay(t,k)?.slice(11,16)||(t.event?'予定':shortDue(t.due))} · ${t.duration}m</span><span class="agenda-chevron">›</span></button><button type="button" class="agenda-full-btn" data-title-preview="${t.id}" aria-label="${esc(t.title)}の全文を表示">▤</button></div>`).join(''):'<div class="agenda-none">予定なし</div>'}</div></div>`;
