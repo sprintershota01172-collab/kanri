@@ -397,6 +397,8 @@ function AppInner(){
                     theme={theme} color={COLORS[quadrant(t,prefs)]}
                     selected={selectedBlock===t.id&&selectedPuzzleSlot===slot}
                     top={5+top} height={Math.max(22,Math.min(high,panelHeight-top-10))}
+                    resizeStepPx={(panelHeight-12)/12}
+                    onResize={newMinutes=>resizePuzzleSlot(t.id,slot,newMinutes)}
                     onSelect={()=>{if(t.event){setEventEditor(t);return}
                       if(selectedBlock===t.id&&selectedPuzzleSlot===slot){setSelectedBlock(null);setSelectedPuzzleSlot(null)}
                       else{setSelectedBlock(t.id);setSelectedPuzzleSlot(slot);toastMessage('移動先をタップ、またはスワイプ')}
@@ -553,11 +555,27 @@ function PuzzleTile({task,selected,onSelect,onDrop}:{task:Task,selected:boolean,
   const animated=useAnimatedStyle(()=>({transform:[{translateX:x.value},{translateY:y.value}],zIndex:10}));
   return <GestureDetector gesture={gesture}><Animated.View style={[styles.puzzleTile,{height:45+Math.round(Math.min(task.durationMin,180)/180*24)},selected&&{borderColor:'#C7DBFF',borderWidth:2},animated]}><Pressable onPress={onSelect} style={{flex:1,justifyContent:'center'}}><Text numberOfLines={1} style={typeStyle('#FFFFFF',11,'700')}>{task.title}</Text><Text style={typeStyle('#C0CCDF',9)}>LT{task.leadDays||1}日 · {dueLabel(task.dueDate)}</Text></Pressable></Animated.View></GestureDetector>;
 }
-function ScheduledPuzzleBlock({task,slot,minute,duration,theme,color,selected,top,height,onSelect,onMove,onComplete}:{
+function ScheduledPuzzleBlock({task,slot,minute,duration,theme,color,selected,top,height,resizeStepPx,onResize,onSelect,onMove,onComplete}:{
   task:Task;slot:string;minute:number;duration:number;theme:Theme;color:string;selected:boolean;top:number;height:number;
+  resizeStepPx:number;onResize:(minutes:number)=>void;
   onSelect:()=>void;onMove:(id:string,x:number,y:number,oldSlot:string|null)=>void;onComplete:()=>void;
 }){
   const x=useSharedValue(0),y=useSharedValue(0);
+  const resizeSteps=useSharedValue(0);
+  const maxMinutes=(minute<14*60?14*60:20*60)-minute;
+  const resizeGesture=useMemo(()=>Gesture.Pan().minDistance(7)
+    .onUpdate(e=>{
+      const steps=Math.round(e.translationY/Math.max(8,resizeStepPx));
+      resizeSteps.value=Math.max(Math.ceil((30-duration)/30),Math.min(Math.floor((maxMinutes-duration)/30),steps));
+    })
+    .onEnd(()=>{
+      const updated=duration+resizeSteps.value*30;
+      if(updated!==duration)scheduleOnRN(onResize,updated);
+      resizeSteps.value=0;
+    })
+    .onFinalize(()=>{resizeSteps.value=0}),
+  [duration,maxMinutes,resizeStepPx,onResize]);
+  const dynamicHeight=useAnimatedStyle(()=>({height:Math.max(22,height+resizeSteps.value*resizeStepPx)}));
   const gesture=useMemo(()=>Gesture.Pan().minDistance(9)
     .onUpdate(e=>{x.value=e.translationX;y.value=e.translationY})
     .onEnd(e=>{scheduleOnRN(onMove,task.id,e.absoluteX,e.absoluteY,slot);x.value=withSpring(0);y.value=withSpring(0)})
@@ -565,7 +583,7 @@ function ScheduledPuzzleBlock({task,slot,minute,duration,theme,color,selected,to
   [task.id,slot,onMove]);
   const motion=useAnimatedStyle(()=>({transform:[{translateX:x.value},{translateY:y.value}]}));
   return <Animated.View entering={FadeInDown.springify().damping(18)}
-    style={[styles.scheduledBar,{top,height,backgroundColor:color,flexDirection:'row',alignItems:'center',borderWidth:selected?2:0,borderColor:'#F5D17B',overflow:'visible'}]}>
+    style={[styles.scheduledBar,{top,height,backgroundColor:color,flexDirection:'row',alignItems:'center',borderWidth:selected?2:0,borderColor:'#F5D17B',overflow:'visible'},dynamicHeight]}>
     <GestureDetector gesture={gesture}>
       <Animated.View style={[{flex:1,minWidth:0,height:'100%',justifyContent:'center'},motion]}>
         <Pressable accessibilityRole="button" accessibilityLabel={task.title+'を選択して時間変更'} onPress={onSelect} style={{flex:1,justifyContent:'center'}}>
@@ -578,6 +596,15 @@ function ScheduledPuzzleBlock({task,slot,minute,duration,theme,color,selected,to
        style={{minWidth:25,minHeight:24,alignItems:'center',justifyContent:'center',backgroundColor:'#FFFFFF29',borderRadius:5,marginLeft:2}}>
       <Text style={typeStyle('#FFFFFF',14,'800')}>✓</Text>
     </Pressable>}
+    {!task.event&&<GestureDetector gesture={resizeGesture}>
+      <Animated.View style={{position:'absolute',bottom:-9,right:29,width:39,height:26,backgroundColor:'#FFFFFF',borderColor:'#BAC9D9',borderWidth:1,borderRadius:8,alignItems:'center',justifyContent:'center',flexDirection:'row',zIndex:30,elevation:12}}>
+        <Pressable accessibilityRole="button" accessibilityLabel={task.title+'の終了時間を30分延長。上下ドラッグで変更'} onPress={()=>onResize(duration+30)}
+          style={{width:39,height:26,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:2}}>
+          <Text style={typeStyle('#45617F',10,'800')}>═</Text>
+          <Text style={typeStyle('#45617F',15,'800')}>↓</Text>
+        </Pressable>
+      </Animated.View>
+    </GestureDetector>}
   </Animated.View>;
 }
 function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGanttPage,folderId,folders,onOpen,onGanttStart,onGanttComplete}:{theme:Theme,mode:Mode,focus:Date,setFocus:(date:Date)=>void,tasks:Task[],prefs:Preferences,ganttPage:number,setGanttPage:(n:number)=>void,folderId:string|null,folders:Folder[],onOpen:(task:Task)=>void,onGanttStart:(task:Task,date:string)=>void,onGanttComplete:(task:Task)=>void}){
