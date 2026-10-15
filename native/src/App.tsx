@@ -7,7 +7,7 @@ import {Gesture,GestureDetector,GestureHandlerRootView} from 'react-native-gestu
 import {scheduleOnRN} from 'react-native-worklets';
 import Animated,{FadeIn,FadeInDown,FadeOut,withSpring,withTiming,withRepeat,cancelAnimation,Easing,useAnimatedStyle,useSharedValue} from 'react-native-reanimated';
 import {SafeAreaProvider,useSafeAreaInsets} from 'react-native-safe-area-context';
-import {addDays,canSchedule,COLORS,createTask,dateKey,DEFAULT_PREFS,daysUntil,dueLabel,GROUPS,Group,moveToQuadrant,pad,parseDateKey,parseScheduleMinutes,Preferences,priorityScore,quadrant,sortTasks,Task,timeText,Folder,Workspace,DEFAULT_WORKSPACE,folderForTask,folderGroup,completeTaskForTrash,restoreCompletedTask,COMPLETED_RETENTION_MS} from './model';
+import {addDays,canSchedule,COLORS,createTask,dateKey,DEFAULT_PREFS,daysUntil,dueLabel,GROUPS,Group,moveToQuadrant,pad,parseDateKey,parseScheduleMinutes,Preferences,priorityScore,quadrant,sortTasks,Task,timeText,Folder,Workspace,DEFAULT_WORKSPACE,folderForTask,folderGroup,completeTaskForTrash,restoreCompletedTask,COMPLETED_RETENTION_MS,workdayKeys,inTaskWorkWindow,taskSlots,withTaskSlots,slotOnDay} from './model';
 import {deleteTask,migrate,readPreferences,readTasks,savePreferences,saveTask,readWorkspace,saveWorkspace} from './storage';
 import {cancelTaskNotifications,registerNotifications,requestLocalPermissions,scheduleTaskNotifications,snoozeTask} from './reminders';
 import {shareExcel} from './xlsxExport';
@@ -52,6 +52,7 @@ function AppInner(){
   const [boardPages,setBoardPages]=useState([0,0,0,0]);
   const [calMode,setCalMode]=useState<Mode>('gantt');const [focus,setFocus]=useState(new Date());const [ganttPage,setGanttPage]=useState(0);
   const [puzzleDate,setPuzzleDate]=useState(new Date());const [selectedBlock,setSelectedBlock]=useState<string|null>(null);const [inboxPage,setInboxPage]=useState(0);
+  const groupScrollRef=useRef<ScrollView>(null),groupScrollX=useRef(0);
   const boardRef=useRef<View>(null);const morningRef=useRef<View>(null);const afternoonRef=useRef<View>(null);
   const [panelHeight,setPanelHeight]=useState(290);const tasksRef=useRef(tasks);const prefsRef=useRef(prefs);
   tasksRef.current=tasks;prefsRef.current=prefs;
@@ -225,9 +226,11 @@ function AppInner(){
     const key=dateKey(puzzleDate);
     const result=canSchedule(tasksRef.current,key,minutes,t.durationMin,id);
     if(!result.ok){toastMessage(result.reason);void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);return;}
+    if(t.completed||t.event||!inTaskWorkWindow(t,key)){toastMessage('この日は納期・LT対象外です');return}
+    if(slotOnDay(t,key)){toastMessage('この日は配置済みです');return}
     const before={...t};
     const start=`${key}T${timeText(minutes)}`;
-    void updateTask({...t,scheduledStart:start});setSelectedBlock(null);
+    void updateTask(withTaskSlots(t,[...taskSlots(t),start]));setSelectedBlock(null);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     remember('予定を配置しました',()=>{void updateTask(before)});
     toastMessage('カチッ。予定を配置しました');
@@ -248,6 +251,10 @@ function AppInner(){
   }
   const n=tasks.filter(t=>!t.event).length,completed=tasks.filter(t=>!t.event&&t.completed).length,percentage=n?Math.round(completed/n*100):0;
   const top=sortTasks(tasks.filter(t=>!t.event&&!t.completed))[0];
+  const puzzleKey=dateKey(puzzleDate);
+  const puzzleEligible=sortTasks(tasks.filter(t=>!t.event&&!t.completed&&belongsToFolder(t,workspace.folderId,workspace.folders)&&inTaskWorkWindow(t,puzzleKey)&&!slotOnDay(t,puzzleKey)));
+  const puzzlePages=Math.max(1,Math.ceil(puzzleEligible.length/2));
+  const puzzlePage=Math.min(inboxPage,puzzlePages-1);
   const folderPath:Folder[]=[];
   {let cursor=workspace.folders.find(f=>f.id===workspace.folderId),guard=0;
    while(cursor&&guard++<20){folderPath.unshift(cursor);cursor=workspace.folders.find(f=>f.id===cursor?.parentId)}}
@@ -289,7 +296,7 @@ function AppInner(){
       {tab==='board'&&<>
         <View style={[styles.screenHead,{gap:4}]}>
           <Pressable accessibilityRole="button" accessibilityLabel="すべてのフォルダを開く" onPress={()=>setFolderMenuOpen(true)} style={{minHeight:44,minWidth:66,justifyContent:'center',flexDirection:'row',alignItems:'center',gap:3}}><Text style={typeStyle(theme.ink,18,'800')}>TODO</Text><Text style={typeStyle(theme.muted,12,'700')}>⌄</Text></Pressable>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} onTouchStart={e=>{e.stopPropagation();swipeStart.current=null}} style={{flex:1,minWidth:0,marginHorizontal:2}} contentContainerStyle={{alignItems:'center',gap:5,paddingHorizontal:2}}>
+          <ScrollView ref={groupScrollRef} horizontal showsHorizontalScrollIndicator={false} onScroll={e=>{groupScrollX.current=e.nativeEvent.contentOffset.x}} scrollEventThrottle={16} onContentSizeChange={()=>{groupScrollRef.current?.scrollTo({x:groupScrollX.current,animated:false})}} onTouchStart={e=>{e.stopPropagation();swipeStart.current=null}} style={{flex:1,minWidth:0,marginHorizontal:2}} contentContainerStyle={{alignItems:'center',gap:5,paddingHorizontal:2}}>
             {groupEntries.map(g=>
               <Pressable key={g.id||'all'} accessibilityRole="button" accessibilityLabel={g.name+'。タップで切り替え、長押しで編集・並べ替え'} onPress={()=>selectFolder(g.id)} onLongPress={()=>{if(g.id){setGroupActionsId(g.id);void Haptics.selectionAsync()}}} delayLongPress={420} style={{minHeight:44,minWidth:52,paddingHorizontal:9,justifyContent:'center',alignItems:'center',borderWidth:1,borderColor:workspace.folderId===g.id?'#90A8D5':theme.line,borderRadius:10,backgroundColor:workspace.folderId===g.id?theme.tint:theme.card}}>
                 <Text numberOfLines={1} style={typeStyle(workspace.folderId===g.id?(prefs.dark?'#F4F7FF':'#456DAA'):theme.muted,10,'700')}>{g.name}</Text>
@@ -319,19 +326,19 @@ function AppInner(){
       </>}
       {tab==='calendar'&&<>
         <View style={styles.screenHead}><View style={{flexDirection:'row',alignItems:'center',gap:5}}><Text style={typeStyle(theme.ink,17,'800')}>予定</Text><Pressable onPress={()=>setTrashOpen(true)} accessibilityLabel="完了・削除一覧を開く" style={{paddingVertical:7,paddingHorizontal:6,backgroundColor:theme.tint,borderRadius:9}}><Text style={typeStyle(theme.ink,10,'800')}>完了済み</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="会議や予定を追加" onPress={()=>setEventEditor('new')} style={{paddingVertical:7,paddingHorizontal:7,backgroundColor:theme.tint,borderRadius:9}}><Text style={typeStyle(theme.ink,10,'800')}>＋予定</Text></Pressable></View><View style={[styles.seg,{backgroundColor:theme.line}]}>{(['month','week','gantt'] as Mode[]).map((m,i)=><Pressable key={m} onPress={()=>{setCalMode(m);setGanttPage(0)}} style={[styles.segItem,calMode===m&&{backgroundColor:theme.card}]}><Text style={typeStyle(calMode===m?theme.ink:theme.muted,11,'700')}>{['月','週','ガント'][i]}</Text></Pressable>)}</View></View>
-        <CalendarPanel theme={theme} mode={calMode} focus={focus} setFocus={setFocus} tasks={tasks} prefs={prefs} ganttPage={ganttPage} setGanttPage={setGanttPage} folderId={workspace.folderId} folders={workspace.folders} onOpen={task=>task.event?setEventEditor(task):setEditor(task)} onGanttComplete={markCompleted} onGanttStart={(task,date)=>{if(task.event){setEventEditor(task);return}const before={...task};void updateTask({...task,ganttStart:date});void Haptics.selectionAsync();remember('ガント開始日を設定しました',()=>{void updateTask(before)});}}/>
+        <CalendarPanel theme={theme} mode={calMode} focus={focus} setFocus={setFocus} tasks={tasks} prefs={prefs} ganttPage={ganttPage} setGanttPage={setGanttPage} folderId={workspace.folderId} folders={workspace.folders} onOpen={task=>task.event?setEventEditor(task):setEditor(task)} onGanttComplete={markCompleted} onGanttStart={(task,date)=>{if(task.event){setEventEditor(task);return}const before={...task};void updateTask({...task,dueDate:date,ganttStart:null});void Haptics.selectionAsync();remember('納期を変更しました',()=>{void updateTask(before)});}}/>
       </>}
       {tab==='puzzle'&&<>
         <View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>TIME PUZZLE</Text></View><IconButton label="↶ 戻す" theme={theme} onPress={undoAction}/></View>
         <View style={{flex:1,minHeight:0}}><View style={[styles.puzzleInbox,{backgroundColor:theme.navy}]}>
-          <View style={styles.flexBetween}><Text style={typeStyle('#F3F7FF',11,'800')}>UNPLACED TASKS</Text><Text style={typeStyle('#A3B5D0',10)}>{tasks.filter(t=>!t.event&&!t.completed&&!t.scheduledStart).length} 待機中</Text></View>
+          <View style={styles.flexBetween}><Text style={typeStyle('#F3F7FF',11,'800')}>UNPLACED TASKS</Text><Text style={typeStyle('#A3B5D0',10)}>{puzzleEligible.length} 件 · 納期／LT</Text></View>
           <View style={{flexDirection:'row',gap:7,marginTop:8,minHeight:70,alignItems:'flex-start'}}> 
-            {sortTasks(tasks.filter(t=>!t.event&&!t.completed&&!t.scheduledStart)).slice(inboxPage*2,inboxPage*2+2).map(t=><PuzzleTile key={t.id} task={t} selected={selectedBlock===t.id} onSelect={()=>setSelectedBlock(t.id)} onDrop={puzzleDrop}/>)}
-            {!tasks.some(t=>!t.completed&&!t.scheduledStart)&&<Text style={typeStyle('#AAB9D0',11)}>すべて配置済みです</Text>}
+            {puzzleEligible.slice(puzzlePage*2,puzzlePage*2+2).map(t=><PuzzleTile key={t.id} task={t} selected={selectedBlock===t.id} onSelect={()=>setSelectedBlock(t.id)} onDrop={puzzleDrop}/>)}
+            {!puzzleEligible.length&&<Text style={typeStyle('#AAB9D0',11)}>この日の未配置タスクはありません</Text>}
           </View>
-          <View style={[styles.pager,{marginTop:2}]}><Pressable onPress={()=>setInboxPage(n=>Math.max(0,n-1))}><Text style={typeStyle('#B7C6DB',16)}>‹</Text></Pressable><Text style={typeStyle('#B7C6DB',9)}>{inboxPage+1}/{Math.max(1,Math.ceil(tasks.filter(t=>!t.event&&!t.completed&&!t.scheduledStart).length/2))}</Text><Pressable onPress={()=>setInboxPage(n=>Math.min(Math.max(0,Math.ceil(tasks.filter(t=>!t.event&&!t.completed&&!t.scheduledStart).length/2)-1),n+1))}><Text style={typeStyle('#B7C6DB',16)}>›</Text></Pressable></View>
+          <View style={[styles.pager,{marginTop:2}]}><Pressable onPress={()=>setInboxPage(n=>Math.max(0,n-1))}><Text style={typeStyle('#B7C6DB',16)}>‹</Text></Pressable><Text style={typeStyle('#B7C6DB',9)}>{puzzlePage+1}/{puzzlePages}</Text><Pressable onPress={()=>setInboxPage(n=>Math.min(puzzlePages-1,n+1))}><Text style={typeStyle('#B7C6DB',16)}>›</Text></Pressable></View>
         </View>
-          <View style={[styles.dateNav,{height:43}]}><Pressable onPress={()=>setPuzzleDate(d=>addDays(d,-1))}><Text style={typeStyle('#5578BB',11,'800')}>‹ 前日</Text></Pressable><Text style={typeStyle(theme.ink,12,'800')}>{puzzleDate.getMonth()+1}月{puzzleDate.getDate()}日 {'日月火水木金土'[puzzleDate.getDay()]}曜日</Text><Pressable onPress={()=>setPuzzleDate(d=>addDays(d,1))}><Text style={typeStyle('#5578BB',11,'800')}>翌日 ›</Text></Pressable></View>
+          <View style={[styles.dateNav,{height:43}]}><Pressable onPress={()=>{setSelectedBlock(null);setInboxPage(0);setPuzzleDate(d=>addDays(d,-1))}}><Text style={typeStyle('#5578BB',11,'800')}>‹ 前日</Text></Pressable><Text style={typeStyle(theme.ink,12,'800')}>{puzzleDate.getMonth()+1}月{puzzleDate.getDate()}日 {'日月火水木金土'[puzzleDate.getDay()]}曜日</Text><Pressable onPress={()=>{setSelectedBlock(null);setInboxPage(0);setPuzzleDate(d=>addDays(d,1))}}><Text style={typeStyle('#5578BB',11,'800')}>翌日 ›</Text></Pressable></View>
           <View style={{flex:1,flexDirection:'row',gap:8,minHeight:0}}>
             {[0,1].map((col)=>{
               const ref=col===0?morningRef:afternoonRef;const base=col===0?8*60:14*60;
