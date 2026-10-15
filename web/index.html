@@ -684,6 +684,30 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
 /* Keep selected task visible as it is dragged upward to the inbox. */
 #puzzleContent .time-panel{overflow:visible!important}
 #puzzleContent .scheduled-chip.is-dragging{z-index:40!important}
+
+/* Parent group = primary tab. Sub-tree = compact contextual pill inside a
+   full-height touch target (retains the 44px accessibility hit area). */
+.group-quick-switch .group-quick-chip:not(.subtree-chip){font-weight:800}
+.group-quick-switch .group-quick-chip.branch-parent:not(.active){color:var(--ink);border-color:#A5B4CC}
+.group-quick-switch .group-quick-chip.subtree-chip,
+.group-quick-switch .group-quick-chip.subtree-chip.active{
+  min-height:44px!important;height:44px!important;min-width:0!important;
+  border:0!important;border-radius:0!important;padding:0 2px!important;
+  background:transparent!important;box-shadow:none!important;
+  color:var(--muted);font-size:9px!important;
+}
+.group-quick-chip.subtree-chip .subtree-inner{
+  height:27px;display:inline-flex;align-items:center;justify-content:center;
+  gap:3px;padding:0 7px 0 calc(5px + (var(--tree-depth) - 1)*4px);
+  border:1px solid var(--line);border-radius:7px;background:var(--bg);
+  max-width:146px;white-space:nowrap;overflow:hidden;
+}
+.group-quick-chip.subtree-chip .subtree-symbol{font-size:11px;font-weight:800;color:var(--muted);line-height:1}
+.group-quick-chip.subtree-chip .subtree-text{font-size:9px;font-weight:650;min-width:0;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.group-quick-chip.subtree-chip.active .subtree-inner{background:var(--tint);border-color:#8FA9D0;box-shadow:inset 0 0 0 1px #A5B8D9}
+.group-quick-chip.subtree-chip.active .subtree-text,.group-quick-chip.subtree-chip.active .subtree-symbol{color:var(--blue);font-weight:800}
+.device.dark .group-quick-chip.subtree-chip.active .subtree-inner{background:#344967;border-color:#89A3D2}
+.device.dark .group-quick-chip.subtree-chip.active .subtree-text,.device.dark .group-quick-chip.subtree-chip.active .subtree-symbol{color:#E9F0FC}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="グループまたは子ツリーを追加">＋ 追加</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
@@ -720,9 +744,23 @@ function setFolder(id){
   saveView();qpages=[0,0,0,0];$('#board').scrollTop=0;render()
 }
 function visibleGroupEntries(){
-  const recent=read(RECENT_FOLDERS,[]).filter(id=>getFolder(id)&&getFolder(id).parentId!==null);
-  const entries=[{id:null,name:'すべて'},...folders.filter(f=>f.parentId===null).map(f=>({id:f.id,name:f.id==='personal'&&f.name==='プライベート'?'私用':f.name})),...recent.slice(0,3).map(id=>({id,name:getFolder(id).name}))];
-  for(const child of childFolders(currentFolderId).filter(f=>f.parentId!==null))if(!entries.some(x=>x.id===child.id))entries.push({id:child.id,name:child.name});
+  // Parents remain primary navigation. Only show the active parent's sub-tree,
+  // immediately after its parent and at a visually reduced hierarchy level.
+  const activeRoot=folderRoot(currentFolderId)?.id||null;
+  const activePath=new Set(folderPath(currentFolderId).map(f=>f.id));
+  const entries=[{id:null,name:'すべて',depth:0}];
+  const insertChildren=(parentId,depth)=>{
+    if(depth>12)return;
+    for(const child of childFolders(parentId)){
+      entries.push({id:child.id,name:child.name,depth});
+      // Expand only the active branch to avoid filling the strip with every grandchild.
+      if(activePath.has(child.id))insertChildren(child.id,depth+1);
+    }
+  };
+  for(const root of folders.filter(f=>f.parentId===null)){
+    entries.push({id:root.id,name:root.id==='personal'&&root.name==='プライベート'?'私用':root.name,depth:0,hasActiveDescendant:root.id===activeRoot&&root.id!==currentFolderId});
+    if(root.id===activeRoot)insertChildren(root.id,1);
+  }
   return entries;
 }
 function adjacentFolder(id,delta){
@@ -825,7 +863,7 @@ function wireGroupChip(el){
 function renderQuickGroups(){
   const strip=$('#groupQuickSwitch'),preservedScroll=strip.scrollLeft;
   const entries=visibleGroupEntries();
-  strip.innerHTML=entries.map(g=>`<button type="button" class="group-quick-chip ${currentFolderId===g.id?'active':''}" data-quick-folder="${esc(g.id??'__all__')}" aria-pressed="${String(currentFolderId===g.id)}" aria-label="${esc(g.name)}。タップで切り替え、長押しで操作">${esc(g.name)}</button>`).join('');
+  strip.innerHTML=entries.map(g=>`<button type="button" class="group-quick-chip ${g.depth?'subtree-chip':''} ${g.hasActiveDescendant?'branch-parent':''} ${currentFolderId===g.id?'active':''}" data-quick-folder="${esc(g.id??'__all__')}" aria-pressed="${String(currentFolderId===g.id)}" aria-label="${g.depth?'子ツリー ':''}${esc(g.name)}。タップで切り替え、長押しで操作">${g.depth?`<span class="subtree-inner" style="--tree-depth:${Math.min(g.depth,4)}"><span class="subtree-symbol" aria-hidden="true">↳</span><span class="subtree-text">${esc(g.name)}</span></span>`:esc(g.name)}</button>`).join('');
   $$('[data-quick-folder]').forEach(wireGroupChip);
 
   strip.scrollLeft=preservedScroll;
