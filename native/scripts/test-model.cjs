@@ -78,6 +78,23 @@ test('daily scheduling slots preserve previous days and detect conflicts',()=>{
  assert.equal(m.overlaps([task],'2026-10-19',855,30),true);
  assert.equal(m.overlaps([task],'2026-10-16',570,30),true);
 });
+test('changing puzzle duration only changes the selected scheduled day',()=>{
+ const before=m.withTaskSlots({...base,id:'daily',durationMin:60,dueDate:'2026-10-19'},['2026-10-16T09:00','2026-10-19T14:00']);
+ const extended=m.withSlotDuration(before,'2026-10-16T09:00',120);
+ assert.equal(m.durationForSlot(extended,'2026-10-16T09:00'),120);
+ assert.equal(m.durationForSlot(extended,'2026-10-19T14:00'),60);
+ assert.equal(m.durationForSlot(before,'2026-10-16T09:00'),60);
+ assert.equal(m.canSchedule([extended],'2026-10-16',630,30,'other').ok,false);
+ assert.equal(m.canSchedule([extended],'2026-10-16',660,30,'other').ok,true);
+});
+test('puzzle duration follows a moved slot and resets on removal',()=>{
+ const initial=m.withSlotDuration(m.withTaskSlots({...base,id:'daily',durationMin:60},['2026-10-16T09:00']), '2026-10-16T09:00',120);
+ const moved=m.withSlotDuration(m.withTaskSlots(initial,['2026-10-16T10:00']),'2026-10-16T10:00',120);
+ assert.equal(m.durationForSlot(moved,'2026-10-16T10:00'),120);
+ assert.equal(m.durationForSlot(moved,'2026-10-16T09:00'),60);
+ const removed=m.withTaskSlots(moved,[]);
+ assert.equal(Object.keys(removed.scheduledDurations).length,0);
+});
 test('completed task is kept for seven days then expires',()=>{
  const completedAt=new Date('2026-10-15T00:00:00.000Z');
  const done=m.completeTaskForTrash(base,completedAt);
