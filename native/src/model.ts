@@ -25,10 +25,11 @@ export type Task = {
   urgent: boolean;
   group: Group;
   durationMin: number;
-  leadDays?: number; // calendar-day lead time, 1..90
+  leadDays?: number; // working days excluding weekends
   ganttStart?: string | null; // manually selected Gantt start date
   dueDate: string | null; // YYYY-MM-DD, local date, deadline 23:59
-  scheduledStart: string | null; // YYYY-MM-DDTHH:mm, local wall time
+  scheduledStart: string | null; // first/legacy scheduling slot
+  scheduledBlocks?: string[]; // day-specific scheduling slots
   completed: boolean;
   completedAt?: string | null; // completion timestamp; purge after seven days
   pinned: boolean;
@@ -123,7 +124,7 @@ export function canSchedule(tasks: Task[], day: string, startMinute: number, dur
 export function createTask(title: string, dueDate: string|null, durationMin: number, important: boolean, urgent: boolean, group: Group): Task {
   const now = new Date().toISOString();
   return {id:`t_${Date.now()}_${Math.random().toString(36).slice(2,9)}`,title,dueDate,durationMin,important,urgent,group,
-    leadDays:1,ganttStart:null,scheduledStart:null,completed:false,completedAt:null,pinned:false,manualOrder:null,notificationIds:[],createdAt:now,updatedAt:now};
+    leadDays:1,ganttStart:null,scheduledStart:null,scheduledBlocks:[],completed:false,completedAt:null,pinned:false,manualOrder:null,notificationIds:[],createdAt:now,updatedAt:now};
 }
 export function dueLabel(date: string|null) {
   const d=daysUntil(date);
