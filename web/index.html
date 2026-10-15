@@ -698,7 +698,7 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
 }
 .group-quick-chip.subtree-chip .subtree-inner{
   height:27px;display:inline-flex;align-items:center;justify-content:center;
-  gap:3px;padding:0 7px 0 calc(5px + (var(--tree-depth) - 1)*4px);
+  gap:3px;padding:0 7px 0 var(--tree-indent,5px);
   border:1px solid var(--line);border-radius:7px;background:var(--bg);
   max-width:146px;white-space:nowrap;overflow:hidden;
 }
@@ -863,7 +863,7 @@ function wireGroupChip(el){
 function renderQuickGroups(){
   const strip=$('#groupQuickSwitch'),preservedScroll=strip.scrollLeft;
   const entries=visibleGroupEntries();
-  strip.innerHTML=entries.map(g=>`<button type="button" class="group-quick-chip ${g.depth?'subtree-chip':''} ${g.hasActiveDescendant?'branch-parent':''} ${currentFolderId===g.id?'active':''}" data-quick-folder="${esc(g.id??'__all__')}" aria-pressed="${String(currentFolderId===g.id)}" aria-label="${g.depth?'子ツリー ':''}${esc(g.name)}。タップで切り替え、長押しで操作">${g.depth?`<span class="subtree-inner" style="--tree-depth:${Math.min(g.depth,4)}"><span class="subtree-symbol" aria-hidden="true">↳</span><span class="subtree-text">${esc(g.name)}</span></span>`:esc(g.name)}</button>`).join('');
+  strip.innerHTML=entries.map(g=>`<button type="button" class="group-quick-chip ${g.depth?'subtree-chip':''} ${g.hasActiveDescendant?'branch-parent':''} ${currentFolderId===g.id?'active':''}" data-quick-folder="${esc(g.id??'__all__')}" aria-pressed="${String(currentFolderId===g.id)}" aria-label="${g.depth?'子ツリー ':''}${esc(g.name)}。タップで切り替え、長押しで操作">${g.depth?`<span class="subtree-inner" style="--tree-indent:${5+Math.min(g.depth-1,3)*4}px"><span class="subtree-symbol" aria-hidden="true">↳</span><span class="subtree-text">${esc(g.name)}</span></span>`:esc(g.name)}</button>`).join('');
   $$('[data-quick-folder]').forEach(wireGroupChip);
 
   strip.scrollLeft=preservedScroll;
