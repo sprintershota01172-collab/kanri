@@ -331,7 +331,7 @@ function AppInner(){
       {tab==='puzzle'&&<>
         <View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>TIME PUZZLE</Text></View><IconButton label="↶ 戻す" theme={theme} onPress={undoAction}/></View>
         <View style={{flex:1,minHeight:0}}><View style={[styles.puzzleInbox,{backgroundColor:theme.navy}]}>
-          <View style={styles.flexBetween}><Text style={typeStyle('#F3F7FF',11,'800')}>UNPLACED TASKS</Text><Text style={typeStyle('#A3B5D0',10)}>{puzzleEligible.length} 件 · 納期／LT</Text></View>
+          <View style={styles.flexBetween}><Text style={typeStyle('#F3F7FF',11,'800')}>本日の対象タスク</Text><Text style={typeStyle('#A3B5D0',10)}>{puzzleEligible.length} 件 · 納期／LT</Text></View>
           <View style={{flexDirection:'row',gap:7,marginTop:8,minHeight:70,alignItems:'flex-start'}}> 
             {puzzleEligible.slice(puzzlePage*2,puzzlePage*2+2).map(t=><PuzzleTile key={t.id} task={t} selected={selectedBlock===t.id} onSelect={()=>setSelectedBlock(t.id)} onDrop={puzzleDrop}/>)}
             {!puzzleEligible.length&&<Text style={typeStyle('#AAB9D0',11)}>この日の未配置タスクはありません</Text>}
@@ -498,7 +498,7 @@ function PuzzleTile({task,selected,onSelect,onDrop}:{task:Task,selected:boolean,
   const x=useSharedValue(0),y=useSharedValue(0);
   const gesture=useMemo(()=>Gesture.Pan().minDistance(8).onUpdate(e=>{x.value=e.translationX;y.value=e.translationY}).onEnd(e=>{scheduleOnRN(onDrop,task.id,e.absoluteX,e.absoluteY);x.value=withSpring(0);y.value=withSpring(0)}).onFinalize(()=>{x.value=withSpring(0);y.value=withSpring(0)}),[task.id,onDrop]);
   const animated=useAnimatedStyle(()=>({transform:[{translateX:x.value},{translateY:y.value}],zIndex:10}));
-  return <GestureDetector gesture={gesture}><Animated.View style={[styles.puzzleTile,{height:45+Math.round(Math.min(task.durationMin,180)/180*24)},selected&&{borderColor:'#C7DBFF',borderWidth:2},animated]}><Pressable onPress={onSelect} style={{flex:1,justifyContent:'center'}}><Text numberOfLines={1} style={typeStyle('#FFFFFF',11,'700')}>{task.title}</Text><Text style={typeStyle('#C0CCDF',9)}>{task.durationMin}分 · {dueLabel(task.dueDate)}</Text></Pressable></Animated.View></GestureDetector>;
+  return <GestureDetector gesture={gesture}><Animated.View style={[styles.puzzleTile,{height:45+Math.round(Math.min(task.durationMin,180)/180*24)},selected&&{borderColor:'#C7DBFF',borderWidth:2},animated]}><Pressable onPress={onSelect} style={{flex:1,justifyContent:'center'}}><Text numberOfLines={1} style={typeStyle('#FFFFFF',11,'700')}>{task.title}</Text><Text style={typeStyle('#C0CCDF',9)}>LT{task.leadDays||1}日 · {dueLabel(task.dueDate)}</Text></Pressable></Animated.View></GestureDetector>;
 }
 function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGanttPage,folderId,folders,onOpen,onGanttStart,onGanttComplete}:{theme:Theme,mode:Mode,focus:Date,setFocus:(date:Date)=>void,tasks:Task[],prefs:Preferences,ganttPage:number,setGanttPage:(n:number)=>void,folderId:string|null,folders:Folder[],onOpen:(task:Task)=>void,onGanttStart:(task:Task,date:string)=>void,onGanttComplete:(task:Task)=>void}){
   const shownTasks=tasks.filter(t=>belongsToFolder(t,folderId,folders));
@@ -820,7 +820,7 @@ function TaskEditor({entry,initialQuadrant,initialDueDate,prefs,theme,insetTop,h
         {folderList.map(f=><Pressable key={f.id} onPress={()=>{setSelectedFolder(f.id);setGroup(folderGroup(folders,f.id))}} style={{minHeight:44,paddingHorizontal:10,justifyContent:'center',borderRadius:10,backgroundColor:selectedFolder===f.id?theme.tint:theme.bg,borderWidth:1,borderColor:selectedFolder===f.id?'#7395D3':theme.line}}><Text numberOfLines={1} style={typeStyle(theme.ink,11,'700')}>{f.name}</Text></Pressable>)}
       </ScrollView>
       <Text style={[styles.formLabel,{color:theme.muted}]}>所要時間</Text><View style={styles.formChoices}>{[30,60,90,120,180].map(n=><Chip key={n} theme={theme} title={`${n}分`} selected={n===duration} onPress={()=>setDuration(n)}/>)}</View>
-      <Text style={[styles.formLabel,{color:theme.muted}]}>ガントチャート LT（日数・1〜90）</Text><TextInput value={leadDays} onChangeText={setLeadDays} keyboardType="number-pad" style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
+      <Text style={[styles.formLabel,{color:theme.muted}]}>ガントチャート LT（稼働日・土日を除く／1〜90）</Text><TextInput value={leadDays} onChangeText={setLeadDays} keyboardType="number-pad" style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
       <Text style={[styles.formLabel,{color:theme.muted}]}>納期</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="納期をカレンダーから選ぶ" onPress={()=>{Keyboard.dismiss();setShowDueCalendar(true)}} style={[styles.input,{backgroundColor:theme.bg,borderColor:theme.line,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}]}><Text style={typeStyle(theme.ink,14,'700')}>{date||'納期なし'}</Text><Text style={typeStyle('#6F91CA',21)}>▦</Text></Pressable>
       <Text style={[styles.formLabel,{color:theme.muted}]}>MANUAL ORDER</Text><View style={styles.formChoices}><Chip theme={theme} title="◆ 手動順位を固定" selected={pin} onPress={()=>setPin(!pin)}/><Chip theme={theme} title="自動に戻す" selected={!pin} onPress={()=>setPin(false)}/></View>
