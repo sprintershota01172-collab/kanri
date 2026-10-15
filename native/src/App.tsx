@@ -330,14 +330,28 @@ function AppInner(){
   {let cursor=workspace.folders.find(f=>f.id===workspace.folderId),guard=0;
    while(cursor&&guard++<20){folderPath.unshift(cursor);cursor=workspace.folders.find(f=>f.id===cursor?.parentId)}}
   const childFolders=workspace.folders.filter(f=>f.parentId===workspace.folderId);
-  const groupEntries:{id:string|null,name:string}[]=[
-    {id:null,name:'すべて'},
-    ...workspace.folders.filter(f=>f.parentId===null).map(f=>({id:f.id,name:f.id==='personal'&&f.name==='プライベート'?'私用':f.name}))
+  const groupEntries:{id:string|null,name:string,depth:number,hasActiveDescendant?:boolean}[]=[
+    {id:null,name:'すべて',depth:0}
   ];
-  for(const id of (workspace.recentFolderIds||[]).filter(id=>workspace.folders.some(f=>f.id===id&&f.parentId!==null)).slice(0,3)){
-    if(!groupEntries.some(g=>g.id===id))groupEntries.push({id,name:workspace.folders.find(f=>f.id===id)!.name});
+  const activeRootId=folderPath[0]?.id??null;
+  const activeFolderPath=new Set(folderPath.map(f=>f.id));
+  const addContextualChildren=(parentId:string,depth:number)=>{
+    if(depth>12)return;
+    for(const child of workspace.folders.filter(f=>f.parentId===parentId)){
+      groupEntries.push({id:child.id,name:child.name,depth});
+      // Only expand grandchildren along the selected branch.
+      if(activeFolderPath.has(child.id))addContextualChildren(child.id,depth+1);
+    }
+  };
+  for(const root of workspace.folders.filter(f=>f.parentId===null)){
+    groupEntries.push({
+      id:root.id,
+      name:root.id==='personal'&&root.name==='プライベート'?'私用':root.name,
+      depth:0,
+      hasActiveDescendant:root.id===activeRootId&&root.id!==workspace.folderId
+    });
+    if(root.id===activeRootId)addContextualChildren(root.id,1);
   }
-  for(const f of childFolders.filter(f=>f.parentId!==null))if(!groupEntries.some(g=>g.id===f.id))groupEntries.push({id:f.id,name:f.name});
 
   const boardSectionItems:{id:string|null,name:string,depth:number}[]=[];
   const visited=new Set<string>();
@@ -383,11 +397,34 @@ function AppInner(){
         <View style={[styles.screenHead,{gap:4}]}>
           <Pressable accessibilityRole="button" accessibilityLabel="すべてのフォルダを開く" onPress={()=>setFolderMenuOpen(true)} style={{minHeight:44,minWidth:66,justifyContent:'center',flexDirection:'row',alignItems:'center',gap:3}}><Text style={typeStyle(theme.ink,18,'800')}>TODO</Text><Text style={typeStyle(theme.muted,12,'700')}>⌄</Text></Pressable>
           <ScrollView ref={groupScrollRef} horizontal showsHorizontalScrollIndicator={false} onScroll={e=>{groupScrollX.current=e.nativeEvent.contentOffset.x}} scrollEventThrottle={16} onContentSizeChange={()=>{groupScrollRef.current?.scrollTo({x:groupScrollX.current,animated:false})}} onTouchStart={e=>{e.stopPropagation();swipeStart.current=null}} style={{flex:1,minWidth:0,marginHorizontal:2}} contentContainerStyle={{alignItems:'center',gap:5,paddingHorizontal:2}}>
-            {groupEntries.map(g=>
-              <Pressable key={g.id||'all'} accessibilityRole="button" accessibilityLabel={g.name+'。タップで切り替え、長押しで編集・並べ替え'} onPress={()=>selectFolder(g.id)} onLongPress={()=>{if(g.id){setGroupActionsId(g.id);void Haptics.selectionAsync()}}} delayLongPress={420} style={{minHeight:44,minWidth:52,paddingHorizontal:9,justifyContent:'center',alignItems:'center',borderWidth:1,borderColor:workspace.folderId===g.id?'#90A8D5':theme.line,borderRadius:10,backgroundColor:workspace.folderId===g.id?theme.tint:theme.card}}>
-                <Text numberOfLines={1} style={typeStyle(workspace.folderId===g.id?(prefs.dark?'#F4F7FF':'#456DAA'):theme.muted,10,'700')}>{g.name}</Text>
-              </Pressable>
-            )}
+            {groupEntries.map(g=>{
+              const selected=workspace.folderId===g.id;
+              const isChild=g.depth>0;
+              const labelColor=selected?(prefs.dark?'#F4F7FF':'#456DAA'):(g.hasActiveDescendant?theme.ink:theme.muted);
+              return <Pressable key={g.id||'all'} accessibilityRole="button"
+                accessibilityLabel={(isChild?'子ツリー ':'グループ ')+g.name+'。タップで切り替え、長押しで編集・並べ替え'}
+                onPress={()=>selectFolder(g.id)}
+                onLongPress={()=>{if(g.id){setGroupActionsId(g.id);void Haptics.selectionAsync()}}}
+                delayLongPress={420}
+                style={{
+                  minHeight:44,minWidth:isChild?0:52,paddingHorizontal:isChild?2:9,
+                  justifyContent:'center',alignItems:'center',
+                  borderWidth:isChild?0:1,borderColor:selected?'#90A8D5':g.hasActiveDescendant?'#A5B4CC':theme.line,
+                  borderRadius:isChild?0:10,backgroundColor:isChild?'transparent':selected?theme.tint:theme.card
+                }}>
+                {isChild?
+                  <View style={{
+                    height:27,flexDirection:'row',alignItems:'center',gap:3,
+                    paddingLeft:5+Math.min(g.depth-1,3)*4,paddingRight:7,
+                    borderWidth:1,borderColor:selected?'#90A8D5':theme.line,
+                    borderRadius:7,backgroundColor:selected?theme.tint:theme.bg
+                  }}>
+                    <Text style={typeStyle(selected?labelColor:theme.muted,11,'800')}>↳</Text>
+                    <Text numberOfLines={1} style={[typeStyle(labelColor,9,selected?'800':'600'),{maxWidth:116}]}>{g.name}</Text>
+                  </View>
+                :<Text numberOfLines={1} style={typeStyle(labelColor,11,'800')}>{g.name}</Text>}
+              </Pressable>;
+            })}
           </ScrollView>
           <Pressable onPress={()=>setGroupAddOpen(true)} accessibilityLabel="グループまたは子ツリーを追加" style={{minHeight:44,minWidth:62,justifyContent:'center',alignItems:'center',paddingHorizontal:5,backgroundColor:theme.tint,borderRadius:10,borderWidth:1,borderColor:theme.line}}><Text style={typeStyle(theme.ink,10,'800')}>＋ 追加</Text></Pressable>
           <Pressable onPress={()=>{setTasks(t=>[...t]);toastMessage('優先順位を再計算しました')}} accessibilityLabel="優先順位を自動整理" style={{minHeight:44,minWidth:34,justifyContent:'center',alignItems:'center',backgroundColor:theme.card,borderRadius:10,borderWidth:1,borderColor:theme.line}}><Text style={typeStyle(theme.ink,17,'800')}>↕</Text></Pressable>
