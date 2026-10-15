@@ -860,9 +860,8 @@ function openFolderBrowser(page=0){
   $('#folderNext')?.addEventListener('click',()=>openFolderBrowser(p+1));
 }
 function setupMarquees(){
-  const schedule=typeof window.requestAnimationFrame==='function'?callback=>window.requestAnimationFrame(callback):callback=>callback();
-  schedule(()=>{
-    $$('.ticker-window').forEach(view=>{
+  // Render immediately after inserting rows; animation frames may be deferred in a PWA.
+  $('.ticker-window').forEach(view=>{
       if(!view.isConnected)return;
       const track=view.querySelector('.ticker-track'),text=track?.querySelector('.ticker-text');
       if(!track||!text)return;
@@ -875,7 +874,6 @@ function setupMarquees(){
         track.style.animationDuration=Math.max(6,Math.min(18,natural/19))+'s';
       }
     });
-  });
 }
 function renderBoard(){renderQuickGroups();$("#folderMenuButton").onclick=()=>openFolderBrowser();$("#folderMenuButton").setAttribute("aria-label",(getFolder(currentFolderId)?.name||"すべて")+"：フォルダを開く");$("#currentFolderLabel").textContent=getFolder(currentFolderId)?.name||"";$("#currentFolderLabel").hidden=!getFolder(currentFolderId);$('#boardScreen .board-foot').hidden=!tasks.some(t=>t.pin);let html='';for(let q=0;q<4;q++){const items=sorted(tasks.filter(t=>!t.done&&!t.event&&quadrant(t)===q&&inFolder(t,currentFolderId)));const pageSize=window.innerHeight>=820?8:window.innerHeight>=690?6:4;const pages=Math.max(1,Math.ceil(items.length/pageSize));qpages[q]=Math.min(qpages[q],pages-1);let showing=items.slice(qpages[q]*pageSize,qpages[q]*pageSize+pageSize);html+=`<section class="quadrant" data-q="${q}" role="button" tabindex="0" aria-label="${esc(prefs.names[q])} にタスクを追加"><div class="quad-title"><strong>${esc(prefs.names[q])}</strong><span>${items.length.toString().padStart(2,'0')}</span></div><div class="accent" style="background:${palette[q]}"></div><div class="task-area">${showing.length?showing.map(t=>`<div class="task-wrap"><button type="button" class="task-swipe-delete" data-task-trash="${t.id}" aria-label="${esc(t.title)}を削除">削除</button><article class="task-card" data-task="${t.id}"><div class="task-line"><button type="button" aria-label="${esc(t.title)}を完了" title="完了" class="check" data-done="${t.id}">✓</button><div class="ticker-window" aria-label="${esc(t.title)}" title="${esc(t.title)}"><span class="ticker-track"><span class="ticker-text">${esc(t.title)}</span></span></div><span class="task-meta-compact">${esc(shortDue(t.due))} · ${t.duration}m</span><button type="button" class="tiny-pin" data-top="${t.id}" aria-label="最上位に固定">${t.pin?'◆':'◇'}</button></div></article></div>`).join(''):'<div class="empty"><span aria-hidden="true">＋</span></div>'}</div><div class="pager"><button data-page="${q}" data-dir="-1" ${qpages[q]<=0?'disabled':''}>‹</button><span>${qpages[q]+1}/${pages}</span><button data-page="${q}" data-dir="1" ${qpages[q]>=pages-1?'disabled':''}>›</button></div></section>`}$('#board').innerHTML=html;$('#childQuickAdd').onclick=openGroupAddMenu;$$('[data-page]').forEach(el=>el.onclick=()=>{qpages[+el.dataset.page]+=+el.dataset.dir;renderBoard()});$$('.quadrant').forEach(el=>{el.onclick=e=>{if(e.target.closest('button,.task-card'))return;openEdit(null,+el.dataset.q)};el.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target===el){e.preventDefault();openEdit(null,+el.dataset.q)}}});$$('.task-card').forEach(setupDrag);$$('[data-task-trash]').forEach(el=>el.onclick=e=>{e.stopPropagation();confirmTaskRemoval(el.dataset.taskTrash)});$$('[data-done]').forEach(el=>{
   el.addEventListener('pointerdown',e=>e.stopPropagation());
