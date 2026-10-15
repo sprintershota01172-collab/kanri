@@ -658,6 +658,7 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
 .puzzle-resize-handle{position:absolute;bottom:-7px;right:29px;width:36px;height:22px;z-index:15;display:flex;align-items:center;justify-content:center;gap:2px;background:#fff;color:#284665!important;border:1px solid #b2bfd1;border-radius:8px;box-shadow:0 2px 5px #14233f40;font-size:11px;font-weight:900;line-height:1;touch-action:none;user-select:none;cursor:ns-resize;padding:0}
 .puzzle-resize-handle .resize-grip{font-size:10px;letter-spacing:-2px;transform:translateY(-1px)}
 .puzzle-resize-handle:active,.puzzle-resize-handle.resizing{background:#dceafa;outline:1px solid #456dab}
+.puzzle-resize-handle.at-end{bottom:0}
 .scheduled-chip.resize-preview{outline:2px solid #fff;outline-offset:-1px;z-index:16}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
@@ -1174,7 +1175,7 @@ function renderPuzzle(){
     const m=(+slot.slice(11,13))*60+(+slot.slice(14,16)),c=m<14*60?0:1;
     if(c!==col)continue;
     const duration=slotDuration(t,slot),offset=(m-(c===0?8:14)*60)/360,hi=duration/360;
-    html+=`<div class="scheduled-chip ${activePuzzle===t.id&&activePuzzleSlot===slot?'move-selected':''}" style="top:calc(8px + (100% - 14px) * ${offset});height:calc((100% - 14px) * ${Math.min(hi,1-offset)});background:${palette[quadrant(t)]}"><button type="button" class="puzzle-scheduled-title" data-move="${t.id}" data-slot="${slot}" aria-pressed="${String(activePuzzle===t.id&&activePuzzleSlot===slot)}" aria-label="${esc(t.title)}を選択して時間変更"><strong>${esc(t.title)}</strong><small>${hhmm(m)}–${hhmm(m+duration)}</small></button>${t.event?'':`<button type="button" class="puzzle-done" data-puzzle-done="${t.id}" aria-label="${esc(t.title)}を完了">✓</button><button type="button" class="puzzle-resize-handle" data-resize="${t.id}" data-slot="${slot}" aria-label="${esc(t.title)}の終了時間を30分延長。上下ドラッグで調整" title="タップ＋30分・上下ドラッグで調整"><span class="resize-grip" aria-hidden="true">═</span><span aria-hidden="true">↓</span></button>`}</div>`;
+    html+=`<div class="scheduled-chip ${activePuzzle===t.id&&activePuzzleSlot===slot?'move-selected':''}" style="top:calc(8px + (100% - 14px) * ${offset});height:calc((100% - 14px) * ${Math.min(hi,1-offset)});background:${palette[quadrant(t)]}"><button type="button" class="puzzle-scheduled-title" data-move="${t.id}" data-slot="${slot}" aria-pressed="${String(activePuzzle===t.id&&activePuzzleSlot===slot)}" aria-label="${esc(t.title)}を選択して時間変更"><strong>${esc(t.title)}</strong><small>${hhmm(m)}–${hhmm(m+duration)}</small></button>${t.event?'':`<button type="button" class="puzzle-done" data-puzzle-done="${t.id}" aria-label="${esc(t.title)}を完了">✓</button><button type="button" class="puzzle-resize-handle ${m+duration>=(c===0?14*60:20*60)?'at-end':''}" data-resize="${t.id}" data-slot="${slot}" aria-label="${esc(t.title)}の終了時間を30分延長。上下ドラッグで調整" title="タップ＋30分・上下ドラッグで調整"><span class="resize-grip" aria-hidden="true">═</span><span aria-hidden="true">↓</span></button>`}</div>`;
    }
   }
   html+='</div>';
