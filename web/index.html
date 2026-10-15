@@ -737,6 +737,54 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
   box-shadow:0 9px 23px #17294645!important;filter:none!important;
 }
 #board .task-card ::selection,#board .task-card::selection{background:transparent!important}
+
+/* iPhone editor: keep the title / close button and the Save action visible.
+   Only the form fields scroll when the numeric or text keyboard is open. */
+@media(max-width:499px){
+  #modal.open:has(.editor-sheet){overflow:hidden!important}
+  #modal .sheet.editor-sheet{
+    position:absolute!important;
+    top:var(--kanri-editor-top,8px)!important;
+    left:10px!important;right:10px!important;
+    width:auto!important;
+    height:var(--kanri-editor-fit-height,calc(100svh - 25px))!important;
+    min-height:0!important;
+    max-height:var(--kanri-editor-fit-height,calc(100svh - 25px))!important;
+    margin:0!important;padding:0!important;
+    display:flex!important;flex-direction:column!important;
+    overflow:hidden!important;
+    animation:none!important;transform:none!important;
+    border-radius:17px!important;
+    overscroll-behavior:contain;
+  }
+  #modal .editor-sheet .sheet-head{
+    flex:0 0 auto!important;
+    margin:0!important;padding:9px 12px 7px!important;
+    min-height:53px;
+    background:var(--card);
+    border-bottom:1px solid var(--line);
+    position:relative;z-index:2;
+  }
+  #modal .editor-sheet .editor-scroll{
+    flex:1 1 0%!important;min-height:0!important;
+    overflow-y:auto!important;overflow-x:hidden!important;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-y:contain;
+    padding:0 12px 16px!important;
+    touch-action:pan-y;
+    scroll-padding-block:14px;
+  }
+  #modal .editor-sheet .sheet-actions{
+    flex:0 0 auto!important;
+    margin:0!important;padding:8px 12px max(10px,env(safe-area-inset-bottom,0px))!important;
+    border-top:1px solid var(--line);
+    background:var(--card);
+    display:flex!important;position:relative;z-index:2;
+  }
+  #modal .editor-sheet .field:first-child{margin-top:10px}
+  #modal .editor-sheet input,#modal .editor-sheet select{font-size:16px!important}
+  #modal .editor-sheet .due-popup{z-index:10;border-radius:17px}
+}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="グループまたは子ツリーを追加">＋ 追加</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
@@ -1606,8 +1654,50 @@ function openModal(){
   const height=Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue('--vh'),10)||window.innerHeight;
   if(height>0)document.documentElement.style.setProperty('--kanri-modal-height',height+'px');
   if(height>0)document.documentElement.style.setProperty('--kanri-locked-height',height+'px');
+  const sheet=$('#sheet');
+  sheet.classList.remove('editor-sheet');
+  // Task and event editors have a fixed header and footer, with a single
+  // dedicated scroller between them. Prevent Safari from moving the sheet
+  // itself when it tries to reveal a focused form field.
+  if(sheet.querySelector('#fTitle,#eventTitle')){
+    const head=sheet.querySelector('.sheet-head'),actions=sheet.querySelector('.sheet-actions');
+    if(head&&actions){
+      const scroll=document.createElement('div');
+      scroll.className='editor-scroll';
+      while(head.nextSibling&&head.nextSibling!==actions)scroll.appendChild(head.nextSibling);
+      sheet.insertBefore(scroll,actions);
+    }
+    sheet.classList.add('editor-sheet');
+    sheet.scrollTop=0;
+  }
+  window.KanriViewport?.refresh();
   $('#modal').classList.add('open');
-}function closeModal(){const active=document.activeElement;if(active&&$('#sheet').contains(active)&&typeof active.blur==='function')active.blur();$('#modal').classList.remove('open');$('#sheet').innerHTML=''}$('#modal').addEventListener('pointerdown',e=>{if(e.target===$('#modal'))closeModal()});$('#addButton').onclick=()=>openEdit();$('#addEventTop').onclick=()=>openEdit(null,null,dateKey(focusDay),'event');$('#trashCalendar').onclick=openTrash;$('#themeQuick').onclick=()=>{prefs.dark=!prefs.dark;savePrefs();render()};$('#undoBtn').onclick=undo;$('#undoTop').onclick=undo;$('#sortButton').onclick=()=>{let candidates=sorted(tasks.filter(t=>!t.done));let index=0;candidates.forEach(t=>{if(!t.pin){t.rank=null}else t.rank=index++});save();render();flash('優先順位を更新しました')};$('#resetRank').onclick=()=>{tasks.forEach(t=>{t.pin=false;t.rank=null});save();render();flash('すべて自動順位に戻しました')};$$('.nav-btn[data-tab]').forEach(el=>el.onclick=()=>navigateTab(el.dataset.tab));
+}
+function keepFocusedEditorFieldVisible(){
+  const active=document.activeElement;
+  const scroll=active?.closest?.('.editor-scroll');
+  if(!scroll)return;
+  const field=active.closest('.field')||active;
+  const target=field.getBoundingClientRect(),viewport=scroll.getBoundingClientRect();
+  const below=target.bottom-(viewport.bottom-12),above=(viewport.top+12)-target.top;
+  if(below>0)scroll.scrollTop+=below;
+  else if(above>0)scroll.scrollTop-=above;
+}
+document.addEventListener('focusin',e=>{
+  if(!e.target.closest?.('.editor-scroll'))return;
+  requestAnimationFrame(keepFocusedEditorFieldVisible);
+});
+window.visualViewport?.addEventListener('resize',()=>{
+  if($('#modal').classList.contains('open')&&$('#sheet').classList.contains('editor-sheet'))
+    requestAnimationFrame(keepFocusedEditorFieldVisible);
+},{passive:true});
+function closeModal(){
+  const sheet=$('#sheet'),active=document.activeElement;
+  if(active&&sheet.contains(active)&&typeof active.blur==='function')active.blur();
+  $('#modal').classList.remove('open');
+  sheet.classList.remove('editor-sheet');
+  sheet.innerHTML='';
+}$('#modal').addEventListener('pointerdown',e=>{if(e.target===$('#modal'))closeModal()});$('#addButton').onclick=()=>openEdit();$('#addEventTop').onclick=()=>openEdit(null,null,dateKey(focusDay),'event');$('#trashCalendar').onclick=openTrash;$('#themeQuick').onclick=()=>{prefs.dark=!prefs.dark;savePrefs();render()};$('#undoBtn').onclick=undo;$('#undoTop').onclick=undo;$('#sortButton').onclick=()=>{let candidates=sorted(tasks.filter(t=>!t.done));let index=0;candidates.forEach(t=>{if(!t.pin){t.rank=null}else t.rank=index++});save();render();flash('優先順位を更新しました')};$('#resetRank').onclick=()=>{tasks.forEach(t=>{t.pin=false;t.rank=null});save();render();flash('すべて自動順位に戻しました')};$$('.nav-btn[data-tab]').forEach(el=>el.onclick=()=>navigateTab(el.dataset.tab));
 
 
 let boardTouchSwipe=null;
