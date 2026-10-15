@@ -1,11 +1,11 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {Alert,Keyboard,Modal,Pressable,StatusBar,StyleSheet,Text,TextInput,View,useWindowDimensions,BackHandler,ScrollView,Platform,AppState} from 'react-native';
+import {Alert,Keyboard,Modal,Pressable,StatusBar,StyleSheet,Text,TextInput,View,useWindowDimensions,BackHandler,ScrollView,Platform,AppState,Easing} from 'react-native';
 import {SQLiteProvider,useSQLiteContext} from 'expo-sqlite';
 import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
 import {Gesture,GestureDetector,GestureHandlerRootView} from 'react-native-gesture-handler';
 import {scheduleOnRN} from 'react-native-worklets';
-import Animated,{FadeIn,FadeInDown,FadeOut,withSpring,useAnimatedStyle,useSharedValue} from 'react-native-reanimated';
+import Animated,{FadeIn,FadeInDown,FadeOut,withSpring,withTiming,withRepeat,cancelAnimation,useAnimatedStyle,useSharedValue} from 'react-native-reanimated';
 import {SafeAreaProvider,useSafeAreaInsets} from 'react-native-safe-area-context';
 import {addDays,canSchedule,COLORS,createTask,dateKey,DEFAULT_PREFS,daysUntil,dueLabel,GROUPS,Group,moveToQuadrant,pad,parseDateKey,parseScheduleMinutes,Preferences,priorityScore,quadrant,sortTasks,Task,timeText,Folder,Workspace,DEFAULT_WORKSPACE,folderForTask,folderGroup,completeTaskForTrash,restoreCompletedTask,COMPLETED_RETENTION_MS} from './model';
 import {deleteTask,migrate,readPreferences,readTasks,savePreferences,saveTask,readWorkspace,saveWorkspace} from './storage';
@@ -302,11 +302,11 @@ function AppInner(){
         <View ref={boardRef} style={{flex:1,minHeight:0}}><View style={styles.board}>
           {[0,1,2,3].map(q=>{
             const items=sortTasks(tasks.filter(t=>!t.completed&&!t.event&&quadrant(t,prefs)===q&&belongsToFolder(t,workspace.folderId,workspace.folders)));
-            const pageSize=winHeight>=820?4:winHeight>=690?3:2;const count=Math.max(1,Math.ceil(items.length/pageSize));const page=Math.min(boardPages[q],count-1);
+            const pageSize=winHeight>=820?8:winHeight>=690?6:4;const count=Math.max(1,Math.ceil(items.length/pageSize));const page=Math.min(boardPages[q],count-1);
             return <View key={q} style={[styles.quad,winHeight<720&&{padding:7},{backgroundColor:theme.card,borderColor:theme.line,padding:winHeight>=740?12:8}]}>
               <Pressable accessibilityRole="button" accessibilityLabel={`${prefs.names[q]}にタスクを追加`} onPress={()=>addInQuadrant(q)} style={styles.quadHead}><Text style={typeStyle(theme.ink,11,'800')} numberOfLines={1}>{prefs.names[q]}</Text><Text style={typeStyle(theme.muted,10,'800')}>{pad(items.length)}</Text></Pressable>
               <View style={{height:3,width:21,borderRadius:2,backgroundColor:COLORS[q],marginTop:5}}/>
-              <View style={{flex:1,minHeight:0,justifyContent:'flex-start',gap:7,marginTop:9}}>
+              <View style={{flex:1,minHeight:0,justifyContent:'flex-start',gap:3,marginTop:5}}>
                 <Pressable onPress={()=>addInQuadrant(q)} accessibilityLabel={`${prefs.names[q]}に新しいタスクを追加`} style={StyleSheet.absoluteFill}/>
                 {items.slice(page*pageSize,page*pageSize+pageSize).map(t=><DragTask key={t.id} task={t} theme={theme} onDrop={boardDrop} onOpen={()=>setEditor(t)} onComplete={()=>markCompleted(t)} onPin={()=>topPin(t.id)} onRequestDelete={()=>Alert.alert('タスクを削除',t.title+' を削除しますか？',[{text:'キャンセル',style:'cancel'},{text:'削除',style:'destructive',onPress:()=>void removeTask(t)}])}/>)}
                 {!items.length&&<Pressable onPress={()=>addInQuadrant(q)} style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text style={typeStyle(theme.muted,10)}>＋</Text></Pressable>}
@@ -430,6 +430,30 @@ function AppInner(){
     {renaming&&<RenameSheet prefs={prefs} theme={theme} insetTop={insets.top} onClose={()=>setRenaming(false)} onSave={names=>{setRenaming(false);void updatePreferences({...prefs,names})}}/>}
   </View>;
 }
+
+function MarqueeTitle({title,theme}:{title:string,theme:Theme}){
+  const [viewportWidth,setViewportWidth]=useState(0);
+  const [textWidth,setTextWidth]=useState(0);
+  const move=useSharedValue(0);
+  const shouldMove=viewportWidth>0&&textWidth>viewportWidth+3;
+  useEffect(()=>{
+    move.value=0;
+    if(shouldMove){
+      move.value=withRepeat(withTiming(-(textWidth+14),{
+        duration:Math.max(6500,Math.round(textWidth*58)),
+        easing:Easing.linear
+      }),-1,false);
+    }
+    return ()=>cancelAnimation(move);
+  },[shouldMove,textWidth,viewportWidth,move]);
+  const style=useAnimatedStyle(()=>({transform:[{translateX:move.value}]}));
+  return <View accessible accessibilityLabel={title} onLayout={e=>setViewportWidth(e.nativeEvent.layout.width)} style={{flex:1,minWidth:0,height:26,justifyContent:'center',overflow:'hidden'}}>
+    <Animated.View style={[{flexDirection:'row',alignItems:'center',alignSelf:'flex-start'},style]}>
+      <Text numberOfLines={1} onLayout={e=>setTextWidth(e.nativeEvent.layout.width)} style={[typeStyle(theme.ink,10,'700'),{flexShrink:0}]}>{title}</Text>
+      {shouldMove&&<Text numberOfLines={1} style={[typeStyle(theme.ink,10,'700'),{flexShrink:0,marginLeft:14}]}>{title}</Text>}
+    </Animated.View>
+  </View>;
+}
 function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{task:Task,theme:Theme,onDrop:(id:string,x:number,y:number)=>void,onOpen:()=>void,onComplete:()=>void,onPin:()=>void,onRequestDelete:()=>void}){
   const dx=useSharedValue(0),dy=useSharedValue(0),swipeX=useSharedValue(0);
   const gesture=useMemo(()=>{
@@ -445,12 +469,24 @@ function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{t
   },[task.id,onDrop,onRequestDelete]);
   const motion=useAnimatedStyle(()=>({transform:[{translateX:dx.value+swipeX.value},{translateY:dy.value}],zIndex:dx.value||dy.value?8:0}));
   const dangerReveal=useAnimatedStyle(()=>({opacity:Math.min(1,Math.abs(swipeX.value)/36)}));
-  return <View style={{position:'relative',borderRadius:10,overflow:'hidden',backgroundColor:theme.bg}}>
-    <Animated.View pointerEvents="none" style={[{position:'absolute',right:0,top:0,bottom:0,width:72,backgroundColor:'#B94756',alignItems:'center',justifyContent:'center'},dangerReveal]}><Text style={typeStyle('#FFFFFF',12,'800')}>削除</Text></Animated.View>
-    <GestureDetector gesture={gesture}><Animated.View onTouchStart={e=>e.stopPropagation()} style={[styles.taskTile,{backgroundColor:theme.bg,borderColor:theme.line,width:'100%'},motion]}>
-      <View style={{flexDirection:'row',gap:6,alignItems:'flex-start'}}><Pressable accessibilityLabel="タスクを完了" onPress={onComplete} style={[styles.check,{borderColor:theme.muted}]}/><Pressable style={{flex:1}} onPress={onOpen}><Text numberOfLines={2} style={typeStyle(theme.ink,11,'700')}>{task.title}</Text></Pressable><Pressable accessibilityLabel="最上位に固定" onPress={onPin}><Text style={typeStyle(task.pinned?'#C7A876':theme.muted,11)}>{task.pinned?'◆':'◇'}</Text></Pressable></View>
-      <Pressable style={{marginLeft:20,marginTop:5}} onPress={onOpen}><Text numberOfLines={1} style={typeStyle(theme.muted,9)}>{dueLabel(task.dueDate)} · {task.durationMin}分 · {priorityScore(task)}pt</Text></Pressable>
-    </Animated.View></GestureDetector>
+  const due=task.dueDate?((daysUntil(task.dueDate)===0)?'今日':(daysUntil(task.dueDate)===1)?'明日':task.dueDate.slice(5).replace('-','/')):'―';
+  return <View style={{position:'relative',borderRadius:7,overflow:'hidden',backgroundColor:theme.bg,height:30,flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:theme.line}}>
+    <Pressable accessibilityRole="button" accessibilityLabel={task.title+'を完了'} onPress={onComplete} hitSlop={{top:6,bottom:6,left:5,right:3}}
+      style={{width:31,height:28,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint,zIndex:6,borderRightWidth:1,borderColor:theme.line}}>
+      <Text style={typeStyle('#588F77',16,'800')}>✓</Text>
+    </Pressable>
+    <View style={{flex:1,minWidth:0,height:28,overflow:'hidden'}}>
+      <Animated.View pointerEvents="none" style={[{position:'absolute',right:0,top:0,bottom:0,width:62,backgroundColor:'#B94756',alignItems:'center',justifyContent:'center'},dangerReveal]}><Text style={typeStyle('#FFFFFF',10,'800')}>削除</Text></Animated.View>
+      <GestureDetector gesture={gesture}>
+        <Animated.View onTouchStart={e=>e.stopPropagation()} style={[styles.taskTile,{backgroundColor:theme.bg,borderWidth:0,borderRadius:0,width:'100%',height:28,minHeight:28,paddingVertical:0,paddingHorizontal:2,flexDirection:'row',alignItems:'center',gap:3},motion]}>
+          <Pressable onPress={onOpen} accessibilityLabel={task.title+'を編集'} style={{flex:1,minWidth:0,height:28,flexDirection:'row',alignItems:'center',gap:3}}>
+            <MarqueeTitle title={task.title} theme={theme}/>
+            <Text numberOfLines={1} style={typeStyle(theme.muted,8)}>{due} · {task.durationMin}m</Text>
+          </Pressable>
+          <Pressable onPress={onPin} accessibilityLabel="最上位に固定" style={{width:17,height:28,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(task.pinned?'#C7A876':theme.muted,10)}>{task.pinned?'◆':'◇'}</Text></Pressable>
+        </Animated.View>
+      </GestureDetector>
+    </View>
   </View>;
 }
 function PuzzleTile({task,selected,onSelect,onDrop}:{task:Task,selected:boolean,onSelect:()=>void,onDrop:(id:string,x:number,y:number)=>void}){
@@ -565,7 +601,14 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
         <Text style={typeStyle(theme.muted,10)}>{ganttItems.length>20?'上下スクロールで全件表示':'20行表示'} ↕</Text>
       </View>
     </View>:<View style={{flex:1,minHeight:0,marginTop:mode==='month'?5:8}}><View style={styles.flexBetween}><Text style={typeStyle(theme.ink,12,'800')}>{focus.getMonth()+1}/{focus.getDate()} の予定</Text><Text style={typeStyle(theme.muted,10)}>{agenda.length}件表示</Text></View>
-      <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={agenda.length>5} style={{flex:1,minHeight:0,marginTop:5}} contentContainerStyle={{gap:5,paddingBottom:7}}>{agenda.length?agenda.map(t=><Pressable key={t.id} onPress={()=>onOpen(t)} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line}]}><View style={{height:28,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/><View style={{flex:1}}><Text numberOfLines={1} style={typeStyle(theme.ink,12,'800')}>{t.title}</Text><Text numberOfLines={1} style={typeStyle(theme.muted,10)}>{t.event?'予定 · ':''}{t.scheduledStart?.slice(11,16)??'未配置'} · {t.durationMin}分 {t.event?'':' · '+dueLabel(t.dueDate)}</Text></View><Text style={typeStyle(theme.muted,17)}>›</Text></Pressable>):<View style={{minHeight:90,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>予定なし</Text></View>}</ScrollView>
+      <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={agenda.length>5} style={{flex:1,minHeight:0,marginTop:5}} contentContainerStyle={{gap:5,paddingBottom:7}}>{agenda.length?agenda.map(t=><View key={t.id} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line,minHeight:28,height:28,paddingVertical:0,paddingHorizontal:4,gap:4,borderRadius:7}]}>
+        <View style={{height:17,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/>
+        {!t.event&&<Pressable accessibilityRole="button" accessibilityLabel={t.title+'を完了'} onPress={()=>onGanttComplete(t)} style={{height:26,width:29,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint,borderRadius:5}}><Text style={typeStyle('#588F77',14,'800')}>✓</Text></Pressable>}
+        <Pressable onPress={()=>onOpen(t)} style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:4,height:27}}>
+          <MarqueeTitle title={t.title} theme={theme}/>
+          <Text style={typeStyle(theme.muted,9)}>{t.scheduledStart?.slice(11,16)|| (t.dueDate?t.dueDate.slice(5).replace('-','/'):'―')} · {t.durationMin}m</Text>
+        </Pressable>
+      </View>):<View style={{minHeight:90,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>予定なし</Text></View>}</ScrollView>
     </View>}
   </View>;
 }
