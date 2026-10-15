@@ -562,8 +562,8 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
           {ganttVisible.map(t=><View key={t.id} style={{height:ganttRowHeight,flexDirection:'row',alignItems:'stretch',borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line}}>
             {!t.event&&<Pressable onPress={()=>onGanttComplete(t)} accessibilityRole="button" accessibilityLabel={t.title+'を完了'} style={{width:24,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint}}><Text style={typeStyle('#70A094',14,'800')}>✓</Text></Pressable>}
             <Pressable onPress={()=>onOpen(t)} style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:3,paddingHorizontal:3}}>
-              <Text numberOfLines={1} ellipsizeMode="tail" style={[typeStyle(theme.ink,9,'800'),{flex:1,minWidth:0}]}>{t.title}</Text>
-              <Text numberOfLines={1} style={[typeStyle(theme.muted,8),{width:28,textAlign:'center'}]}>{t.event?'予定':'LT '+(t.leadDays||1)}</Text>
+              <Text numberOfLines={2} ellipsizeMode="tail" style={[typeStyle(theme.ink,7.5,'800'),{flex:1,minWidth:0,lineHeight:8.5}]}>{t.title}</Text>
+              <Text numberOfLines={1} style={[typeStyle(theme.muted,7),{width:25,textAlign:'center'}]}>{t.event?'予定':'LT '+(t.leadDays||1)}</Text>
             </Pressable>
           </View>)}
           {Array.from({length:ganttBlankCount},(_,i)=><View key={'blank-name-'+i} style={{height:ganttRowHeight,backgroundColor:theme.card,borderBottomWidth:1,borderRightWidth:1,borderColor:theme.line}}/>)}
@@ -616,10 +616,11 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
       <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={agenda.length>5} style={{flex:1,minHeight:0,marginTop:5}} contentContainerStyle={{gap:5,paddingBottom:7}}>{agenda.length?agenda.map(t=><View key={t.id} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line,minHeight:28,height:28,paddingVertical:0,paddingHorizontal:4,gap:4,borderRadius:7}]}>
         <View style={{height:17,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/>
         {!t.event&&<Pressable accessibilityRole="button" accessibilityLabel={t.title+'を完了'} onPress={()=>onGanttComplete(t)} style={{height:26,width:29,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint,borderRadius:5}}><CheckGlyph/></Pressable>}
-        <Pressable onPress={()=>onOpen(t)} style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:4,height:27}}>
+        <View style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:2,height:27}}>
           <FullTitle title={t.title} theme={theme}/>
-          <Text style={typeStyle(theme.muted,9)}>{slotOnDay(t,selectedDate)?.slice(11,16)|| (t.dueDate?t.dueDate.slice(5).replace('-','/'):'―')} · {t.durationMin}m</Text>
-        </Pressable>
+          <Text style={typeStyle(theme.muted,8)}>{slotOnDay(t,selectedDate)?.slice(11,16)|| (t.dueDate?t.dueDate.slice(5).replace('-','/'):'―')}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={t.title+'を編集'} onPress={()=>onOpen(t)} style={{width:21,height:27,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,13,'800')}>›</Text></Pressable>
+        </View>
       </View>):<View style={{minHeight:90,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>予定なし</Text></View>}</ScrollView>
     </View>}
   </View>;
