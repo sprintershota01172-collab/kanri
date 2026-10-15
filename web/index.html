@@ -679,6 +679,10 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
 #board.tree-stack .tree-board-name small{font-size:9px;font-weight:600;color:var(--muted)}
 #board.tree-stack .tree-board-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:6px;flex:1;min-height:0;min-width:0}
 #board.tree-stack .quadrant{min-width:0;min-height:0}
+
+/* Keep selected task visible as it is dragged upward to the inbox. */
+#puzzleContent .time-panel{overflow:visible!important}
+#puzzleContent .scheduled-chip.is-dragging{z-index:40!important}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="グループまたは子ツリーを追加">＋ 追加</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
