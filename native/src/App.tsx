@@ -347,22 +347,34 @@ function AppInner(){
                   const minute=base+row*30;
                   return <Pressable key={minute} onPress={()=>selectedBlock?scheduleTask(selectedBlock,minute):toastMessage('先にタスクを選んでください')} style={[styles.timeSlot,{borderTopColor:theme.line}]}><Text style={[styles.timeLabel,{color:theme.muted}]}>{timeText(minute)}</Text></Pressable>;
                 })}
-                {tasks.filter(t=>!t.completed&&t.scheduledStart?.startsWith(dateKey(puzzleDate))&&parseScheduleMinutes(t.scheduledStart)>=base&&parseScheduleMinutes(t.scheduledStart)<base+360).map(t=>{
-                  const minute=parseScheduleMinutes(t.scheduledStart!);
-                  const top=(minute-base)/360*(panelHeight-12);
-                  const high=t.durationMin/360*(panelHeight-12);
-                  return <Animated.View entering={FadeInDown.springify().damping(18)} key={t.id} style={[styles.scheduledBar,{top:5+top,height:Math.min(high,panelHeight-top-10),backgroundColor:COLORS[quadrant(t,prefs)]}]}><Pressable style={{flex:1,justifyContent:'center'}} onPress={()=>{
+                {tasks.filter(t=>!t.completed&&belongsToFolder(t,workspace.folderId,workspace.folders)).flatMap(t=>
+                  taskSlots(t).filter(slot=>slot.slice(0,10)===puzzleKey).map(slot=>({task:t,slot}))
+                ).filter(({slot})=>parseScheduleMinutes(slot)>=base&&parseScheduleMinutes(slot)<base+360).map(({task:t,slot})=>{
+                  const minute=parseScheduleMinutes(slot);
+                  const top=(minute-base)/360*(panelHeight-12),high=t.durationMin/360*(panelHeight-12);
+                  return <Animated.View entering={FadeInDown.springify().damping(18)} key={t.id+slot}
+                    style={[styles.scheduledBar,{top:5+top,height:Math.min(high,panelHeight-top-10),backgroundColor:COLORS[quadrant(t,prefs)],flexDirection:'row',alignItems:'center'}]}>
+                    <Pressable style={{flex:1,minWidth:0,justifyContent:'center'}} onPress={()=>{
                       if(t.event){setEventEditor(t);return}
-                      const old={...t};void updateTask({...t,scheduledStart:null});remember('配置を解除しました',()=>{void updateTask(old)});
-                    }}><Text numberOfLines={1} style={typeStyle('#FFFFFF',10,'800')}>{t.title}</Text><Text numberOfLines={1} style={typeStyle('#EEF4FF',8)}>{timeText(minute)}–{timeText(minute+t.durationMin)}</Text></Pressable></Animated.View>;
+                      const old={...t};void updateTask(withTaskSlots(t,taskSlots(t).filter(x=>x!==slot)));
+                      remember('配置を解除しました',()=>{void updateTask(old)});
+                    }}>
+                      <Text numberOfLines={1} style={typeStyle('#FFFFFF',10,'800')}>{t.title}</Text>
+                      <Text numberOfLines={1} style={typeStyle('#EEF4FF',8)}>{timeText(minute)}–{timeText(minute+t.durationMin)}</Text>
+                    </Pressable>
+                    {!t.event&&<Pressable accessibilityRole="button" accessibilityLabel={t.title+'を完了'} onPress={()=>markCompleted(t)} style={{minWidth:25,minHeight:24,alignItems:'center',justifyContent:'center',backgroundColor:'#FFFFFF29',borderRadius:5,marginLeft:2}}>
+                      <Text style={typeStyle('#FFFFFF',14,'800')}>✓</Text>
+                    </Pressable>}
+                  </Animated.View>;
                 })}
               </View>;
             })}
           </View>
           <View style={styles.bottomHint}><Text style={typeStyle(theme.muted,10)}>選択→枠をタップ ／ ドラッグ</Text><Pressable onPress={()=>{
-            const onDay=tasks.filter(t=>!t.event&&!t.completed&&t.scheduledStart?.slice(0,10)===dateKey(puzzleDate));
+            const onDay=tasks.filter(t=>!t.event&&!t.completed&&belongsToFolder(t,workspace.folderId,workspace.folders)&&!!slotOnDay(t,puzzleKey));
             if(!onDay.length){toastMessage('配置済みの予定はありません');return}
-            const backup=onDay.map(t=>({...t}));onDay.forEach(t=>void updateTask({...t,scheduledStart:null}));
+            const backup=onDay.map(t=>({...t}));
+            onDay.forEach(t=>void updateTask(withTaskSlots(t,taskSlots(t).filter(slot=>slot.slice(0,10)!==puzzleKey))));
             remember('この日の配置を解除しました',()=>backup.forEach(t=>void updateTask(t)));
           }}><Text style={typeStyle('#5578BB',11,'800')}>予定を外す</Text></Pressable></View>
         </View>
