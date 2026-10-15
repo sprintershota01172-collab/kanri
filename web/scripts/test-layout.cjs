@@ -193,12 +193,22 @@ async function checkTaskCompletionAndTicker(browser){
      textWidth:track.querySelector('.ticker-text').getBoundingClientRect().width,windowWidth:view.getBoundingClientRect().width,
      textLength:track.querySelector('.ticker-text').textContent.length,trackWidth:track.getBoundingClientRect().width,trackCss:getComputedStyle(track).display,viewWidth:view.clientWidth,tag:el.outerHTML.slice(0,500),
      overflowing:track.querySelector('.ticker-text').getBoundingClientRect().width>view.getBoundingClientRect().width,
-     animated:track.classList.contains('ticker-moving'),
+     prepared:track.classList.contains('ticker-moving'),
+     resting: getComputedStyle(track).animationName,
+     checkSvg:!!check.querySelector('.check-icon'),
+     checkSvgCenter:(()=>{const a=check.getBoundingClientRect(),b=check.querySelector('.check-icon').getBoundingClientRect();return Math.abs((a.left+a.right)/2-(b.left+b.right)/2)<2&&Math.abs((a.top+a.bottom)/2-(b.top+b.bottom)/2)<2})(),
      compactMeta:!!el.querySelector('.task-meta-compact'),multiline:!!el.querySelector('.meta')};
  });
  assert.ok(layout.height>=26&&layout.height<=32,'FOCUS task strip is approximately half-height: '+JSON.stringify(layout));
  assert.ok(layout.checkWidth>=26&&layout.checkHeight>=25,'check tap target remains usable: '+JSON.stringify(layout));
- assert.ok(layout.overflowing&&layout.animated,'long one-line title scrolls like an airport ticker: '+JSON.stringify(layout));
+ assert.ok(layout.overflowing&&layout.prepared,'long title must be eligible to preview: '+JSON.stringify(layout));
+ assert.equal(layout.resting,'none','ticker must stay still until user interaction');
+ assert.ok(layout.checkSvg&&layout.checkSvgCenter,'check icon must be geometrically centered: '+JSON.stringify(layout));
+ await page.locator('.task-card .ticker-window').first().evaluate(el=>el.dispatchEvent(new Event('touchstart',{bubbles:true})));
+ await page.waitForTimeout(470);
+ assert.equal(await page.locator('.task-card .ticker-track').first().evaluate(el=>getComputedStyle(el).animationName),'ticker-slide','touch-and-hold reveals the full task title');
+ await page.locator('.task-card .ticker-window').first().evaluate(el=>el.dispatchEvent(new Event('touchend',{bubbles:true})));
+ assert.equal(await page.locator('.task-card .ticker-track').first().evaluate(el=>getComputedStyle(el).animationName),'none','releasing touch stops ticker');
  assert.ok(layout.compactMeta&&!layout.multiline,'deadline/time metadata stays on one line: '+JSON.stringify(layout));
  await page.locator('[data-done="tap-complete-focus"]').tap();
  let taskState=await page.evaluate(()=>JSON.parse(localStorage.getItem('kanri_v1_tasks')));
@@ -218,7 +228,31 @@ async function checkTaskCompletionAndTicker(browser){
  await page.locator('#trashCalendar').tap();
  assert.equal(await page.locator('.trash-item').count(),2,'both tasks are retained in seven-day trash');
  await context.close();
- return 'real touch-tap completion in FOCUS and month, 29px bands and animated long titles';
+ return 'real touch completion, centered checks, stationary titles and long-touch ticker preview';
+}
+async function checkDesktopTickerHover(browser){
+ const context=await browser.newContext({viewport:{width:980,height:750},isMobile:false,hasTouch:false});
+ const page=await context.newPage();
+ const url='http://127.0.0.1:'+server.address().port+'/index.html';
+ await page.goto(url,{waitUntil:'load'});
+ await page.evaluate(()=>{
+  const d=new Date();
+  localStorage.setItem('kanri_v1_tasks',JSON.stringify([{
+    id:'desktop-ticker',title:'会議資料の改訂案をチェックする必要がある非常に長いタスクのタイトル確認項目',
+    important:true,urgent:true,group:'仕事',folderId:'work',duration:30,due:null,
+    scheduled:null,leadDays:1,ganttStart:null,pin:false,rank:null,done:false,created:d.toISOString()
+  }]));
+ });
+ await page.reload({waitUntil:'load'});
+ const ticker=page.locator('.task-card .ticker-window').first();
+ await ticker.waitFor();
+ assert.equal(await ticker.locator('.ticker-track').evaluate(el=>getComputedStyle(el).animationName),'none','desktop title does not auto-scroll');
+ await ticker.hover();
+ assert.equal(await ticker.locator('.ticker-track').evaluate(el=>getComputedStyle(el).animationName),'ticker-slide','mouse hover animates overflowing title');
+ await page.mouse.move(900,450);
+ assert.equal(await ticker.locator('.ticker-track').evaluate(el=>getComputedStyle(el).animationName),'none','ticker stops when cursor leaves');
+ await context.close();
+ return 'desktop title moves only while cursor hovers';
 }
 async function checkGroupGestures(browser){
  const context=await browser.newContext({viewport:{width:393,height:852},deviceScaleFactor:3,isMobile:true,hasTouch:true});
@@ -269,6 +303,7 @@ async function checkGroupGestures(browser){
   console.log('PASS',await checkLongGantt(browser));
   console.log('PASS',await checkCompactMonthAgenda(browser));
   console.log('PASS',await checkTaskCompletionAndTicker(browser));
+  console.log('PASS',await checkDesktopTickerHover(browser));
   console.log('PASS',await checkGroupGestures(browser));
  }finally{await browser.close();await new Promise(ok=>server.close(ok))}
 })().catch(error=>{console.error(error);process.exitCode=1;server.close()});
