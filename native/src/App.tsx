@@ -597,7 +597,7 @@ function ScheduledPuzzleBlock({task,slot,minute,duration,theme,color,selected,to
       <Text style={typeStyle('#FFFFFF',14,'800')}>✓</Text>
     </Pressable>}
     {!task.event&&<GestureDetector gesture={resizeGesture}>
-      <Animated.View style={{position:'absolute',bottom:-9,right:29,width:39,height:26,backgroundColor:'#FFFFFF',borderColor:'#BAC9D9',borderWidth:1,borderRadius:8,alignItems:'center',justifyContent:'center',flexDirection:'row',zIndex:30,elevation:12}}>
+      <Animated.View style={{position:'absolute',bottom:minute+duration>=maxMinutes?0:-9,right:29,width:39,height:26,backgroundColor:'#FFFFFF',borderColor:'#BAC9D9',borderWidth:1,borderRadius:8,alignItems:'center',justifyContent:'center',flexDirection:'row',zIndex:30,elevation:12}}>
         <Pressable accessibilityRole="button" accessibilityLabel={task.title+'の終了時間を30分延長。上下ドラッグで変更'} onPress={()=>onResize(duration+30)}
           style={{width:39,height:26,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:2}}>
           <Text style={typeStyle('#45617F',10,'800')}>═</Text>
