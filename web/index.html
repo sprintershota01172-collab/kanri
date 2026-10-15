@@ -677,6 +677,7 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
 #board.tree-stack .tree-board-name{height:25px;min-height:25px;display:flex;align-items:center;gap:7px;padding:0 7px;color:var(--ink);font-size:12px;font-weight:850;min-width:0}
 #board.tree-stack .tree-board-name span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #board.tree-stack .tree-board-name small{font-size:9px;font-weight:600;color:var(--muted)}
+#board.tree-stack .tree-page-hint{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
 #board.tree-stack .tree-board-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:6px;flex:1;min-height:0;min-width:0}
 #board.tree-stack .quadrant{min-width:0;min-height:0}
 
@@ -716,7 +717,7 @@ function setFolder(id){
   ganttScrollY=0;
   currentFolderId=id&&getFolder(id)?id:null;
   if(currentFolderId){const recent=read(RECENT_FOLDERS,[]);localStorage.setItem(RECENT_FOLDERS,JSON.stringify([currentFolderId,...recent.filter(x=>x!==currentFolderId)].slice(0,4)))}
-  saveView();qpages=[0,0,0,0];render()
+  saveView();qpages=[0,0,0,0];$('#board').scrollTop=0;render()
 }
 function visibleGroupEntries(){
   const recent=read(RECENT_FOLDERS,[]).filter(id=>getFolder(id)&&getFolder(id).parentId!==null);
@@ -993,10 +994,10 @@ function boardVisibleSections(){
 function renderBoard(){renderQuickGroups();$("#folderMenuButton").onclick=()=>openFolderBrowser();$("#folderMenuButton").setAttribute("aria-label",(getFolder(currentFolderId)?.name||"すべて")+"：フォルダを開く");$("#currentFolderLabel").textContent=getFolder(currentFolderId)?.name||"";$("#currentFolderLabel").hidden=!getFolder(currentFolderId);$('#boardScreen .board-foot').hidden=!tasks.some(t=>t.pin);const container=$('#board'),previousScroll=container.scrollTop;
 const sections=boardVisibleSections();
 let html='';
-for(const section of sections){
+for(const [sectionIndex,section] of sections.entries()){
   const title=section.name;
   html+=`<section class="tree-board-section" data-board-folder="${esc(section.id??'__unassigned__')}" aria-label="${esc(title)}">
-    <div class="tree-board-name"><span>${esc(title)}</span><small>${section.depth?'子ツリー':'グループ'}</small></div>
+    <div class="tree-board-name"><span>${esc(title)}</span><small>${section.depth?'子ツリー':'グループ'}</small><small class="tree-page-hint">${sectionIndex+1}/${sections.length} ${sectionIndex<sections.length-1?'↓':''}</small></div>
     <div class="tree-board-grid">`;
   for(let q=0;q<4;q++){const items=sorted(tasks.filter(t=>!t.done&&!t.event&&quadrant(t)===q&&(section.id===null?taskFolderId(t)===null:inFolder(t,section.id))));const pageSize=window.innerHeight>=820?8:window.innerHeight>=690?6:4;const pages=Math.max(1,Math.ceil(items.length/pageSize));
 const pageKey=(section.id??'__unassigned__')+':'+q;
