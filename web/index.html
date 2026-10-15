@@ -736,12 +736,18 @@ function wireGroupChip(el){
   el.oncontextmenu=e=>{e.preventDefault();if(id&&!long){suppressClick=true;openGroupActions(id)}};
 }
 function renderQuickGroups(){
+  const strip=$('#groupQuickSwitch'),preservedScroll=strip.scrollLeft;
   const entries=visibleGroupEntries();
-  $('#groupQuickSwitch').innerHTML=entries.map(g=>`<button type="button" class="group-quick-chip ${currentFolderId===g.id?'active':''}" data-quick-folder="${esc(g.id??'__all__')}" aria-pressed="${String(currentFolderId===g.id)}" aria-label="${esc(g.name)}。タップで切り替え、長押しで操作">${esc(g.name)}</button>`).join('');
+  strip.innerHTML=entries.map(g=>`<button type="button" class="group-quick-chip ${currentFolderId===g.id?'active':''}" data-quick-folder="${esc(g.id??'__all__')}" aria-pressed="${String(currentFolderId===g.id)}" aria-label="${esc(g.name)}。タップで切り替え、長押しで操作">${esc(g.name)}</button>`).join('');
   $$('[data-quick-folder]').forEach(wireGroupChip);
 
-  const active=$('.group-quick-chip.active');
-  if(active){const strip=$('#groupQuickSwitch');strip.scrollLeft=Math.max(0,active.offsetLeft-strip.offsetLeft-18)}
+  strip.scrollLeft=preservedScroll;
+  const active=strip.querySelector('.group-quick-chip.active');
+  if(active){
+    const left=active.offsetLeft-strip.offsetLeft,right=left+active.offsetWidth,scroll=strip.scrollLeft;
+    if(left<scroll)strip.scrollLeft=Math.max(0,left-6);
+    else if(right>scroll+strip.clientWidth)strip.scrollLeft=right-strip.clientWidth+6;
+  }
 }
 function navigateTab(next){const tabs=['board','calendar','puzzle','settings'];if(!tabs.includes(next))return;tab=next;saveView();render()}
 function read(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}}function save(){localStorage.setItem(KEY,JSON.stringify(tasks))}function savePrefs(){localStorage.setItem(PREF,JSON.stringify(prefs))}function pad(n){return String(n).padStart(2,'0')}function dateKey(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}function parseLocal(s){if(!s)return null;const [y,m,d]=s.split('-').map(Number);if(!y||!m||!d)return null;const result=new Date(y,m-1,d);return dateKey(result)===s?result:null}function sameDay(a,b){return dateKey(a)===dateKey(b)}function diffDays(d){const a=parseLocal(d);if(!a)return 999;const now=new Date();return Math.round((a.getTime()-new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime())/86400000)}function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function dayName(d){return `${d.getMonth()+1}/${d.getDate()}`}function shortDue(d){if(!d)return '―';const n=diffDays(d);return n===0?'今日':n===1?'明日':d.slice(5).replace('-','/')}function dueLabel(d){if(!d)return '期限なし';let left=diffDays(d);return left<0?`${-left}日超過`:left===0?'今日まで':left===1?'明日まで':`${left}日後`}
@@ -967,8 +973,20 @@ function setupDrag(el){
   };
   el.onpointercancel=()=>{clearTimeout(timer);el.classList.remove('dragging');wrap.classList.remove('swiping');if(!wrap.classList.contains('revealed'))el.style.transform=''};
 }
-function changeDay(d,forPuzzle=false){if(forPuzzle)puzzleDay=d;else focusDay=d;render()}
-function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><button id="prevDate">‹</button><strong>${calMode==='month'?`${base.getFullYear()}年 ${base.getMonth()+1}月`:calMode==='week'?`${dayName(startWeek(base))} – ${dayName(addDays(startWeek(base),6))}`:`${base.getFullYear()}年 ${base.getMonth()+1}月`}</strong><button id="nextDate">›</button></div>`;let html=nav;if(calMode==='month'){let first=new Date(base.getFullYear(),base.getMonth(),1),start=addDays(first,-first.getDay());html+='<div class="month-box"><div class="week-labels">'+[...'日月火水木金土'].map(x=>`<div>${x}</div>`).join('')+'</div><div class="month-grid">';for(let i=0;i<42;i++){let d=addDays(start,i),k=dateKey(d),dayTasks=tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||t.scheduled?.slice(0,10)===k));html+=`<button class="day ${d.getMonth()!==base.getMonth()?'outside':''} ${sameDay(d,base)?'sel':''} ${sameDay(d,new Date())?'today':''}" data-caldate="${k}" aria-label="${k} ${dayTasks.length}件">${d.getDate()}<span class="day-dots">${sorted(dayTasks).slice(0,3).map(t=>`<i class="dot" style="background:${sameDay(d,base)?'#FFFFFF':palette[quadrant(t)]}"></i>`).join('')}</span></button>`}html+='</div></div>'+agendaHtml(base)}else if(calMode==='week'){let start=startWeek(base);html+='<div class="week-cards">';for(let i=0;i<7;i++){let d=addDays(start,i),k=dateKey(d);const count=tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||t.scheduled?.slice(0,10)===k)).length;html+=`<button class="week-day ${sameDay(d,base)?'active':''}" data-caldate="${k}" aria-label="${k} ${count}件"><span>${'日月火水木金土'[d.getDay()]}</span><b>${d.getDate()}</b><em>${count}件</em></button>`}html+='</div>'+agendaHtml(base)}else{
+function changeDay(d,forPuzzle=false){if(forPuzzle){puzzleDay=d;inboxPage=0;activePuzzle=null}else focusDay=d;render()}
+// Deadline is inclusive; weekends never consume LT.
+function workdayKeys(due,leadDays){
+ let cursor=parseLocal(due);if(!cursor)return [];
+ const count=Math.max(1,Math.min(90,Number(leadDays)||1)),keys=[];
+ for(let safety=0;keys.length<count&&safety<140;safety++,cursor=addDays(cursor,-1))
+   if(cursor.getDay()!==0&&cursor.getDay()!==6)keys.push(dateKey(cursor));
+ return keys;
+}
+function inTaskWorkWindow(t,day){return !!t.due&&(t.due===day||workdayKeys(t.due,t.leadDays).includes(day))}
+function taskSlots(t){return [...new Set([...(Array.isArray(t.scheduledBlocks)?t.scheduledBlocks:[]),...(t.scheduled?[t.scheduled]:[])])].filter(s=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)).sort()}
+function setTaskSlots(t,slots){const next=[...new Set(slots)].sort();t.scheduledBlocks=next;t.scheduled=next[0]||null}
+function slotOnDay(t,day){return taskSlots(t).find(s=>s.slice(0,10)===day)||null}
+function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><button id="prevDate">‹</button><strong>${calMode==='month'?`${base.getFullYear()}年 ${base.getMonth()+1}月`:calMode==='week'?`${dayName(startWeek(base))} – ${dayName(addDays(startWeek(base),6))}`:`${base.getFullYear()}年 ${base.getMonth()+1}月`}</strong><button id="nextDate">›</button></div>`;let html=nav;if(calMode==='month'){let first=new Date(base.getFullYear(),base.getMonth(),1),start=addDays(first,-first.getDay());html+='<div class="month-box"><div class="week-labels">'+[...'日月火水木金土'].map(x=>`<div>${x}</div>`).join('')+'</div><div class="month-grid">';for(let i=0;i<42;i++){let d=addDays(start,i),k=dateKey(d),dayTasks=tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||!!slotOnDay(t,k)));html+=`<button class="day ${d.getMonth()!==base.getMonth()?'outside':''} ${sameDay(d,base)?'sel':''} ${sameDay(d,new Date())?'today':''}" data-caldate="${k}" aria-label="${k} ${dayTasks.length}件">${d.getDate()}<span class="day-dots">${sorted(dayTasks).slice(0,3).map(t=>`<i class="dot" style="background:${sameDay(d,base)?'#FFFFFF':palette[quadrant(t)]}"></i>`).join('')}</span></button>`}html+='</div></div>'+agendaHtml(base)}else if(calMode==='week'){let start=startWeek(base);html+='<div class="week-cards">';for(let i=0;i<7;i++){let d=addDays(start,i),k=dateKey(d);const count=tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||!!slotOnDay(t,k))).length;html+=`<button class="week-day ${sameDay(d,base)?'active':''}" data-caldate="${k}" aria-label="${k} ${count}件"><span>${'日月火水木金土'[d.getDay()]}</span><b>${d.getDate()}</b><em>${count}件</em></button>`}html+='</div>'+agendaHtml(base)}else{
   const days=new Date(base.getFullYear(),base.getMonth()+1,0).getDate();
   const ganttRoom=$('#calendarContent').clientHeight||window.innerHeight-230;
   const rowCount=20;
@@ -979,17 +997,14 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
   let rows='';
   for(const t of view){
     const lt=t.event?1:Math.max(1,Math.min(90,Number(t.leadDays)||1));
-    const explicit=parseLocal(t.event?t.scheduled?.slice(0,10):(t.ganttStart||t.scheduled?.slice(0,10)));
-    const deadline=parseLocal(t.due);
-    const startDate=explicit||(deadline?addDays(deadline,1-lt):null);
+    const workdays=new Set(t.event?(t.scheduled?[t.scheduled.slice(0,10)]:[]):workdayKeys(t.due,lt));
     names+=`<div class="gantt-label-complete-row">${t.event?'':`<button type="button" class="gantt-one-tap" data-gantt-done="${t.id}" aria-label="${esc(t.title)}を完了">✓</button>`}<button type="button" class="gantt-label-row" data-edit="${t.id}" title="${esc(t.title)}"><strong>${esc(t.title)}</strong><small class="gantt-lt">${t.event?'予定':'LT '+lt}</small></button></div>`;
     rows+=`<div class="gantt-grid-row gantt-task-row" style="--days:${days}">`;
     for(let i=0;i<days;i++){
       const day=new Date(base.getFullYear(),base.getMonth(),i+1),key=dateKey(day);
-      const delta=startDate?Math.round((day-startDate)/86400000):-999;
-      const filled=delta>=0&&delta<lt;
+      const filled=workdays.has(key);
       const weekend=day.getDay()===0?'sun':day.getDay()===6?'sat':'';
-      rows+=`<button type="button" class="gantt-square ${weekend} ${filled?'filled':''} ${t.due===key?'due':''} ${t.ganttStart===key?'start':''}" style="--fill:${palette[quadrant(t)]}" data-gantt="${t.id}" data-day="${key}" aria-label="${esc(t.title)} ${key}を開始日に設定" title="${esc(t.title)} / ${key}"></button>`;
+      rows+=`<button type="button" class="gantt-square ${weekend} ${filled?'filled':''} ${t.due===key?'due':''} ${t.ganttStart===key?'start':''}" style="--fill:${palette[quadrant(t)]}" data-gantt="${t.id}" data-day="${key}" aria-label="${esc(t.title)} ${key}を納期に設定" title="${esc(t.title)} / ${key}"></button>`;
     }
     rows+='</div>';
   }
@@ -1015,7 +1030,7 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
     el.addEventListener('pointerup',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
     el.addEventListener('touchend',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)},{passive:false});
     el.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
-  });$$('[data-gantt-done]').forEach(el=>el.onclick=()=>completeTask(el.dataset.ganttDone));$$('[data-gantt]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.gantt);if(!t)return;if(t.event){openEdit(t.id);return}const before=t.ganttStart||null;t.ganttStart=el.dataset.day;save();renderCalendar();haptic();setUndo('ガント開始日を設定しました',()=>{t.ganttStart=before;save();renderCalendar()})});if(calMode==='gantt'){const scroll=$('#ganttScroll'),names=$('#ganttNameBody'),days=$('#ganttDayBody');if(scroll&&names&&days){scroll.scrollLeft=ganttScrollX;const initialY=Math.max(0,Math.min(ganttScrollY,Math.max(0,names.scrollHeight-names.clientHeight)));names.scrollTop=initialY;days.scrollTop=initialY;const sync=(source,target)=>{if(Math.abs(target.scrollTop-source.scrollTop)>1)target.scrollTop=source.scrollTop;ganttScrollY=source.scrollTop};names.addEventListener('scroll',()=>sync(names,days),{passive:true});days.addEventListener('scroll',()=>sync(days,names),{passive:true});scroll.addEventListener('scroll',()=>{ganttScrollX=scroll.scrollLeft},{passive:true})}}setupMarquees();}
+  });$$('[data-gantt-done]').forEach(el=>el.onclick=()=>completeTask(el.dataset.ganttDone));$$('[data-gantt]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.gantt);if(!t)return;if(t.event){openEdit(t.id);return}const before={due:t.due,ganttStart:t.ganttStart};t.due=el.dataset.day;t.ganttStart=null;save();renderCalendar();haptic();setUndo('納期を変更しました',()=>{Object.assign(t,before);save();renderCalendar()})});if(calMode==='gantt'){const scroll=$('#ganttScroll'),names=$('#ganttNameBody'),days=$('#ganttDayBody');if(scroll&&names&&days){scroll.scrollLeft=ganttScrollX;const initialY=Math.max(0,Math.min(ganttScrollY,Math.max(0,names.scrollHeight-names.clientHeight)));names.scrollTop=initialY;days.scrollTop=initialY;const sync=(source,target)=>{if(Math.abs(target.scrollTop-source.scrollTop)>1)target.scrollTop=source.scrollTop;ganttScrollY=source.scrollTop};names.addEventListener('scroll',()=>sync(names,days),{passive:true});days.addEventListener('scroll',()=>sync(days,names),{passive:true});scroll.addEventListener('scroll',()=>{ganttScrollX=scroll.scrollLeft},{passive:true})}}setupMarquees();}
 function agendaHtml(day){const k=dateKey(day),items=sorted(tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||t.scheduled?.slice(0,10)===k))).sort((a,b)=>Number(!!b.event)-Number(!!a.event)||(a.scheduled||'').localeCompare(b.scheduled||''));return `<div class="agenda"><div class="agenda-head"><strong style="font-size:12px">${dayName(day)} の予定</strong><span class="sub">${items.length}件を表示</span></div><div class="agenda-list">${items.length?items.map(t=>`<div class="agenda-task ${t.event?'event-entry':''}"><span class="line" style="background:${palette[quadrant(t)]}"></span>${t.event?'':`<button type="button" class="agenda-check" data-done="${t.id}" aria-label="${esc(t.title)}を完了"><svg class="check-icon" width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.5 10.2 8.3 14 15.5 6.7" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`}<button type="button" class="agenda-open" data-edit="${t.id}" aria-label="${esc(t.title)}を編集"><span class="ticker-window" aria-label="${esc(t.title)}" title="${esc(t.title)}"><span class="ticker-track"><span class="ticker-text">${esc(t.title)}</span></span></span><span class="agenda-meta">${t.scheduled?t.scheduled.slice(11,16):t.event?'予定':shortDue(t.due)} · ${t.duration}m</span><span class="agenda-chevron">›</span></button></div>`).join(''):'<div class="agenda-none">予定なし</div>'}</div></div>`}
 function startWeek(d){return addDays(d,-d.getDay())}function addDays(d,n){let r=new Date(d);r.setDate(r.getDate()+n);return r}
 function slotMinute(col,row){return (col===0?8:14)*60+row*30}function hhmm(m){return `${pad(Math.floor(m/60))}:${pad(m%60)}`}function isConflict(start,end,omit){return tasks.some(t=>t.id!==omit&&!t.done&&t.scheduled?.slice(0,10)===dateKey(puzzleDay)&&(()=>{let x=+t.scheduled.slice(11,13)*60+(+t.scheduled.slice(14,16));return start<x+t.duration&&end>x})())}function trySchedule(id,minutes){let task=tasks.find(t=>t.id===id);if(!task)return;const dur=task.duration;const day=dateKey(puzzleDay);if(minutes+dur>(minutes<14*60?14*60:20*60)){flash('ブロックがこの時間枠に収まりません');return}if(isConflict(minutes,minutes+dur,id)){flash('ほかの予定と重なっています');return}let old=task.scheduled;task.scheduled=`${day}T${hhmm(minutes)}`;activePuzzle=null;save();render();haptic();flash('予定を配置しました');setUndo('予定を配置しました',()=>mutate(id,{scheduled:old}))}
