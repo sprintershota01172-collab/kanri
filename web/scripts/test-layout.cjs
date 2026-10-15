@@ -138,7 +138,7 @@ async function checkCompactMonthAgenda(browser){
  await page.evaluate(()=>{
    const d=new Date();
    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-   const tasks=Array.from({length:9},(_,i)=>({id:'month-agenda-'+i,title:'月予定 '+i,important:true,urgent:true,group:'仕事',folderId:'work',duration:30,due:key,scheduled:null,leadDays:1,ganttStart:null,pin:false,rank:null,done:false,created:d.toISOString()}));
+   const tasks=Array.from({length:22},(_,i)=>({id:'month-agenda-'+i,title:'月予定 '+i,important:true,urgent:true,group:'仕事',folderId:'work',duration:30,due:key,scheduled:null,leadDays:1,ganttStart:null,pin:false,rank:null,done:false,created:d.toISOString()}));
    localStorage.setItem('kanri_v1_tasks',JSON.stringify(tasks));
  });
  await page.reload({waitUntil:'load'});
@@ -162,7 +162,7 @@ async function checkCompactMonthAgenda(browser){
  assert.equal(layout.sixWeeks,42,'month grid keeps 42 date cells');
  assert.ok(layout.monthHeight/layout.calendarHeight<0.52,'month grid is compact: '+JSON.stringify(layout));
  assert.ok(layout.visibleCards>=5,'about five appointment cards remain visible below month grid: '+JSON.stringify(layout));
- assert.equal(layout.allCards,9,'no events are silently omitted');
+ assert.equal(layout.allCards,22,'no events are silently omitted');
  assert.ok(layout.listScrollHeight>layout.listHeight,'additional appointments are scrollable');
  await context.close();
  return 'Gantt default; compact month with at least five visible appointments and scrollable overflow';
