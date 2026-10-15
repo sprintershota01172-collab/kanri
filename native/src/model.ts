@@ -131,7 +131,7 @@ export function withTaskSlots(task:Task,slots:string[]):Task{
   const durations:Record<string,number>={};
   for(const slot of next){
     const source=task.scheduledDurations?.[slot];
-    if(Number.isInteger(source)&&source!>0)durations[slot]=source!;
+    if(typeof source==='number'&&Number.isInteger(source)&&source>0)durations[slot]=source;
   }
   return {...task,scheduledBlocks:next,scheduledStart:next[0]||null,scheduledDurations:durations};
 }
