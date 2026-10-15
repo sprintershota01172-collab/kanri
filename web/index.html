@@ -1158,7 +1158,12 @@ function puzzleSlotAt(x,y){
  return slot?Number(slot.dataset.min):null;
 }
 function setupPuzzleDrag(el,oldSlot=null){
- let start=null,dragged=false;
+ let start=null,dragged=false,ignoreNextClick=false;
+ // A drag must not produce a synthetic tap on release.
+ el.addEventListener('click',event=>{
+  if(!ignoreNextClick)return;
+  ignoreNextClick=false;event.preventDefault();event.stopImmediatePropagation();
+ },true);
  const surface=el.closest('.scheduled-chip')||el;
  const clear=()=>{
   surface.style.transform='';surface.classList.remove('is-dragging');
@@ -1166,7 +1171,7 @@ function setupPuzzleDrag(el,oldSlot=null){
  };
  el.onpointerdown=e=>{
   if(e.pointerType==='mouse'&&e.button!==0)return;
-  start={x:e.clientX,y:e.clientY,pointer:e.pointerId};dragged=false;
+  start={x:e.clientX,y:e.clientY,pointer:e.pointerId};dragged=false;ignoreNextClick=false;
   try{el.setPointerCapture(e.pointerId)}catch{}
  };
  el.onpointermove=e=>{
@@ -1182,7 +1187,7 @@ function setupPuzzleDrag(el,oldSlot=null){
   if(!start)return;
   const moved=dragged,id=oldSlot?el.dataset.move:el.dataset.puzzle,minute=puzzleSlotAt(e.clientX,e.clientY);
   start=null;clear();
-  if(moved){e.preventDefault();e.stopPropagation();
+  if(moved){ignoreNextClick=true;e.preventDefault();e.stopPropagation();
    if(minute!==null)trySchedule(id,minute,oldSlot);
    else flash('時間枠内に移動してください');
   }
