@@ -1125,9 +1125,9 @@ function renderPuzzle(){
  }
  html+=`</div><div class="puzzle-foot"><span class="hint">${activePuzzleSlot?'移動先をタップ、または選択タスクをスワイプ':'未配置・配置済みを選んで時間枠に移動'}</span>${activePuzzleSlot?'<button type="button" class="puzzle-unplace" id="removeSelected">選択を配置解除</button>':''}<button class="link" id="clearDay">一括解除</button></div>`;
  $('#puzzleContent').innerHTML=html;
- $('[data-puzzle]').forEach(el=>{el.onclick=()=>{activePuzzle=el.dataset.puzzle;activePuzzleSlot=null;renderPuzzle();flash('移動先の枠を選択')};setupPuzzleDrag(el)});
- $('[data-min]').forEach(el=>el.onclick=()=>{if(!activePuzzle){flash('タスクを選んでください');return}trySchedule(activePuzzle,+el.dataset.min)});
- $('[data-move]').forEach(el=>{
+ $$('[data-puzzle]').forEach(el=>{el.onclick=()=>{activePuzzle=el.dataset.puzzle;activePuzzleSlot=null;renderPuzzle();flash('移動先の枠を選択')};setupPuzzleDrag(el)});
+ $$('[data-min]').forEach(el=>el.onclick=()=>{if(!activePuzzle){flash('タスクを選んでください');return}trySchedule(activePuzzle,+el.dataset.min)});
+ $$('[data-move]').forEach(el=>{
   el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.move);if(!t)return;if(t.event){openEdit(t.id);return}
    if(activePuzzle===t.id&&activePuzzleSlot===el.dataset.slot){activePuzzle=null;activePuzzleSlot=null}else{activePuzzle=t.id;activePuzzleSlot=el.dataset.slot}
    renderPuzzle();if(activePuzzle)flash('時間枠をタップするか、スワイプで移動');
@@ -1154,7 +1154,7 @@ function renderPuzzle(){
  };
 }
 function puzzleSlotAt(x,y){
- const slot=$('.time-slot').find(el=>{const r=el.getBoundingClientRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom});
+ const slot=$$('.time-slot').find(el=>{const r=el.getBoundingClientRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom});
  return slot?Number(slot.dataset.min):null;
 }
 function setupPuzzleDrag(el,oldSlot=null){
@@ -1167,7 +1167,7 @@ function setupPuzzleDrag(el,oldSlot=null){
  const surface=el.closest('.scheduled-chip')||el;
  const clear=()=>{
   surface.style.transform='';surface.classList.remove('is-dragging');
-  $('.time-slot').forEach(slot=>slot.classList.remove('slot-hover'));
+  $$('.time-slot').forEach(slot=>slot.classList.remove('slot-hover'));
  };
  el.onpointerdown=e=>{
   if(e.pointerType==='mouse'&&e.button!==0)return;
@@ -1180,7 +1180,7 @@ function setupPuzzleDrag(el,oldSlot=null){
   if(!dragged&&Math.hypot(dx,dy)<9)return;
   dragged=true;surface.classList.add('is-dragging');
   surface.style.transform=`translate(${dx}px,${dy}px) scale(1.025)`;
-  $('.time-slot').forEach(slot=>{slot.classList.toggle('slot-hover',Number(slot.dataset.min)===puzzleSlotAt(e.clientX,e.clientY))});
+  $$('.time-slot').forEach(slot=>{slot.classList.toggle('slot-hover',Number(slot.dataset.min)===puzzleSlotAt(e.clientX,e.clientY))});
   if(e.cancelable)e.preventDefault();
  };
  el.onpointerup=e=>{
