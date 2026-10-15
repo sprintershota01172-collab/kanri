@@ -672,8 +672,8 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
 }
 
 /* A separate four-quadrant dashboard for each node in the folder tree. */
-#board.tree-stack{display:flex!important;flex-direction:column!important;overflow-y:auto!important;overflow-x:hidden!important;gap:10px;padding:4px 1px 10px;scroll-snap-type:y proximity;overscroll-behavior-y:contain;touch-action:pan-y}
-#board.tree-stack .tree-board-section{height:calc(100% - 3px);min-height:calc(100% - 3px);flex:0 0 calc(100% - 3px);display:flex;flex-direction:column;min-width:0;scroll-snap-align:start}
+#board.tree-stack{display:flex!important;flex-direction:column!important;overflow-y:auto!important;overflow-x:hidden!important;gap:10px;padding:0 1px 0;scroll-snap-type:y mandatory;overscroll-behavior-y:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
+#board.tree-stack .tree-board-section{height:100%;min-height:100%;flex:0 0 100%;display:flex;flex-direction:column;min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
 #board.tree-stack .tree-board-name{height:25px;min-height:25px;display:flex;align-items:center;gap:7px;padding:0 7px;color:var(--ink);font-size:12px;font-weight:850;min-width:0}
 #board.tree-stack .tree-board-name span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #board.tree-stack .tree-board-name small{font-size:9px;font-weight:600;color:var(--muted)}
@@ -998,7 +998,7 @@ for(const section of sections){
   html+=`<section class="tree-board-section" data-board-folder="${esc(section.id??'__unassigned__')}" aria-label="${esc(title)}">
     <div class="tree-board-name"><span>${esc(title)}</span><small>${section.depth?'子ツリー':'グループ'}</small></div>
     <div class="tree-board-grid">`;
-  for(let q=0;q<4;q++){const items=sorted(tasks.filter(t=>!t.done&&!t.event&&quadrant(t)===q&&taskFolderId(t)===section.id));const pageSize=window.innerHeight>=820?8:window.innerHeight>=690?6:4;const pages=Math.max(1,Math.ceil(items.length/pageSize));
+  for(let q=0;q<4;q++){const items=sorted(tasks.filter(t=>!t.done&&!t.event&&quadrant(t)===q&&(section.id===null?taskFolderId(t)===null:inFolder(t,section.id))));const pageSize=window.innerHeight>=820?8:window.innerHeight>=690?6:4;const pages=Math.max(1,Math.ceil(items.length/pageSize));
 const pageKey=(section.id??'__unassigned__')+':'+q;
 boardPageByKey[pageKey]=Math.max(0,Math.min(boardPageByKey[pageKey]||0,pages-1));
 let showing=items.slice(boardPageByKey[pageKey]*pageSize,boardPageByKey[pageKey]*pageSize+pageSize);html+=`<section class="quadrant" data-q="${q}" role="button" tabindex="0" aria-label="${esc(prefs.names[q])} にタスクを追加"><div class="quad-title"><strong>${esc(prefs.names[q])}</strong><span>${items.length.toString().padStart(2,'0')}</span></div><div class="accent" style="background:${palette[q]}"></div><div class="task-area">${showing.length?showing.map(t=>`<div class="task-wrap"><button type="button" class="task-swipe-delete" data-task-trash="${t.id}" aria-label="${esc(t.title)}を削除">削除</button><article class="task-card" data-task="${t.id}"><div class="task-line"><button type="button" aria-label="${esc(t.title)}を完了" title="完了" class="check" data-done="${t.id}"><svg class="check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.35" opacity=".8"/><path d="M6.3 10 9 12.6 13.8 7.7" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="static-task-title ${t.title.length>44?'title-extra-long':t.title.length>22?'title-long':''}" data-edit-task="${t.id}" aria-label="${esc(t.title)}を編集">${esc(t.title)}</button><span class="task-meta-compact" title="納期：${esc(t.due||'なし')}・所要時間：${t.duration}分">${esc(shortDue(t.due))}</span><button type="button" class="tiny-pin" data-top="${t.id}" aria-label="最上位に固定">${t.pin?'◆':'◇'}</button></div></article></div>`).join(''):'<div class="empty"><span aria-hidden="true">＋</span></div>'}</div><div class="pager"><button data-page-key="${esc(pageKey)}" data-dir="-1" ${boardPageByKey[pageKey]<=0?'disabled':''}>‹</button><span>${boardPageByKey[pageKey]+1}/${pages}</span><button data-page-key="${esc(pageKey)}" data-dir="1" ${boardPageByKey[pageKey]>=pages-1?'disabled':''}>›</button></div></section>`}html+='</div></section>';
@@ -1010,7 +1010,9 @@ let showing=items.slice(boardPageByKey[pageKey]*pageSize,boardPageByKey[pageKey]
   el.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
 });$$('[data-top]').forEach(el=>el.addEventListener('pointerdown',e=>e.stopPropagation()));$$('[data-top]').forEach(el=>el.onclick=e=>{e.stopPropagation();const t=tasks.find(t=>t.id===el.dataset.top);if(!t)return;let pinned=tasks.filter(x=>x.pin);t.pin=true;t.rank=Math.min(0,...pinned.map(x=>x.rank??0))-1;save();render();flash('最上位に固定しました')});bindTitlePreviews()}
 function moveQuadrant(t,q,targetFolderId=undefined){if(prefs.mode==='group'){t.group=['仕事','プライベート','学習','その他'][q];t.folderId=['work','personal','study','other'][q]}else{t.important=q<=1;t.urgent=q===0||q===2}if(targetFolderId!==undefined){
-  t.folderId=targetFolderId==='__unassigned__'?null:targetFolderId;
+  const destination=targetFolderId==='__unassigned__'?null:targetFolderId;
+  // When dropped on an ancestor summary, preserve the specific child tree.
+  if(destination===null||!inFolder(t,destination))t.folderId=destination;
   if(t.folderId)t.group=rootCategory(t.folderId);
 }
 t.pin=false;t.rank=null;save();render();haptic();flash('エリアを移動しました')}
@@ -1055,7 +1057,7 @@ function setupDrag(el){
       const task=tasks.find(t=>t.id===el.dataset.task);
       if(task&&target){
         const old={important:task.important,urgent:task.urgent,group:task.group,pin:task.pin,rank:task.rank,folderId:task.folderId};
-        if(quadrant(task)===+target.dataset.q&&String(taskFolderId(task)??'__unassigned__')===target.closest('[data-board-folder]')?.dataset.boardFolder){task.pin=true;task.rank=Math.min(0,...tasks.filter(x=>x.pin).map(x=>x.rank??0))-1;save();render();flash('最上位に固定しました')}
+        if(quadrant(task)===+target.dataset.q&&(target.closest('[data-board-folder]')?.dataset.boardFolder==='__unassigned__'?taskFolderId(task)===null:inFolder(task,target.closest('[data-board-folder]')?.dataset.boardFolder))){task.pin=true;task.rank=Math.min(0,...tasks.filter(x=>x.pin).map(x=>x.rank??0))-1;save();render();flash('最上位に固定しました')}
         else moveQuadrant(task,+target.dataset.q,target.closest('[data-board-folder]')?.dataset.boardFolder);
         setUndo('エリアを移動しました',()=>mutate(task.id,old));
       }
