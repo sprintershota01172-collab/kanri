@@ -651,6 +651,14 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
 .puzzle-foot .hint{flex:1;min-width:0;max-width:none;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .puzzle-adjust,.puzzle-unplace{flex:none;min-height:28px;padding:2px 5px;font-size:10px;font-weight:800;border-radius:7px;background:var(--tint);color:var(--blue);margin:0}
 .puzzle-unplace{background:transparent!important}
+
+/* PUZZLE resize handle: tap +30 min, or drag up/down in half-hour steps. */
+.scheduled-chip{overflow:visible!important}
+.puzzle-scheduled-title{padding-right:24px!important}
+.puzzle-resize-handle{position:absolute;bottom:-7px;right:29px;width:36px;height:22px;z-index:15;display:flex;align-items:center;justify-content:center;gap:2px;background:#fff;color:#284665!important;border:1px solid #b2bfd1;border-radius:8px;box-shadow:0 2px 5px #14233f40;font-size:11px;font-weight:900;line-height:1;touch-action:none;user-select:none;cursor:ns-resize;padding:0}
+.puzzle-resize-handle .resize-grip{font-size:10px;letter-spacing:-2px;transform:translateY(-1px)}
+.puzzle-resize-handle:active,.puzzle-resize-handle.resizing{background:#dceafa;outline:1px solid #456dab}
+.scheduled-chip.resize-preview{outline:2px solid #fff;outline-offset:-1px;z-index:16}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="グループまたは子ツリーを追加">＋ 追加</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
@@ -1166,12 +1174,12 @@ function renderPuzzle(){
     const m=(+slot.slice(11,13))*60+(+slot.slice(14,16)),c=m<14*60?0:1;
     if(c!==col)continue;
     const duration=slotDuration(t,slot),offset=(m-(c===0?8:14)*60)/360,hi=duration/360;
-    html+=`<div class="scheduled-chip ${activePuzzle===t.id&&activePuzzleSlot===slot?'move-selected':''}" style="top:calc(8px + (100% - 14px) * ${offset});height:calc((100% - 14px) * ${Math.min(hi,1-offset)});background:${palette[quadrant(t)]}"><button type="button" class="puzzle-scheduled-title" data-move="${t.id}" data-slot="${slot}" aria-pressed="${String(activePuzzle===t.id&&activePuzzleSlot===slot)}" aria-label="${esc(t.title)}を選択して時間変更"><strong>${esc(t.title)}</strong><small>${hhmm(m)}–${hhmm(m+duration)}</small></button>${t.event?'':`<button type="button" class="puzzle-done" data-puzzle-done="${t.id}" aria-label="${esc(t.title)}を完了">✓</button>`}</div>`;
+    html+=`<div class="scheduled-chip ${activePuzzle===t.id&&activePuzzleSlot===slot?'move-selected':''}" style="top:calc(8px + (100% - 14px) * ${offset});height:calc((100% - 14px) * ${Math.min(hi,1-offset)});background:${palette[quadrant(t)]}"><button type="button" class="puzzle-scheduled-title" data-move="${t.id}" data-slot="${slot}" aria-pressed="${String(activePuzzle===t.id&&activePuzzleSlot===slot)}" aria-label="${esc(t.title)}を選択して時間変更"><strong>${esc(t.title)}</strong><small>${hhmm(m)}–${hhmm(m+duration)}</small></button>${t.event?'':`<button type="button" class="puzzle-done" data-puzzle-done="${t.id}" aria-label="${esc(t.title)}を完了">✓</button><button type="button" class="puzzle-resize-handle" data-resize="${t.id}" data-slot="${slot}" aria-label="${esc(t.title)}の終了時間を30分延長。上下ドラッグで調整" title="タップ＋30分・上下ドラッグで調整"><span class="resize-grip" aria-hidden="true">═</span><span aria-hidden="true">↓</span></button>`}</div>`;
    }
   }
   html+='</div>';
  }
- html+=`</div><div class="puzzle-foot"><span class="hint">${activePuzzleSlot?'終了後の枠をタップで延長':'タスク選択→枠をタップ／ドラッグ'}</span>${activePuzzleSlot?'<button type="button" class="puzzle-adjust" data-duration-step="-30">−30分</button><button type="button" class="puzzle-adjust" data-duration-step="30">＋30分</button><button type="button" class="puzzle-unplace" id="removeSelected">外す</button>':'<button class="link" id="clearDay">一括解除</button>'}</div>`;
+ html+=`</div><div class="puzzle-foot"><span class="hint">${activePuzzleSlot?'↓を引いて延長・短縮':'ブロック下の↓を引いて時間変更'}</span>${activePuzzleSlot?'<button type="button" class="puzzle-adjust" data-duration-step="-30">−30分</button><button type="button" class="puzzle-adjust" data-duration-step="30">＋30分</button><button type="button" class="puzzle-unplace" id="removeSelected">外す</button>':'<button class="link" id="clearDay">一括解除</button>'}</div>`;
  $('#puzzleContent').innerHTML=html;
  $$('[data-puzzle]').forEach(el=>{el.onclick=()=>{activePuzzle=el.dataset.puzzle;activePuzzleSlot=null;renderPuzzle();flash('移動先の枠を選択')};setupPuzzleDrag(el)});
  $$('[data-min]').forEach(el=>el.onclick=()=>{if(!activePuzzle){flash('タスクを選んでください');return}trySchedule(activePuzzle,+el.dataset.min)});
@@ -1188,8 +1196,9 @@ function renderPuzzle(){
    const before=puzzleSnapshot(t);setTaskSlots(t,before.slots.filter(s=>s!==slot));
    activePuzzle=null;activePuzzleSlot=null;save();render();setUndo('配置を解除しました',()=>{restorePuzzleSnapshot(t,before);save();render()});
  });
- $('[data-puzzle-done]').forEach(el=>el.onclick=e=>{e.stopPropagation();completeTask(el.dataset.puzzleDone)});
- $('[data-duration-step]').forEach(el=>el.onclick=()=>{
+ $$('[data-puzzle-done]').forEach(el=>el.onclick=e=>{e.stopPropagation();completeTask(el.dataset.puzzleDone)});
+ $$('[data-resize]').forEach(setupPuzzleResize);
+ $$('[data-duration-step]').forEach(el=>el.onclick=()=>{
   const task=tasks.find(t=>t.id===activePuzzle),slot=activePuzzleSlot;
   if(!task||!slot)return;
   resizePuzzleSlot(task.id,slot,slotDuration(task,slot)+Number(el.dataset.durationStep));
@@ -1209,6 +1218,56 @@ function renderPuzzle(){
 function puzzleSlotAt(x,y){
  const slot=$$('.time-slot').find(el=>{const r=el.getBoundingClientRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom});
  return slot?Number(slot.dataset.min):null;
+}
+function setupPuzzleResize(handle){
+ const block=handle.closest('.scheduled-chip');
+ const taskId=handle.dataset.resize,slot=handle.dataset.slot;
+ let gesture=null,suppressClick=false;
+ const originalLabel=handle.innerHTML;
+ const reset=()=>{
+  block.style.height='';block.classList.remove('resize-preview');
+  handle.classList.remove('resizing');handle.innerHTML=originalLabel;
+ };
+ handle.addEventListener('click',e=>{
+  e.stopPropagation();
+  if(suppressClick){suppressClick=false;e.preventDefault();return}
+  const task=tasks.find(t=>t.id===taskId);
+  if(task)resizePuzzleSlot(taskId,slot,slotDuration(task,slot)+30);
+ });
+ handle.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  const task=tasks.find(t=>t.id===taskId),panel=handle.closest('.time-panel');
+  if(!task||!panel)return;
+  const original=slotDuration(task,slot),step=Math.max(8,(panel.clientHeight-14)/12);
+  const start=(+slot.slice(11,13))*60+(+slot.slice(14,16));
+  const limit=(start<14*60?14*60:20*60)-start;
+  gesture={pointerId:e.pointerId,y:e.clientY,original,minutes:original,step,limit,moved:false,originalHeight:block.getBoundingClientRect().height};
+  e.stopPropagation();
+  try{handle.setPointerCapture(e.pointerId)}catch{}
+ });
+ handle.addEventListener('pointermove',e=>{
+  if(!gesture||e.pointerId!==gesture.pointerId)return;
+  const dy=e.clientY-gesture.y;
+  if(!gesture.moved&&Math.abs(dy)<6)return;
+  gesture.moved=true;
+  const change=Math.round(dy/gesture.step)*30;
+  const minutes=Math.max(30,Math.min(gesture.limit,gesture.original+change));
+  gesture.minutes=minutes;
+  block.classList.add('resize-preview');handle.classList.add('resizing');
+  block.style.height=Math.max(13,gesture.originalHeight+(minutes-gesture.original)*(gesture.step/30))+'px';
+  handle.innerHTML='<span aria-hidden="true">↕</span><small>'+Math.floor(minutes/60)+'h'+String(minutes%60).padStart(2,'0')+'</small>';
+  e.stopPropagation();if(e.cancelable)e.preventDefault();
+ });
+ handle.addEventListener('pointerup',e=>{
+  if(!gesture||e.pointerId!==gesture.pointerId)return;
+  const current=gesture;gesture=null;
+  if(current.moved){
+   suppressClick=true;e.preventDefault();e.stopPropagation();
+   reset();
+   if(current.minutes!==current.original)resizePuzzleSlot(taskId,slot,current.minutes);
+  }else reset();
+ });
+ handle.addEventListener('pointercancel',()=>{gesture=null;suppressClick=false;reset()});
 }
 function setupPuzzleDrag(el,oldSlot=null){
  let start=null,dragged=false,ignoreNextClick=false;
