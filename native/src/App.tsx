@@ -7,7 +7,7 @@ import {Gesture,GestureDetector,GestureHandlerRootView} from 'react-native-gestu
 import {scheduleOnRN} from 'react-native-worklets';
 import Animated,{FadeIn,FadeInDown,FadeOut,withSpring,withTiming,withRepeat,cancelAnimation,Easing,useAnimatedStyle,useSharedValue} from 'react-native-reanimated';
 import {SafeAreaProvider,useSafeAreaInsets} from 'react-native-safe-area-context';
-import {addDays,canSchedule,COLORS,createTask,dateKey,DEFAULT_PREFS,daysUntil,dueLabel,GROUPS,Group,moveToQuadrant,pad,parseDateKey,parseScheduleMinutes,Preferences,priorityScore,quadrant,sortTasks,Task,timeText,Folder,Workspace,DEFAULT_WORKSPACE,folderForTask,folderGroup,completeTaskForTrash,restoreCompletedTask,COMPLETED_RETENTION_MS,workdayKeys,inTaskWorkWindow,taskSlots,withTaskSlots,slotOnDay} from './model';
+import {addDays,canSchedule,COLORS,createTask,dateKey,DEFAULT_PREFS,daysUntil,dueLabel,GROUPS,Group,moveToQuadrant,pad,parseDateKey,parseScheduleMinutes,Preferences,priorityScore,quadrant,sortTasks,Task,timeText,Folder,Workspace,DEFAULT_WORKSPACE,folderForTask,folderGroup,completeTaskForTrash,restoreCompletedTask,COMPLETED_RETENTION_MS,workdayKeys,inTaskWorkWindow,taskSlots,withTaskSlots,slotOnDay,durationForSlot,withSlotDuration} from './model';
 import {deleteTask,migrate,readPreferences,readTasks,savePreferences,saveTask,readWorkspace,saveWorkspace} from './storage';
 import {cancelTaskNotifications,registerNotifications,requestLocalPermissions,scheduleTaskNotifications,snoozeTask} from './reminders';
 import {shareExcel} from './xlsxExport';
@@ -222,18 +222,53 @@ function AppInner(){
     void updateTask({...t,pinned:true,manualOrder:order});
     toastMessage('最上位に固定しました');
   }
+  function resizePuzzleSlot(id:string,slot:string,newDuration:number){
+    const task=tasksRef.current.find(t=>t.id===id);
+    if(!task||task.completed||task.event||!taskSlots(task).includes(slot))return;
+    const day=slot.slice(0,10),start=parseScheduleMinutes(slot);
+    const result=canSchedule(tasksRef.current,day,start,newDuration,id);
+    const overlapsOwn=taskSlots(task).some(other=>{
+      if(other===slot||other.slice(0,10)!==day)return false;
+      const minute=parseScheduleMinutes(other);
+      return start<minute+durationForSlot(task,other)&&start+newDuration>minute;
+    });
+    if(!result.ok||overlapsOwn){toastMessage(overlapsOwn?'ほかの予定と重なっています':result.reason);return}
+    if(newDuration===durationForSlot(task,slot))return;
+    const old={...task};
+    void updateTask(withSlotDuration(task,slot,newDuration));
+    setSelectedBlock(id);setSelectedPuzzleSlot(slot);
+    remember('作業時間を変更しました',()=>{void updateTask(old)});
+    toastMessage('作業時間を変更しました');
+    void Haptics.selectionAsync();
+  }
   function scheduleTask(id:string,minutes:number,moveSlot:string|null=selectedPuzzleSlot){
     const t=tasksRef.current.find(x=>x.id===id);if(!t)return;
     const key=dateKey(puzzleDate);
     if(t.completed||t.event||!inTaskWorkWindow(t,key)){toastMessage('この日は納期・LT対象外です');return}
     const oldSlot=moveSlot&&taskSlots(t).includes(moveSlot)&&moveSlot.slice(0,10)===key?moveSlot:null;
     if(slotOnDay(t,key)&&!oldSlot){toastMessage('配置済みです。タスクを選択して時間を変更してください');return}
-    const result=canSchedule(tasksRef.current,key,minutes,t.durationMin,id);
+    const originalDuration=oldSlot?durationForSlot(t,oldSlot):t.durationMin;
+    const oldStart=oldSlot?parseScheduleMinutes(oldSlot):null;
+    // Tapping a free grid cell after the current block extends its END;
+    // dragging still repositions its START, handled by puzzleDrop.
+    if(oldSlot&&moveSlot===selectedPuzzleSlot&&oldStart!==null&&minutes>=oldStart+originalDuration){
+      resizePuzzleSlot(id,oldSlot,minutes+30-oldStart);
+      return;
+    }
+    const result=canSchedule(tasksRef.current,key,minutes,originalDuration,id);
     if(!result.ok){toastMessage(result.reason);void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);return}
+    const ownCollision=taskSlots(t).some(other=>{
+      if(other===oldSlot||other.slice(0,10)!==key)return false;
+      const start=parseScheduleMinutes(other);
+      return minutes<start+durationForSlot(t,other)&&minutes+originalDuration>start;
+    });
+    if(ownCollision){toastMessage('ほかの予定と重なっています');return}
     const next=`${key}T${timeText(minutes)}`;
     if(oldSlot===next){setSelectedBlock(null);setSelectedPuzzleSlot(null);return}
     const before={...t};
-    void updateTask(withTaskSlots(t,[...taskSlots(t).filter(slot=>slot!==oldSlot),next]));
+    let moved=withTaskSlots(t,[...taskSlots(t).filter(slot=>slot!==oldSlot),next]);
+    if(oldSlot&&originalDuration!==t.durationMin)moved=withSlotDuration(moved,next,originalDuration);
+    void updateTask(moved);
     setSelectedBlock(null);setSelectedPuzzleSlot(null);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     remember(oldSlot?'時間を変更しました':'予定を配置しました',()=>{void updateTask(before)});
@@ -357,8 +392,8 @@ function AppInner(){
                   taskSlots(t).filter(slot=>slot.slice(0,10)===puzzleKey).map(slot=>({task:t,slot}))
                 ).filter(({slot})=>parseScheduleMinutes(slot)>=base&&parseScheduleMinutes(slot)<base+360).map(({task:t,slot})=>{
                   const minute=parseScheduleMinutes(slot);
-                  const top=(minute-base)/360*(panelHeight-12),high=t.durationMin/360*(panelHeight-12);
-                  return <ScheduledPuzzleBlock key={t.id+slot} task={t} slot={slot} minute={minute}
+                  const top=(minute-base)/360*(panelHeight-12),high=durationForSlot(t,slot)/360*(panelHeight-12);
+                  return <ScheduledPuzzleBlock key={t.id+slot} task={t} slot={slot} minute={minute} duration={durationForSlot(t,slot)}
                     theme={theme} color={COLORS[quadrant(t,prefs)]}
                     selected={selectedBlock===t.id&&selectedPuzzleSlot===slot}
                     top={5+top} height={Math.max(22,Math.min(high,panelHeight-top-10))}
@@ -371,19 +406,25 @@ function AppInner(){
               </View>;
             })}
           </View>
-          <View style={styles.bottomHint}><Text style={typeStyle(theme.muted,9)}>{selectedPuzzleSlot?'移動先をタップ／スワイプで変更':'タスクを選択→時間枠に配置'}</Text>{selectedPuzzleSlot&&<Pressable onPress={()=>{
+          <View style={[styles.bottomHint,{gap:5}]}><Text numberOfLines={1} style={[typeStyle(theme.muted,9),{flex:1,minWidth:0}]}>{selectedPuzzleSlot?'時間調整':'タスク選択→時間枠をタップ'}</Text>{selectedPuzzleSlot&&<><Pressable onPress={()=>{
+             const t=tasksRef.current.find(t=>t.id===selectedBlock);
+             if(t)resizePuzzleSlot(t.id,selectedPuzzleSlot,durationForSlot(t,selectedPuzzleSlot)-30);
+           }} style={{minWidth:39,minHeight:24,backgroundColor:theme.tint,borderRadius:6,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle('#5578BB',9,'800')}>−30分</Text></Pressable><Pressable onPress={()=>{
+             const t=tasksRef.current.find(t=>t.id===selectedBlock);
+             if(t)resizePuzzleSlot(t.id,selectedPuzzleSlot,durationForSlot(t,selectedPuzzleSlot)+30);
+           }} style={{minWidth:39,minHeight:24,backgroundColor:theme.tint,borderRadius:6,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle('#5578BB',9,'800')}>＋30分</Text></Pressable></>}{selectedPuzzleSlot&&<Pressable onPress={()=>{
             const t=tasksRef.current.find(t=>t.id===selectedBlock);if(!t)return;
             const before={...t};void updateTask(withTaskSlots(t,taskSlots(t).filter(s=>s!==selectedPuzzleSlot)));
             setSelectedBlock(null);setSelectedPuzzleSlot(null);
             remember('配置を解除しました',()=>{void updateTask(before)});
-          }}><Text style={typeStyle('#5578BB',10,'800')}>選択を解除</Text></Pressable>}<Pressable onPress={()=>{
+          }}><Text style={typeStyle('#5578BB',10,'800')}>外す</Text></Pressable>}{!selectedPuzzleSlot&&<Pressable onPress={()=>{
             const onDay=tasks.filter(t=>!t.event&&!t.completed&&belongsToFolder(t,workspace.folderId,workspace.folders)&&!!slotOnDay(t,puzzleKey));
             if(!onDay.length){toastMessage('配置済みの予定はありません');return}
             const backup=onDay.map(t=>({...t}));
             onDay.forEach(t=>void updateTask(withTaskSlots(t,taskSlots(t).filter(slot=>slot.slice(0,10)!==puzzleKey))));
             setSelectedBlock(null);setSelectedPuzzleSlot(null);
             remember('この日の配置を解除しました',()=>backup.forEach(t=>void updateTask(t)));
-          }}><Text style={typeStyle('#5578BB',11,'800')}>予定を外す</Text></Pressable></View>
+          }}><Text style={typeStyle('#5578BB',10,'800')}>一括解除</Text></Pressable>}</View>
         </View>
       </>}
       {tab==='settings'&&<SettingsPanel theme={theme} prefs={prefs} tasks={tasks} onOpenTrash={()=>setTrashOpen(true)} onExport={()=>{void shareExcel(tasksRef.current,workspace.folders,focus).catch(e=>{console.warn('Excel export failed',e);Alert.alert('Excel出力できませんでした',String(e?.message||'再試行してください'))})}} onMode={mode=>{void updatePreferences({...prefs,mode,names:(mode==='group'?[...GROUPS]:[...DEFAULT_PREFS.names]) as Preferences['names']})}} onRename={()=>setRenaming(true)} onDark={()=>void updatePreferences({...prefs,dark:!prefs.dark})} onReminder={()=>void changeNotificationEnabled()} onLeadEdit={()=>setLeadEditor(true)} onStart={()=>void updatePreferences({...prefs,startReminder:!prefs.startReminder})}/>}
@@ -510,8 +551,8 @@ function PuzzleTile({task,selected,onSelect,onDrop}:{task:Task,selected:boolean,
   const animated=useAnimatedStyle(()=>({transform:[{translateX:x.value},{translateY:y.value}],zIndex:10}));
   return <GestureDetector gesture={gesture}><Animated.View style={[styles.puzzleTile,{height:45+Math.round(Math.min(task.durationMin,180)/180*24)},selected&&{borderColor:'#C7DBFF',borderWidth:2},animated]}><Pressable onPress={onSelect} style={{flex:1,justifyContent:'center'}}><Text numberOfLines={1} style={typeStyle('#FFFFFF',11,'700')}>{task.title}</Text><Text style={typeStyle('#C0CCDF',9)}>LT{task.leadDays||1}日 · {dueLabel(task.dueDate)}</Text></Pressable></Animated.View></GestureDetector>;
 }
-function ScheduledPuzzleBlock({task,slot,minute,theme,color,selected,top,height,onSelect,onMove,onComplete}:{
-  task:Task;slot:string;minute:number;theme:Theme;color:string;selected:boolean;top:number;height:number;
+function ScheduledPuzzleBlock({task,slot,minute,duration,theme,color,selected,top,height,onSelect,onMove,onComplete}:{
+  task:Task;slot:string;minute:number;duration:number;theme:Theme;color:string;selected:boolean;top:number;height:number;
   onSelect:()=>void;onMove:(id:string,x:number,y:number,oldSlot:string|null)=>void;onComplete:()=>void;
 }){
   const x=useSharedValue(0),y=useSharedValue(0);
@@ -527,7 +568,7 @@ function ScheduledPuzzleBlock({task,slot,minute,theme,color,selected,top,height,
       <Animated.View style={[{flex:1,minWidth:0,height:'100%',justifyContent:'center'},motion]}>
         <Pressable accessibilityRole="button" accessibilityLabel={task.title+'を選択して時間変更'} onPress={onSelect} style={{flex:1,justifyContent:'center'}}>
           <Text numberOfLines={1} style={typeStyle('#FFFFFF',10,'800')}>{task.title}</Text>
-          <Text numberOfLines={1} style={typeStyle('#EEF4FF',8)}>{timeText(minute)}–{timeText(minute+task.durationMin)}</Text>
+          <Text numberOfLines={1} style={typeStyle('#EEF4FF',8)}>{timeText(minute)}–{timeText(minute+duration)}</Text>
         </Pressable>
       </Animated.View>
     </GestureDetector>
