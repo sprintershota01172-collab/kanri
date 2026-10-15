@@ -31,7 +31,7 @@
     // visualViewport.height when a button is tapped or browser chrome animates;
     // treating this as a new app height causes the entire UI to jump upwards.
     // Genuine rotation is handled by the width-change branch above.
-    const available=Math.max(160,Math.min(layoutHeight,visualHeight));
+    const available=editing?Math.max(160,Math.min(layoutHeight,visualHeight)):layoutHeight;
     if(lastHeight<0||Math.abs(available-lastHeight)>18||lastEditing!==editing){
       root.style.setProperty('--sheet-visual-height',available+'px');
       lastHeight=available;
