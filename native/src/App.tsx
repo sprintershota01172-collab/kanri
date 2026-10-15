@@ -53,7 +53,7 @@ function AppInner(){
   const [calMode,setCalMode]=useState<Mode>('gantt');const [focus,setFocus]=useState(new Date());const [ganttPage,setGanttPage]=useState(0);
   const [puzzleDate,setPuzzleDate]=useState(new Date());const [selectedBlock,setSelectedBlock]=useState<string|null>(null);const [selectedPuzzleSlot,setSelectedPuzzleSlot]=useState<string|null>(null);const [inboxPage,setInboxPage]=useState(0);
   const groupScrollRef=useRef<ScrollView>(null),groupScrollX=useRef(0);
-  const boardRef=useRef<View>(null);const morningRef=useRef<View>(null);const afternoonRef=useRef<View>(null);
+  const boardRef=useRef<View>(null);const morningRef=useRef<View>(null);const afternoonRef=useRef<View>(null);const puzzleInboxRef=useRef<View>(null);
   const [panelHeight,setPanelHeight]=useState(290);const tasksRef=useRef(tasks);const prefsRef=useRef(prefs);
   tasksRef.current=tasks;prefsRef.current=prefs;
   const theme=prefs.dark?DARK:LIGHT;
@@ -278,6 +278,19 @@ function AppInner(){
   }
   function puzzleDrop(id:string,x:number,y:number,oldSlot:string|null=null){
     if(selectedBlock!==id||(oldSlot?selectedPuzzleSlot!==oldSlot:selectedPuzzleSlot!==null))return;
+    if(oldSlot){
+      puzzleInboxRef.current?.measureInWindow((left,top,width,height)=>{
+        if(x>=left&&x<=left+width&&y>=top&&y<=top+height){
+          const t=tasksRef.current.find(t=>t.id===id);
+          if(!t)return;
+          const before={...t};
+          void updateTask(withTaskSlots(t,taskSlots(t).filter(s=>s!==oldSlot)));
+          setSelectedBlock(null);setSelectedPuzzleSlot(null);setInboxPage(0);
+          remember('配置を戻しました',()=>{void updateTask(before)});
+          toastMessage('本日の対象タスクに戻しました');
+        }
+      });
+    }
     const refs=[morningRef,afternoonRef];
     let handled=false;
     refs.forEach((ref,col)=>ref.current?.measureInWindow((left,top,width,height)=>{
@@ -374,7 +387,7 @@ function AppInner(){
       </>}
       {tab==='puzzle'&&<>
         <View style={styles.screenHead}><View><Text style={typeStyle(theme.ink,18,'800')}>TIME PUZZLE</Text></View><IconButton label="↶ 戻す" theme={theme} onPress={undoAction}/></View>
-        <View style={{flex:1,minHeight:0}}><View style={[styles.puzzleInbox,{backgroundColor:theme.navy}]}>
+        <View style={{flex:1,minHeight:0}}><View ref={puzzleInboxRef} style={[styles.puzzleInbox,{backgroundColor:theme.navy}]}>
           <View style={styles.flexBetween}><Text style={typeStyle('#F3F7FF',11,'800')}>本日の対象タスク</Text><Text style={typeStyle('#A3B5D0',10)}>{puzzleEligible.length} 件 · 納期／LT</Text></View>
           <View style={{flexDirection:'row',gap:7,marginTop:8,minHeight:70,alignItems:'flex-start'}}> 
             {puzzleEligible.slice(puzzlePage*2,puzzlePage*2+2).map(t=><PuzzleTile key={t.id} task={t} selected={selectedBlock===t.id} onSelect={()=>{if(selectedBlock===t.id&&selectedPuzzleSlot===null){setSelectedBlock(null)}else{setSelectedBlock(t.id);setSelectedPuzzleSlot(null);toastMessage('黄色い枠になりました。移動できます')}}} onDrop={puzzleDrop}/>)}
@@ -509,10 +522,9 @@ function CheckGlyph(){
   </View>;
 }
 function FullTitle({title,theme}:{title:string,theme:Theme}){
- return <Pressable accessibilityRole="button" accessibilityLabel={title+'の全文を表示'} onPress={()=>Alert.alert('タスク名',title,[{text:'閉じる'}])}
-   style={{flex:1,minWidth:0,height:26,justifyContent:'center'}}>
+ return <View style={{flex:1,minWidth:0,height:26,justifyContent:'center'}}>
    <Text numberOfLines={2} ellipsizeMode="tail" style={[typeStyle(theme.ink,title.length>38?7:title.length>18?7.5:8,'700'),{lineHeight:9}]}>{title}</Text>
- </Pressable>;
+ </View>;
 }
 function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{task:Task,theme:Theme,onDrop:(id:string,x:number,y:number)=>void,onOpen:()=>void,onComplete:()=>void,onPin:()=>void,onRequestDelete:()=>void}){
   const dx=useSharedValue(0),dy=useSharedValue(0),swipeX=useSharedValue(0);
@@ -682,7 +694,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
               {Array.from({length:daysInMonth},(_,i)=>{
                 const d=new Date(focus.getFullYear(),focus.getMonth(),i+1);
                 const weekend=d.getDay()===0||d.getDay()===6;
-                return <View key={i} style={{width:30,height:46,alignItems:'center',justifyContent:'center',gap:3,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,backgroundColor:weekend?theme.bg:theme.tint}}>
+                return <View key={i} style={{width:30,height:46,alignItems:'center',justifyContent:'center',gap:3,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,backgroundColor:weekend?(prefs.dark?'#354356':'#D5DCE6'):theme.tint}}>
                   <Text style={typeStyle(theme.ink,12,'800')}>{i+1}</Text><Text style={typeStyle(theme.muted,9)}>{'日月火水木金土'[d.getDay()]}</Text>
                 </View>
               })}
@@ -699,7 +711,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
                   const key=dateKey(day);
                   const filled=filledDates.has(key);
                   const isWeekend=day.getDay()===0||day.getDay()===6;
-                  return <Pressable key={key} accessibilityRole="button" accessibilityLabel={`${t.title} ${key} を納期にする`} onPress={()=>onGanttStart(t,key)} style={{width:30,height:ganttRowHeight,backgroundColor:filled?fillColor:isWeekend?theme.bg:theme.card,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,alignItems:'flex-end',justifyContent:'flex-start'}}>
+                  return <Pressable key={key} accessibilityRole="button" accessibilityLabel={`${t.title} ${key} を納期にする`} onPress={()=>onGanttStart(t,key)} style={{width:30,height:ganttRowHeight,backgroundColor:filled?fillColor:isWeekend?(prefs.dark?'#354356':'#D5DCE6'):theme.card,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,alignItems:'flex-end',justifyContent:'flex-start'}}>
                     {key===t.dueDate&&<View style={{position:'absolute',top:0,bottom:0,left:0,right:0,borderWidth:1.5,borderColor:theme.navy}}/>}
                     {key===t.dueDate&&<View style={{width:5,height:5,borderRadius:3,backgroundColor:'#C78086',margin:2}}/>}
                   </Pressable>;
@@ -707,7 +719,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
               </View>
             })}
             {Array.from({length:ganttBlankCount},(_,i)=><View key={'blank-grid-'+i} style={{flexDirection:'row',height:ganttRowHeight}}>
-              {Array.from({length:daysInMonth},(_,j)=>{const day=new Date(focus.getFullYear(),focus.getMonth(),j+1);const weekend=day.getDay()===0||day.getDay()===6;return <View key={j} style={{width:30,height:ganttRowHeight,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,backgroundColor:weekend?theme.bg:theme.card}}/>;})}
+              {Array.from({length:daysInMonth},(_,j)=>{const day=new Date(focus.getFullYear(),focus.getMonth(),j+1);const weekend=day.getDay()===0||day.getDay()===6;return <View key={j} style={{width:30,height:ganttRowHeight,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,backgroundColor:weekend?(prefs.dark?'#354356':'#D5DCE6'):theme.card}}/>;})}
             </View>)}
             </ScrollView>
           </View>
