@@ -595,7 +595,10 @@ body,button,input,select{font-synthesis:none}
 }
 .task-card .check .check-icon,.cal-content .agenda-check .check-icon{
   display:block!important;width:17px;height:17px;flex:0 0 17px;margin:0!important;padding:0!important;
-  position:static;transform:none;
+  position:static!important;
+  /* Optical centering: the asymmetrical check path's visual weight sits low. */
+  transform:translate(0.25px,-0.75px)!important;
+  transform-origin:50% 50%;
 }
 
 /* One-line static labels with tap-to-reveal full text. No marquee animation. */
