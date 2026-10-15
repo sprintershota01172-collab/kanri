@@ -396,7 +396,7 @@ function AppInner(){
           const h=event.nativeEvent.layout.height;if(h>100&&Math.abs(boardViewport-h)>1)setBoardViewport(h);
         }}>
           <ScrollView ref={boardScrollRef} nestedScrollEnabled showsVerticalScrollIndicator={boardSectionItems.length>1}
-            pagingEnabled decelerationRate="fast" directionalLockEnabled bounces={false}
+            pagingEnabled snapToInterval={Math.max(320,boardViewport)} snapToAlignment="start" disableIntervalMomentum decelerationRate="fast" directionalLockEnabled bounces={false}
             style={{flex:1,minHeight:0}} contentContainerStyle={{paddingBottom:0}}>
             {boardSectionItems.map(section=><View key={section.id??'__unassigned__'} style={{height:Math.max(320,boardViewport),minHeight:320}}>
               <View style={{height:25,flexDirection:'row',alignItems:'center',paddingHorizontal:7,gap:8}}>
