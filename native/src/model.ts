@@ -30,6 +30,7 @@ export type Task = {
   dueDate: string | null; // YYYY-MM-DD, local date, deadline 23:59
   scheduledStart: string | null; // first/legacy scheduling slot
   scheduledBlocks?: string[]; // day-specific scheduling slots
+  scheduledDurations?: Record<string,number>; // duration overrides keyed by slot, in minutes
   completed: boolean;
   completedAt?: string | null; // completion timestamp; purge after seven days
   pinned: boolean;
@@ -113,12 +114,26 @@ export function workdayKeys(dueDate:string|null,leadDays=1):string[]{
 export function inTaskWorkWindow(task:Task,day:string):boolean{
   return !!task.dueDate&&(task.dueDate===day||workdayKeys(task.dueDate,task.leadDays||1).includes(day));
 }
+export function durationForSlot(task:Task,slot:string):number{
+  const override=task.scheduledDurations?.[slot];
+  return Number.isInteger(override)&&override>0?override:task.durationMin;
+}
+export function withSlotDuration(task:Task,slot:string,minutes:number):Task{
+  const durations={...(task.scheduledDurations||{})};
+  if(minutes===task.durationMin)delete durations[slot];else durations[slot]=minutes;
+  return {...task,scheduledDurations:durations};
+}
 export function taskSlots(task:Task):string[]{
   return [...new Set([...(task.scheduledBlocks||[]),...(task.scheduledStart?[task.scheduledStart]:[])])].sort();
 }
 export function withTaskSlots(task:Task,slots:string[]):Task{
   const next=[...new Set(slots)].sort();
-  return {...task,scheduledBlocks:next,scheduledStart:next[0]||null};
+  const durations:Record<string,number>={};
+  for(const slot of next){
+    const source=task.scheduledDurations?.[slot];
+    if(Number.isInteger(source)&&source!>0)durations[slot]=source!;
+  }
+  return {...task,scheduledBlocks:next,scheduledStart:next[0]||null,scheduledDurations:durations};
 }
 export function slotOnDay(task:Task,day:string):string|null{
   return taskSlots(task).find(slot=>slot.slice(0,10)===day)||null;
@@ -129,7 +144,7 @@ export function overlaps(tasks: Task[], selectedDate: string, fromMinute: number
     return taskSlots(t).some(slot=>{
       if(slot.slice(0,10)!==selectedDate)return false;
       const start=parseScheduleMinutes(slot);
-      return fromMinute<start+t.durationMin&&start<fromMinute+durationMin;
+      return fromMinute<start+durationForSlot(t,slot)&&start<fromMinute+durationMin;
     });
   });
 }
@@ -149,7 +164,7 @@ export function canSchedule(tasks: Task[], day: string, startMinute: number, dur
 export function createTask(title: string, dueDate: string|null, durationMin: number, important: boolean, urgent: boolean, group: Group): Task {
   const now = new Date().toISOString();
   return {id:`t_${Date.now()}_${Math.random().toString(36).slice(2,9)}`,title,dueDate,durationMin,important,urgent,group,
-    leadDays:1,ganttStart:null,scheduledStart:null,scheduledBlocks:[],completed:false,completedAt:null,pinned:false,manualOrder:null,notificationIds:[],createdAt:now,updatedAt:now};
+    leadDays:1,ganttStart:null,scheduledStart:null,scheduledBlocks:[],scheduledDurations:{},completed:false,completedAt:null,pinned:false,manualOrder:null,notificationIds:[],createdAt:now,updatedAt:now};
 }
 export function dueLabel(date: string|null) {
   const d=daysUntil(date);
