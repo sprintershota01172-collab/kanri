@@ -20,8 +20,21 @@
   function refresh(){
     if(!coarse)return;
     const editing=!!editable(document.activeElement);
+    const editorOpen=!!document.querySelector('#modal.open .sheet.editor-sheet');
     const visualHeight=Math.max(1,Math.round(viewport?.height||window.innerHeight));
     const visualTop=Math.max(0,Math.round(viewport?.offsetTop||0));
+    // iOS may scroll the visual viewport inside a fixed layout viewport when
+    // focusing a numerical input. Anchor the editor to the *visible* part.
+    // The surrounding application still retains its measured fixed height.
+    const maxSheetArea=Math.max(160,layoutHeight+lastBottomStep);
+    const editorTop=Math.max(6,Math.min(maxSheetArea-166,visualTop+6));
+    const editorVisibleHeight=Math.min(
+      Math.max(160,visualHeight-12),
+      Math.max(160,maxSheetArea-editorTop-7)
+    );
+    root.style.setProperty('--kanri-editor-top',editorTop+'px');
+    root.style.setProperty('--kanri-editor-fit-height',editorVisibleHeight+'px');
+    root.classList.toggle('kanri-keyboard-open',editorOpen&&editing&&visualHeight<layoutHeight-90);
     if(Math.abs(window.innerWidth-layoutWidth)>80){
       layoutWidth=window.innerWidth;
       layoutHeight=Math.max(window.innerHeight,visualHeight);
