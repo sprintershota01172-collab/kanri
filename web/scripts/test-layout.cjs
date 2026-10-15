@@ -184,11 +184,13 @@ async function checkTaskCompletionAndTicker(browser){
  await page.reload({waitUntil:'load'});
  const card=page.locator('.task-card').first();
  await card.waitFor();
+ await page.waitForFunction(()=>!!document.querySelector('.task-card .ticker-track.ticker-moving'),{timeout:3000});
  const layout=await card.evaluate(el=>{
    const view=el.querySelector('.ticker-window'),track=view.querySelector('.ticker-track');
    const check=el.querySelector('.check');
    return {height:el.getBoundingClientRect().height,
      checkWidth:check.getBoundingClientRect().width,checkHeight:check.getBoundingClientRect().height,
+     textWidth:track.querySelector('.ticker-text').getBoundingClientRect().width,windowWidth:view.getBoundingClientRect().width,
      overflowing:track.querySelector('.ticker-text').getBoundingClientRect().width>view.getBoundingClientRect().width,
      animated:track.classList.contains('ticker-moving'),
      compactMeta:!!el.querySelector('.task-meta-compact'),multiline:!!el.querySelector('.meta')};
