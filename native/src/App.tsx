@@ -398,10 +398,12 @@ function AppInner(){
           <ScrollView ref={boardScrollRef} nestedScrollEnabled showsVerticalScrollIndicator={boardSectionItems.length>1}
             pagingEnabled snapToInterval={Math.max(320,boardViewport)} snapToAlignment="start" disableIntervalMomentum decelerationRate="fast" directionalLockEnabled bounces={false}
             style={{flex:1,minHeight:0}} contentContainerStyle={{paddingBottom:0}}>
-            {boardSectionItems.map(section=><View key={section.id??'__unassigned__'} style={{height:Math.max(320,boardViewport),minHeight:320}}>
+            {boardSectionItems.map((section,index)=><View key={section.id??'__unassigned__'} style={{height:Math.max(320,boardViewport),minHeight:320}}>
               <View style={{height:25,flexDirection:'row',alignItems:'center',paddingHorizontal:7,gap:8}}>
                 <Text numberOfLines={1} style={typeStyle(theme.ink,12,'800')}>{section.name}</Text>
                 <Text style={typeStyle(theme.muted,9)}>{section.depth?'子ツリー':'グループ'}</Text>
+                <View style={{flex:1}}/>
+                <Text style={typeStyle(theme.muted,9,'700')}>{index+1}/{boardSectionItems.length} {index<boardSectionItems.length-1?'↓':''}</Text>
               </View>
               <View ref={element=>{boardGridRefs.current[section.id??'__unassigned__']=element}} collapsable={false}
                 style={[styles.board,{flex:1,minHeight:0,marginTop:0}]}>
