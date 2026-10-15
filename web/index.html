@@ -860,7 +860,8 @@ function openFolderBrowser(page=0){
   $('#folderNext')?.addEventListener('click',()=>openFolderBrowser(p+1));
 }
 function setupMarquees(){
-  (window.requestAnimationFrame||((callback)=>callback()))(()=>{
+  const schedule=typeof window.requestAnimationFrame==='function'?callback=>window.requestAnimationFrame(callback):callback=>callback();
+  schedule(()=>{
     $$('.ticker-window').forEach(view=>{
       if(!view.isConnected)return;
       const track=view.querySelector('.ticker-track'),text=track?.querySelector('.ticker-text');
