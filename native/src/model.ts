@@ -101,11 +101,36 @@ export function timeText(minutes: number) {return `${pad(Math.floor(minutes/60))
 export function parseScheduleMinutes(start: string) {
   return Number(start.slice(11,13))*60 + Number(start.slice(14,16));
 }
+export function workdayKeys(dueDate:string|null,leadDays=1):string[]{
+  const due=dueDate?parseDateKey(dueDate):null;if(!due)return [];
+  const count=Math.max(1,Math.min(90,Number(leadDays)||1)),keys:string[]=[];
+  for(let i=0;keys.length<count&&i<140;i++){
+    const date=addDays(due,-i);
+    if(date.getDay()!==0&&date.getDay()!==6)keys.push(dateKey(date));
+  }
+  return keys;
+}
+export function inTaskWorkWindow(task:Task,day:string):boolean{
+  return !!task.dueDate&&(task.dueDate===day||workdayKeys(task.dueDate,task.leadDays||1).includes(day));
+}
+export function taskSlots(task:Task):string[]{
+  return [...new Set([...(task.scheduledBlocks||[]),...(task.scheduledStart?[task.scheduledStart]:[])])].sort();
+}
+export function withTaskSlots(task:Task,slots:string[]):Task{
+  const next=[...new Set(slots)].sort();
+  return {...task,scheduledBlocks:next,scheduledStart:next[0]||null};
+}
+export function slotOnDay(task:Task,day:string):string|null{
+  return taskSlots(task).find(slot=>slot.slice(0,10)===day)||null;
+}
 export function overlaps(tasks: Task[], selectedDate: string, fromMinute: number, durationMin: number, exceptId?: string) {
   return tasks.some(t=>{
-    if (t.completed || t.id===exceptId || !t.scheduledStart || t.scheduledStart.slice(0,10)!==selectedDate) return false;
-    const start = parseScheduleMinutes(t.scheduledStart);
-    return fromMinute < start+t.durationMin && start < fromMinute+durationMin;
+    if(t.completed||t.id===exceptId)return false;
+    return taskSlots(t).some(slot=>{
+      if(slot.slice(0,10)!==selectedDate)return false;
+      const start=parseScheduleMinutes(slot);
+      return fromMinute<start+t.durationMin&&start<fromMinute+durationMin;
+    });
   });
 }
 /** A 30-minute grid cell can accept a block only when fully inside its daypart. */
@@ -131,16 +156,11 @@ export function dueLabel(date: string|null) {
   return d===null?'期限なし':d<0?`${-d}日超過`:d===0?'今日まで':d===1?'明日まで':`${d}日後`;
 }
 
-/** True when day lies within the task's LT, starting from the selected Gantt day. */
-export function ganttCellFilled(task: Task, day: string): boolean {
-  const start = parseDateKey(task.ganttStart || task.scheduledStart?.slice(0,10) || task.dueDate || '');
-  const target = parseDateKey(day);
-  if (!start || !target) return false;
-  const calendarDay = (d: Date) => Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());
-  const diff = Math.round((calendarDay(target)-calendarDay(start))/86400000);
-  return diff>=0 && diff<Math.max(1,Math.min(90,task.leadDays||1));
+/** Paint the LT backwards from the due date, counting working days only. */
+export function ganttCellFilled(task:Task,day:string):boolean{
+  if(task.event)return !!task.scheduledStart&&task.scheduledStart.slice(0,10)===day;
+  return workdayKeys(task.dueDate,task.leadDays||1).includes(day);
 }
-
 /** Seven days after completion a task leaves the recoverable trash. */
 export const COMPLETED_RETENTION_MS = 7*24*60*60*1000;
 export function completedTaskExpired(task:Task,now=Date.now()):boolean{
