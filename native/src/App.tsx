@@ -1,11 +1,11 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {Alert,Keyboard,Modal,Pressable,StatusBar,StyleSheet,Text,TextInput,View,useWindowDimensions,BackHandler,ScrollView,Platform,AppState,Easing} from 'react-native';
+import {Alert,Keyboard,Modal,Pressable,StatusBar,StyleSheet,Text,TextInput,View,useWindowDimensions,BackHandler,ScrollView,Platform,AppState} from 'react-native';
 import {SQLiteProvider,useSQLiteContext} from 'expo-sqlite';
 import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
 import {Gesture,GestureDetector,GestureHandlerRootView} from 'react-native-gesture-handler';
 import {scheduleOnRN} from 'react-native-worklets';
-import Animated,{FadeIn,FadeInDown,FadeOut,withSpring,withTiming,withRepeat,cancelAnimation,useAnimatedStyle,useSharedValue} from 'react-native-reanimated';
+import Animated,{FadeIn,FadeInDown,FadeOut,withSpring,withTiming,withRepeat,cancelAnimation,Easing,useAnimatedStyle,useSharedValue} from 'react-native-reanimated';
 import {SafeAreaProvider,useSafeAreaInsets} from 'react-native-safe-area-context';
 import {addDays,canSchedule,COLORS,createTask,dateKey,DEFAULT_PREFS,daysUntil,dueLabel,GROUPS,Group,moveToQuadrant,pad,parseDateKey,parseScheduleMinutes,Preferences,priorityScore,quadrant,sortTasks,Task,timeText,Folder,Workspace,DEFAULT_WORKSPACE,folderForTask,folderGroup,completeTaskForTrash,restoreCompletedTask,COMPLETED_RETENTION_MS} from './model';
 import {deleteTask,migrate,readPreferences,readTasks,savePreferences,saveTask,readWorkspace,saveWorkspace} from './storage';
