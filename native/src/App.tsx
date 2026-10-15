@@ -142,6 +142,7 @@ function AppInner(){
   }
   function markCompleted(task:Task){
     if(task.completed||task.event)return;
+    if(selectedBlock===task.id){setSelectedBlock(null);setSelectedPuzzleSlot(null)}
     void updateTask(completeTaskForTrash(task));
     void Haptics.selectionAsync();
     remember('完了済みに移動しました',()=>{void updateTask(restoreCompletedTask(task))});
@@ -244,7 +245,7 @@ function AppInner(){
     refs.forEach((ref,col)=>ref.current?.measureInWindow((left,top,width,height)=>{
       if(handled||x<left||x>left+width||y<top||y>top+height)return;
       handled=true;
-      const row=Math.max(0,Math.min(11,Math.floor((y-top)/height*12)));
+      const row=Math.max(0,Math.min(11,Math.floor((y-top-5)/Math.max(1,height-10)*12)));
       scheduleTask(id,(col===0?8:14)*60+row*30,oldSlot);
     }));
   }
@@ -380,6 +381,7 @@ function AppInner(){
             if(!onDay.length){toastMessage('配置済みの予定はありません');return}
             const backup=onDay.map(t=>({...t}));
             onDay.forEach(t=>void updateTask(withTaskSlots(t,taskSlots(t).filter(slot=>slot.slice(0,10)!==puzzleKey))));
+            setSelectedBlock(null);setSelectedPuzzleSlot(null);
             remember('この日の配置を解除しました',()=>backup.forEach(t=>void updateTask(t)));
           }}><Text style={typeStyle('#5578BB',11,'800')}>予定を外す</Text></Pressable></View>
         </View>
