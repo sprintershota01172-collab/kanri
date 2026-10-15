@@ -26,9 +26,11 @@
       layoutWidth=window.innerWidth;
       layoutHeight=Math.max(window.innerHeight,visualHeight);
       lastHeight=-1;
-    }else if(!editing&&visualHeight>=layoutHeight-80){
-      layoutHeight=Math.max(window.innerHeight,visualHeight);
     }
+    // Keep the non-keyboard app shell at its initial height. iOS may change
+    // visualViewport.height when a button is tapped or browser chrome animates;
+    // treating this as a new app height causes the entire UI to jump upwards.
+    // Genuine rotation is handled by the width-change branch above.
     const available=Math.max(160,Math.min(layoutHeight,visualHeight));
     if(lastHeight<0||Math.abs(available-lastHeight)>18||lastEditing!==editing){
       root.style.setProperty('--sheet-visual-height',available+'px');
