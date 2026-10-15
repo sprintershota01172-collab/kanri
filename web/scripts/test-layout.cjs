@@ -167,6 +167,56 @@ async function checkCompactMonthAgenda(browser){
  await context.close();
  return 'Gantt default; compact month with at least five visible appointments and scrollable overflow';
 }
+async function checkTaskCompletionAndTicker(browser){
+ const context=await browser.newContext({viewport:{width:393,height:852},deviceScaleFactor:3,isMobile:true,hasTouch:true});
+ const page=await context.newPage();
+ const url='http://127.0.0.1:'+server.address().port+'/index.html';
+ await page.goto(url,{waitUntil:'load'});
+ await page.evaluate(()=>{
+   const d=new Date();
+   const today=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+   const task=(id,name)=>({id,title:name,important:true,urgent:true,group:'仕事',folderId:'work',duration:30,due:today,scheduled:null,leadDays:1,ganttStart:null,pin:false,rank:null,done:false,created:d.toISOString()});
+   localStorage.setItem('kanri_v1_tasks',JSON.stringify([
+     task('tap-complete-focus','完了動作の確認：ものすごく長いタスク名が左方向へ流れて表示されることを確認するためのテスト項目その一'),
+     task('tap-complete-calendar','完了動作の確認：もう一つの長いタスク名を日付の一覧からタップして完了できるか')
+   ]));
+ });
+ await page.reload({waitUntil:'load'});
+ const card=page.locator('.task-card').first();
+ await card.waitFor();
+ const layout=await card.evaluate(el=>{
+   const view=el.querySelector('.ticker-window'),track=view.querySelector('.ticker-track');
+   const check=el.querySelector('.check');
+   return {height:el.getBoundingClientRect().height,
+     checkWidth:check.getBoundingClientRect().width,checkHeight:check.getBoundingClientRect().height,
+     overflowing:track.querySelector('.ticker-text').getBoundingClientRect().width>view.getBoundingClientRect().width,
+     animated:track.classList.contains('ticker-moving'),
+     compactMeta:!!el.querySelector('.task-meta-compact'),multiline:!!el.querySelector('.meta')};
+ });
+ assert.ok(layout.height>=26&&layout.height<=32,'FOCUS task strip is approximately half-height: '+JSON.stringify(layout));
+ assert.ok(layout.checkWidth>=26&&layout.checkHeight>=25,'check tap target remains usable: '+JSON.stringify(layout));
+ assert.ok(layout.overflowing&&layout.animated,'long one-line title scrolls like an airport ticker: '+JSON.stringify(layout));
+ assert.ok(layout.compactMeta&&!layout.multiline,'deadline/time metadata stays on one line: '+JSON.stringify(layout));
+ await page.locator('[data-done="tap-complete-focus"]').tap();
+ let taskState=await page.evaluate(()=>JSON.parse(localStorage.getItem('kanri_v1_tasks')));
+ assert.equal(taskState.find(t=>t.id==='tap-complete-focus').done,true,'actual touch tap on FOCUS check completes task');
+ assert.ok(!await page.locator('[data-done="tap-complete-focus"]').count(),'completed task immediately leaves FOCUS');
+ assert.ok(await page.locator('#undoBar.show').count(),'completion offers undo');
+ await page.locator('[data-tab="calendar"]').tap();
+ await page.locator('[data-mode="month"]').tap();
+ const agenda=page.locator('[data-done="tap-complete-calendar"].agenda-check');
+ await agenda.waitFor();
+ const agendaHeight=await agenda.evaluate(el=>el.closest('.agenda-task').getBoundingClientRect().height);
+ assert.ok(agendaHeight>=24&&agendaHeight<=30,'monthly agenda row is about half-height: '+agendaHeight);
+ await agenda.tap();
+ taskState=await page.evaluate(()=>JSON.parse(localStorage.getItem('kanri_v1_tasks')));
+ assert.equal(taskState.find(t=>t.id==='tap-complete-calendar').done,true,'actual touch tap on monthly agenda check completes task');
+ assert.equal(await page.locator('.agenda-check').count(),0,'completed agenda task disappears');
+ await page.locator('#trashCalendar').tap();
+ assert.equal(await page.locator('.trash-item').count(),2,'both tasks are retained in seven-day trash');
+ await context.close();
+ return 'real touch-tap completion in FOCUS and month, 29px bands and animated long titles';
+}
 async function checkGroupGestures(browser){
  const context=await browser.newContext({viewport:{width:393,height:852},deviceScaleFactor:3,isMobile:true,hasTouch:true});
  const page=await context.newPage();
@@ -215,6 +265,7 @@ async function checkGroupGestures(browser){
   console.log('PASS',await check(browser,402,800,34,874));
   console.log('PASS',await checkLongGantt(browser));
   console.log('PASS',await checkCompactMonthAgenda(browser));
+  console.log('PASS',await checkTaskCompletionAndTicker(browser));
   console.log('PASS',await checkGroupGestures(browser));
  }finally{await browser.close();await new Promise(ok=>server.close(ok))}
 })().catch(error=>{console.error(error);process.exitCode=1;server.close()});
