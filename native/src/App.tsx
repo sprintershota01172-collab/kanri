@@ -625,13 +625,13 @@ function CheckGlyph(){
 }
 function FullTitle({title,theme}:{title:string,theme:Theme}){
  return <View style={{flex:1,minWidth:0,height:26,justifyContent:'center'}}>
-   <Text numberOfLines={2} ellipsizeMode="tail" style={[typeStyle(theme.ink,title.length>38?7:title.length>18?7.5:8,'700'),{lineHeight:9}]}>{title}</Text>
+   <Text selectable={false} suppressHighlighting numberOfLines={2} ellipsizeMode="tail" style={[typeStyle(theme.ink,title.length>38?7:title.length>18?7.5:8,'700'),{lineHeight:9}]}>{title}</Text>
  </View>;
 }
 function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{task:Task,theme:Theme,onDrop:(id:string,x:number,y:number)=>void,onOpen:()=>void,onComplete:()=>void,onPin:()=>void,onRequestDelete:()=>void}){
   const dx=useSharedValue(0),dy=useSharedValue(0),swipeX=useSharedValue(0);
   const gesture=useMemo(()=>{
-    const drag=Gesture.Pan().activateAfterLongPress(200)
+    const drag=Gesture.Pan().activateAfterLongPress(250).minDistance(6)
       .onUpdate(e=>{dx.value=e.translationX;dy.value=e.translationY})
       .onEnd(e=>{scheduleOnRN(onDrop,task.id,e.absoluteX,e.absoluteY);dx.value=withSpring(0);dy.value=withSpring(0)})
       .onFinalize(()=>{dx.value=withSpring(0);dy.value=withSpring(0)});
@@ -655,7 +655,7 @@ function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{t
         <Animated.View onTouchStart={e=>e.stopPropagation()} style={[styles.taskTile,{backgroundColor:theme.bg,borderWidth:0,borderRadius:0,width:'100%',height:28,minHeight:28,paddingVertical:0,paddingHorizontal:2,flexDirection:'row',alignItems:'center',gap:3},motion]}>
           <View style={{flex:1,minWidth:0,height:28,flexDirection:'row',alignItems:'center',gap:2}}>
             <FullTitle title={task.title} theme={theme}/>
-            <Text numberOfLines={1} style={typeStyle(theme.muted,7)}>{due}</Text>
+            <Text selectable={false} suppressHighlighting numberOfLines={1} style={typeStyle(theme.muted,7)}>{due}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel={task.title+'を編集'} onPress={onOpen} style={{width:21,height:28,justifyContent:'center',alignItems:'center'}}>
               <Text style={typeStyle(theme.muted,13,'800')}>›</Text>
             </Pressable>
