@@ -241,7 +241,7 @@ function AppInner(){
     toastMessage('作業時間を変更しました');
     void Haptics.selectionAsync();
   }
-  function scheduleTask(id:string,minutes:number,moveSlot:string|null=selectedPuzzleSlot){
+  function scheduleTask(id:string,minutes:number,moveSlot:string|null=selectedPuzzleSlot,interaction:'tap'|'drag'='tap'){
     const t=tasksRef.current.find(x=>x.id===id);if(!t)return;
     const key=dateKey(puzzleDate);
     if(t.completed||t.event||!inTaskWorkWindow(t,key)){toastMessage('この日は納期・LT対象外です');return}
@@ -251,7 +251,7 @@ function AppInner(){
     const oldStart=oldSlot?parseScheduleMinutes(oldSlot):null;
     // Tapping a free grid cell after the current block extends its END;
     // dragging still repositions its START, handled by puzzleDrop.
-    if(oldSlot&&moveSlot===selectedPuzzleSlot&&oldStart!==null&&minutes>=oldStart+originalDuration){
+    if(oldSlot&&interaction==='tap'&&oldStart!==null&&minutes>=oldStart+originalDuration){
       resizePuzzleSlot(id,oldSlot,minutes+30-oldStart);
       return;
     }
@@ -281,7 +281,7 @@ function AppInner(){
       if(handled||x<left||x>left+width||y<top||y>top+height)return;
       handled=true;
       const row=Math.max(0,Math.min(11,Math.floor((y-top-5)/Math.max(1,height-10)*12)));
-      scheduleTask(id,(col===0?8:14)*60+row*30,oldSlot);
+      scheduleTask(id,(col===0?8:14)*60+row*30,oldSlot,'drag');
     }));
   }
   async function changeNotificationEnabled(){
@@ -499,7 +499,9 @@ function AppInner(){
 }
 
 function CheckGlyph(){
-  return <View pointerEvents="none" style={{width:8,height:12,borderRightWidth:2.5,borderBottomWidth:2.5,borderColor:'#588F77',transform:[{rotate:'45deg'},{translateY:-0.5}],marginTop:-1,marginLeft:0}}/>;
+  return <View pointerEvents="none" style={{width:20,height:20,borderWidth:1.3,borderColor:'#829D94',borderRadius:10,alignItems:'center',justifyContent:'center'}}>
+    <View style={{width:5.5,height:8,borderRightWidth:1.7,borderBottomWidth:1.7,borderColor:'#729187',transform:[{rotate:'45deg'},{translateY:-1}],marginTop:-2}}/>
+  </View>;
 }
 function FullTitle({title,theme}:{title:string,theme:Theme}){
  return <Pressable accessibilityRole="button" accessibilityLabel={title+'の全文を表示'} onPress={()=>Alert.alert('タスク名',title,[{text:'閉じる'}])}
@@ -525,7 +527,7 @@ function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{t
   const due=task.dueDate?((daysUntil(task.dueDate)===0)?'今日':(daysUntil(task.dueDate)===1)?'明日':task.dueDate.slice(5).replace('-','/')):'―';
   return <View style={{position:'relative',borderRadius:7,overflow:'hidden',backgroundColor:theme.bg,height:30,flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:theme.line}}>
     <Pressable accessibilityRole="button" accessibilityLabel={task.title+'を完了'} onPress={onComplete} hitSlop={{top:6,bottom:6,left:5,right:3}}
-      style={{width:31,height:28,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint,zIndex:6,borderRightWidth:1,borderColor:theme.line}}>
+      style={{width:29,height:28,alignItems:'center',justifyContent:'center',backgroundColor:'transparent',zIndex:6}}>
       <CheckGlyph/>
     </Pressable>
     <View style={{flex:1,minWidth:0,height:28,overflow:'hidden'}}>
@@ -690,7 +692,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
     </View>:<View style={{flex:1,minHeight:0,marginTop:mode==='month'?5:8}}><View style={styles.flexBetween}><Text style={typeStyle(theme.ink,12,'800')}>{focus.getMonth()+1}/{focus.getDate()} の予定</Text><Text style={typeStyle(theme.muted,10)}>{agenda.length}件表示</Text></View>
       <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={agenda.length>5} style={{flex:1,minHeight:0,marginTop:5}} contentContainerStyle={{gap:5,paddingBottom:7}}>{agenda.length?agenda.map(t=><View key={t.id} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line,minHeight:28,height:28,paddingVertical:0,paddingHorizontal:4,gap:4,borderRadius:7}]}>
         <View style={{height:17,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/>
-        {!t.event&&<Pressable accessibilityRole="button" accessibilityLabel={t.title+'を完了'} onPress={()=>onGanttComplete(t)} style={{height:26,width:29,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint,borderRadius:5}}><CheckGlyph/></Pressable>}
+        {!t.event&&<Pressable accessibilityRole="button" accessibilityLabel={t.title+'を完了'} onPress={()=>onGanttComplete(t)} style={{height:26,width:29,alignItems:'center',justifyContent:'center',backgroundColor:'transparent'}}><CheckGlyph/></Pressable>}
         <View style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:2,height:27}}>
           <FullTitle title={t.title} theme={theme}/>
           <Text style={typeStyle(theme.muted,8)}>{slotOnDay(t,selectedDate)?.slice(11,16)|| (t.dueDate?t.dueDate.slice(5).replace('-','/'):'―')}</Text>
