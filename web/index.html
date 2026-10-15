@@ -883,12 +883,17 @@ function openFolderBrowser(page=0){
 }
 function setupMarquees(){
   // The ticker is completely still until a mouse hover, keyboard focus, or a touch-and-hold.
-  $('.ticker-window').forEach(view=>{
+  $$('.ticker-window').forEach(view=>{
       if(!view.isConnected)return;
       if(!view.dataset.tickerTouchBound){
         view.dataset.tickerTouchBound='1';
-        view.addEventListener('touchstart',()=>view.classList.add('ticker-preview'),{passive:true});
-        for(const name of ['touchend','touchcancel'])view.addEventListener(name,()=>view.classList.remove('ticker-preview'),{passive:true});
+        let timer=null;
+        view.addEventListener('touchstart',()=>{
+          clearTimeout(timer);
+          timer=setTimeout(()=>{if(view.isConnected)view.classList.add('ticker-preview')},420);
+        },{passive:true});
+        for(const name of ['touchend','touchcancel','touchmove'])
+          view.addEventListener(name,()=>{clearTimeout(timer);view.classList.remove('ticker-preview')},{passive:true});
       }
       const track=view.querySelector('.ticker-track'),text=track?.querySelector('.ticker-text');
       if(!track||!text)return;
