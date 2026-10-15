@@ -51,18 +51,32 @@ test('schedule rejects cross-daypart and invalid grid precision',()=>{
  assert.equal(m.canSchedule([],'2026-10-14',605,30).ok,false);
  assert.equal(m.canSchedule([],'2026-10-14',840,180).ok,true);
 });
-test('Gantt lead time fills one day square per day across month boundary',()=>{
- const task={...base,leadDays:5,ganttStart:'2026-10-29'};
- assert.equal(m.ganttCellFilled(task,'2026-10-28'),false);
- assert.equal(m.ganttCellFilled(task,'2026-10-29'),true);
- assert.equal(m.ganttCellFilled(task,'2026-10-31'),true);
- assert.equal(m.ganttCellFilled(task,'2026-11-02'),true);
+test('weekday LT from due date excludes weekends across month boundary',()=>{
+ const task={...base,leadDays:5,dueDate:'2026-11-03'};
+ for(const day of ['2026-10-28','2026-10-29','2026-10-30','2026-11-02','2026-11-03'])
+   assert.equal(m.ganttCellFilled(task,day),true,day);
+ for(const day of ['2026-10-27','2026-10-31','2026-11-01','2026-11-04'])
+   assert.equal(m.ganttCellFilled(task,day),false,day);
+});
+test('five-day deadline with 2 LT paints fourth and fifth (weekdays)',()=>{
+ const task={...base,leadDays:2,dueDate:'2026-11-05'};
+ assert.equal(m.ganttCellFilled(task,'2026-11-04'),true);
+ assert.equal(m.ganttCellFilled(task,'2026-11-05'),true);
  assert.equal(m.ganttCellFilled(task,'2026-11-03'),false);
 });
-test('Gantt falls back to scheduled start and tolerates old tasks without LT',()=>{
- const task={...base,scheduledStart:'2026-10-14T10:00'};
- assert.equal(m.ganttCellFilled(task,'2026-10-14'),true);
- assert.equal(m.ganttCellFilled(task,'2026-10-15'),false);
+test('single legacy schedule does not replace due-date Gantt base',()=>{
+ const task={...base,dueDate:'2026-10-16',leadDays:2,scheduledStart:'2026-10-14T10:00'};
+ assert.equal(m.ganttCellFilled(task,'2026-10-15'),true);
+ assert.equal(m.ganttCellFilled(task,'2026-10-14'),false);
+});
+test('daily scheduling slots preserve previous days and detect conflicts',()=>{
+ const task=m.withTaskSlots({...base,id:'a',dueDate:'2026-10-19',leadDays:2},['2026-10-16T09:00','2026-10-19T14:00']);
+ assert.equal(m.inTaskWorkWindow(task,'2026-10-16'),true);
+ assert.equal(m.inTaskWorkWindow(task,'2026-10-17'),false);
+ assert.equal(m.slotOnDay(task,'2026-10-19'),'2026-10-19T14:00');
+ assert.equal(m.taskSlots(task).length,2);
+ assert.equal(m.overlaps([task],'2026-10-19',855,30),true);
+ assert.equal(m.overlaps([task],'2026-10-16',570,30),true);
 });
 test('completed task is kept for seven days then expires',()=>{
  const completedAt=new Date('2026-10-15T00:00:00.000Z');
