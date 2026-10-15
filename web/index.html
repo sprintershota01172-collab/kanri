@@ -1221,7 +1221,11 @@ function setupDrag(el){
  el.addEventListener('dragstart',e=>e.preventDefault());
  el.addEventListener('click',e=>{
    if(!suppressClick)return;
-   suppressClick=false;e.preventDefault();e.stopImmediatePropagation();
+   suppressClick=false;
+   // A previous touchend may prevent Safari from firing a synthetic click.
+   // Never swallow a later completion or pin-button tap.
+   if(isControl(e.target))return;
+   e.preventDefault();e.stopImmediatePropagation();
  },true);
  el.onkeydown=e=>{
    if(e.target!==el||!['Enter',' '].includes(e.key))return;
