@@ -406,7 +406,7 @@ function AppInner(){
               </View>;
             })}
           </View>
-          <View style={[styles.bottomHint,{gap:5}]}><Text numberOfLines={1} style={[typeStyle(theme.muted,9),{flex:1,minWidth:0}]}>{selectedPuzzleSlot?'時間調整':'タスク選択→時間枠をタップ'}</Text>{selectedPuzzleSlot&&<><Pressable onPress={()=>{
+          <View style={[styles.bottomHint,{gap:5}]}><Text numberOfLines={1} style={[typeStyle(theme.muted,9),{flex:1,minWidth:0}]}>{selectedPuzzleSlot?'枠タップで延長':'タスク選択→時間枠タップ'}</Text>{selectedPuzzleSlot&&<><Pressable onPress={()=>{
              const t=tasksRef.current.find(t=>t.id===selectedBlock);
              if(t)resizePuzzleSlot(t.id,selectedPuzzleSlot,durationForSlot(t,selectedPuzzleSlot)-30);
            }} style={{minWidth:39,minHeight:24,backgroundColor:theme.tint,borderRadius:6,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle('#5578BB',9,'800')}>−30分</Text></Pressable><Pressable onPress={()=>{
