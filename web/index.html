@@ -563,8 +563,8 @@ body,button,input,select{font-synthesis:none}
 .task-meta-compact{flex:none;font-size:8px;color:var(--muted);font-weight:700;white-space:nowrap;letter-spacing:-.2px}
 .task-card .meta{display:none!important}
 .ticker-window{display:block;flex:1 1 0;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;position:relative;text-align:left}
-.ticker-track{display:inline-flex;align-items:center;white-space:nowrap;gap:12px;will-change:transform}
-.ticker-text{font-size:10px;font-weight:800;line-height:1.2;white-space:nowrap;flex:none}
+.ticker-track{display:flex!important;width:max-content!important;max-width:none!important;align-items:center;white-space:nowrap;gap:12px;will-change:transform}
+.ticker-text{display:block;width:max-content;max-width:none;font-size:10px;font-weight:800;line-height:1.2;white-space:nowrap;flex:0 0 auto}
 .ticker-track.ticker-moving{animation:ticker-slide linear infinite}
 @keyframes ticker-slide{from{transform:translateX(0)}to{transform:translateX(calc(-50% - 6px))}}
 @media(prefers-reduced-motion:reduce){.ticker-track.ticker-moving{animation:none}.ticker-window{overflow-x:auto}}
@@ -865,10 +865,13 @@ function setupMarquees(){
       if(!view.isConnected)return;
       const track=view.querySelector('.ticker-track'),text=track?.querySelector('.ticker-text');
       if(!track||!text)return;
-      if(text.scrollWidth>view.clientWidth+3&&!track.classList.contains('ticker-moving')){
+      const natural=Math.max(text.scrollWidth,text.getBoundingClientRect().width);
+      const visible=view.getBoundingClientRect().width;
+      const overflow=natural>visible+2||((text.textContent||'').length>14&&visible<130);
+      if(overflow&&!track.classList.contains('ticker-moving')){
         const clone=text.cloneNode(true);clone.setAttribute('aria-hidden','true');
         track.appendChild(clone);track.classList.add('ticker-moving');
-        track.style.animationDuration=Math.max(6,Math.min(18,text.scrollWidth/19))+'s';
+        track.style.animationDuration=Math.max(6,Math.min(18,natural/19))+'s';
       }
     });
   });
