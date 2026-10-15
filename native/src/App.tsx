@@ -441,43 +441,11 @@ function AppInner(){
 function CheckGlyph(){
   return <View pointerEvents="none" style={{width:8,height:12,borderRightWidth:2.5,borderBottomWidth:2.5,borderColor:'#588F77',transform:[{rotate:'45deg'}],marginTop:-3,marginLeft:-1}}/>;
 }
-function MarqueeTitle({title,theme}:{title:string,theme:Theme}){
-  const [viewportWidth,setViewportWidth]=useState(0);
-  const [textWidth,setTextWidth]=useState(0);
-  const [preview,setPreview]=useState(false);
-  const holdTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
-  const move=useSharedValue(0);
-  const overflows=viewportWidth>0&&textWidth>viewportWidth+3;
-  useEffect(()=>{
-    cancelAnimation(move);
-    move.value=0;
-    if(preview&&overflows){
-      move.value=withRepeat(withTiming(-(textWidth+14),{
-        duration:Math.max(6500,Math.round(textWidth*58)),
-        easing:Easing.linear
-      }),-1,false);
-    }
-    return ()=>cancelAnimation(move);
-  },[preview,overflows,textWidth,viewportWidth,move]);
-  useEffect(()=>()=>{if(holdTimer.current)clearTimeout(holdTimer.current)},[]);
-  const reset=()=>{
-    if(holdTimer.current){clearTimeout(holdTimer.current);holdTimer.current=null}
-    setPreview(false);
-  };
-  const motion=useAnimatedStyle(()=>({transform:[{translateX:move.value}]}));
-  return <View accessible accessibilityLabel={title}
-    onTouchStart={()=>{
-      if(holdTimer.current)clearTimeout(holdTimer.current);
-      holdTimer.current=setTimeout(()=>setPreview(true),420);
-    }}
-    onTouchEnd={reset} onTouchCancel={reset} onTouchMove={reset}
-    onLayout={e=>setViewportWidth(e.nativeEvent.layout.width)}
-    style={{flex:1,minWidth:0,height:26,justifyContent:'center',overflow:'hidden'}}>
-    <Animated.View style={[{flexDirection:'row',alignItems:'center',alignSelf:'flex-start'},motion]}>
-      <Text numberOfLines={1} onLayout={e=>setTextWidth(e.nativeEvent.layout.width)} style={[typeStyle(theme.ink,10,'700'),{flexShrink:0}]}>{title}</Text>
-      {overflows&&<Text numberOfLines={1} style={[typeStyle(theme.ink,10,'700'),{flexShrink:0,marginLeft:14}]}>{title}</Text>}
-    </Animated.View>
-  </View>;
+function FullTitle({title,theme}:{title:string,theme:Theme}){
+ return <Pressable accessibilityRole="button" accessibilityLabel={title+'の全文を表示'} onPress={()=>Alert.alert('タスク名',title,[{text:'閉じる'}])}
+   style={{flex:1,minWidth:0,height:26,justifyContent:'center'}}>
+   <Text numberOfLines={1} ellipsizeMode="tail" style={typeStyle(theme.ink,10,'700')}>{title}</Text>
+ </Pressable>;
 }
 function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{task:Task,theme:Theme,onDrop:(id:string,x:number,y:number)=>void,onOpen:()=>void,onComplete:()=>void,onPin:()=>void,onRequestDelete:()=>void}){
   const dx=useSharedValue(0),dy=useSharedValue(0),swipeX=useSharedValue(0);
@@ -505,7 +473,7 @@ function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{t
       <GestureDetector gesture={gesture}>
         <Animated.View onTouchStart={e=>e.stopPropagation()} style={[styles.taskTile,{backgroundColor:theme.bg,borderWidth:0,borderRadius:0,width:'100%',height:28,minHeight:28,paddingVertical:0,paddingHorizontal:2,flexDirection:'row',alignItems:'center',gap:3},motion]}>
           <Pressable onPress={onOpen} accessibilityLabel={task.title+'を編集'} style={{flex:1,minWidth:0,height:28,flexDirection:'row',alignItems:'center',gap:3}}>
-            <MarqueeTitle title={task.title} theme={theme}/>
+            <FullTitle title={task.title} theme={theme}/>
             <Text numberOfLines={1} style={typeStyle(theme.muted,8)}>{due} · {task.durationMin}m</Text>
           </Pressable>
           <Pressable onPress={onPin} accessibilityLabel="最上位に固定" style={{width:17,height:28,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(task.pinned?'#C7A876':theme.muted,10)}>{task.pinned?'◆':'◇'}</Text></Pressable>
@@ -526,7 +494,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
   const weekStart=addDays(focus,-focus.getDay());
   const title=mode==='gantt'?`${focus.getFullYear()}年 ${focus.getMonth()+1}月`:mode==='month'?`${focus.getFullYear()}年 ${focus.getMonth()+1}月`:mode==='week'?`${weekStart.getMonth()+1}/${weekStart.getDate()} – ${addDays(weekStart,6).getMonth()+1}/${addDays(weekStart,6).getDate()}`:`${focus.getMonth()+1}/${focus.getDate()}から7日間`;
   const selectedDate=dateKey(focus);
-  const agenda=sortTasks(shownTasks.filter(t=>!t.completed&&(t.dueDate===selectedDate||t.scheduledStart?.slice(0,10)===selectedDate))).sort((a,b)=>Number(!!b.event)-Number(!!a.event)||(a.scheduledStart||'').localeCompare(b.scheduledStart||''));
+  const agenda=sortTasks(shownTasks.filter(t=>!t.completed&&(t.dueDate===selectedDate||!!slotOnDay(t,selectedDate)))).sort((a,b)=>Number(!!b.event)-Number(!!a.event)||(slotOnDay(a,selectedDate)||'').localeCompare(slotOnDay(b,selectedDate)||''));
   const ganttItems=sortTasks(shownTasks.filter(t=>!t.completed));
   const daysInMonth=new Date(focus.getFullYear(),focus.getMonth()+1,0).getDate();
   const [ganttBodyHeight,setGanttBodyHeight]=useState(400);
@@ -547,7 +515,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
       <View style={styles.weekHeading}>{'日月火水木金土'.split('').map((x,i)=><Text key={i} style={[styles.weekLabel,{color:theme.muted}]}>{x}</Text>)}</View>
       <View style={{flexDirection:'row',flexWrap:'wrap',flex:1,minHeight:0}}>{Array.from({length:42},(_,i)=>{
         const day=addDays(first,-first.getDay()+i),key=dateKey(day);
-        const dayTasks=sortTasks(shownTasks.filter(t=>!t.completed&&(t.dueDate===key||t.scheduledStart?.slice(0,10)===key)));
+        const dayTasks=sortTasks(shownTasks.filter(t=>!t.completed&&(t.dueDate===key||!!slotOnDay(t,key))));
         const active=key===selectedDate;
         return <Pressable key={key} onPress={()=>setFocus(day)} accessibilityLabel={key+' '+dayTasks.length+'件'} style={[styles.monthDay,{backgroundColor:active?'#5879B5':key===dateKey(new Date())?theme.tint:'transparent',opacity:day.getMonth()===focus.getMonth()?1:.3,justifyContent:'center',alignItems:'center',paddingVertical:2,paddingHorizontal:2}]}>
           <Text style={typeStyle(active?'#FFFFFF':theme.ink,11,'700')}>{day.getDate()}</Text>
@@ -559,7 +527,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
     </View>}
     {mode==='week'&&<View style={{flexDirection:'row',gap:4,paddingVertical:8}}>{Array.from({length:7},(_,i)=>{
       const day=addDays(weekStart,i),key=dateKey(day);
-      const count=shownTasks.filter(t=>!t.completed&&(t.dueDate===key||t.scheduledStart?.slice(0,10)===key)).length;
+      const count=shownTasks.filter(t=>!t.completed&&(t.dueDate===key||!!slotOnDay(t,key))).length;
       return <Pressable key={i} onPress={()=>setFocus(day)} accessibilityLabel={key+' '+count+'件'} style={[styles.weekTile,{backgroundColor:key===selectedDate?theme.tint:theme.card,borderColor:key===selectedDate?'#8AABD9':theme.line}]}>
         <Text style={typeStyle(theme.muted,9)}>{'日月火水木金土'[day.getDay()]}</Text>
         <Text style={typeStyle(theme.ink,17,'800')}>{day.getDate()}</Text>
@@ -597,18 +565,15 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
             <ScrollView ref={ganttDaysRef} nestedScrollEnabled bounces={false} scrollEventThrottle={16} showsVerticalScrollIndicator={ganttItems.length>20} onScroll={e=>syncGanttY('days',e.nativeEvent.contentOffset.y)} style={{flex:1,minHeight:0}}>
             {ganttVisible.map(t=>{
               const lt=t.event?1:Math.max(1,Math.min(90,t.leadDays||1));
-              const fallbackDue=t.dueDate?parseDateKey(t.dueDate):null;
-              const start=t.event?t.scheduledStart?.slice(0,10):(t.ganttStart||t.scheduledStart?.slice(0,10)||(fallbackDue?dateKey(addDays(fallbackDue,1-lt)):null));
-              const startDate=start?parseDateKey(start):null;
+              const filledDates=new Set(t.event?(t.scheduledStart?[t.scheduledStart.slice(0,10)]:[]):workdayKeys(t.dueDate,lt));
               return <View key={t.id} style={{flexDirection:'row',height:ganttRowHeight}}>
                 {Array.from({length:daysInMonth},(_,i)=>{
                   const day=new Date(focus.getFullYear(),focus.getMonth(),i+1);
                   const key=dateKey(day);
-                  const duration=startDate?Math.round((day.getTime()-startDate.getTime())/86400000):-999;
-                  const filled=duration>=0&&duration<lt;
+                  const filled=filledDates.has(key);
                   const isWeekend=day.getDay()===0||day.getDay()===6;
-                  return <Pressable key={key} accessibilityRole="button" accessibilityLabel={`${t.title} ${key} を開始日にする`} onPress={()=>onGanttStart(t,key)} style={{width:36,height:ganttRowHeight,backgroundColor:filled?COLORS[quadrant(t,prefs)]:isWeekend?theme.bg:theme.card,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,alignItems:'flex-end',justifyContent:'flex-start'}}>
-                    {key===t.ganttStart&&<View style={{position:'absolute',top:0,bottom:0,left:0,right:0,borderWidth:2,borderColor:theme.navy}}/>}
+                  return <Pressable key={key} accessibilityRole="button" accessibilityLabel={`${t.title} ${key} を納期にする`} onPress={()=>onGanttStart(t,key)} style={{width:36,height:ganttRowHeight,backgroundColor:filled?COLORS[quadrant(t,prefs)]:isWeekend?theme.bg:theme.card,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,alignItems:'flex-end',justifyContent:'flex-start'}}>
+                    {key===t.dueDate&&<View style={{position:'absolute',top:0,bottom:0,left:0,right:0,borderWidth:1.5,borderColor:theme.navy}}/>}
                     {key===t.dueDate&&<View style={{width:5,height:5,borderRadius:3,backgroundColor:'#C78086',margin:2}}/>}
                   </Pressable>;
                 })}
@@ -630,8 +595,8 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
         <View style={{height:17,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/>
         {!t.event&&<Pressable accessibilityRole="button" accessibilityLabel={t.title+'を完了'} onPress={()=>onGanttComplete(t)} style={{height:26,width:29,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint,borderRadius:5}}><CheckGlyph/></Pressable>}
         <Pressable onPress={()=>onOpen(t)} style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:4,height:27}}>
-          <MarqueeTitle title={t.title} theme={theme}/>
-          <Text style={typeStyle(theme.muted,9)}>{t.scheduledStart?.slice(11,16)|| (t.dueDate?t.dueDate.slice(5).replace('-','/'):'―')} · {t.durationMin}m</Text>
+          <FullTitle title={t.title} theme={theme}/>
+          <Text style={typeStyle(theme.muted,9)}>{slotOnDay(t,selectedDate)?.slice(11,16)|| (t.dueDate?t.dueDate.slice(5).replace('-','/'):'―')} · {t.durationMin}m</Text>
         </Pressable>
       </View>):<View style={{minHeight:90,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(theme.muted,11)}>予定なし</Text></View>}</ScrollView>
     </View>}
