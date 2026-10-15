@@ -431,26 +431,44 @@ function AppInner(){
   </View>;
 }
 
+function CheckGlyph(){
+  return <View pointerEvents="none" style={{width:8,height:12,borderRightWidth:2.5,borderBottomWidth:2.5,borderColor:'#588F77',transform:[{rotate:'45deg'}],marginTop:-3,marginLeft:-1}}/>;
+}
 function MarqueeTitle({title,theme}:{title:string,theme:Theme}){
   const [viewportWidth,setViewportWidth]=useState(0);
   const [textWidth,setTextWidth]=useState(0);
+  const [preview,setPreview]=useState(false);
+  const holdTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const move=useSharedValue(0);
-  const shouldMove=viewportWidth>0&&textWidth>viewportWidth+3;
+  const overflows=viewportWidth>0&&textWidth>viewportWidth+3;
   useEffect(()=>{
+    cancelAnimation(move);
     move.value=0;
-    if(shouldMove){
+    if(preview&&overflows){
       move.value=withRepeat(withTiming(-(textWidth+14),{
         duration:Math.max(6500,Math.round(textWidth*58)),
         easing:Easing.linear
       }),-1,false);
     }
     return ()=>cancelAnimation(move);
-  },[shouldMove,textWidth,viewportWidth,move]);
-  const style=useAnimatedStyle(()=>({transform:[{translateX:move.value}]}));
-  return <View accessible accessibilityLabel={title} onLayout={e=>setViewportWidth(e.nativeEvent.layout.width)} style={{flex:1,minWidth:0,height:26,justifyContent:'center',overflow:'hidden'}}>
-    <Animated.View style={[{flexDirection:'row',alignItems:'center',alignSelf:'flex-start'},style]}>
+  },[preview,overflows,textWidth,viewportWidth,move]);
+  useEffect(()=>()=>{if(holdTimer.current)clearTimeout(holdTimer.current)},[]);
+  const reset=()=>{
+    if(holdTimer.current){clearTimeout(holdTimer.current);holdTimer.current=null}
+    setPreview(false);
+  };
+  const motion=useAnimatedStyle(()=>({transform:[{translateX:move.value}]}));
+  return <View accessible accessibilityLabel={title}
+    onTouchStart={()=>{
+      if(holdTimer.current)clearTimeout(holdTimer.current);
+      holdTimer.current=setTimeout(()=>setPreview(true),420);
+    }}
+    onTouchEnd={reset} onTouchCancel={reset} onTouchMove={reset}
+    onLayout={e=>setViewportWidth(e.nativeEvent.layout.width)}
+    style={{flex:1,minWidth:0,height:26,justifyContent:'center',overflow:'hidden'}}>
+    <Animated.View style={[{flexDirection:'row',alignItems:'center',alignSelf:'flex-start'},motion]}>
       <Text numberOfLines={1} onLayout={e=>setTextWidth(e.nativeEvent.layout.width)} style={[typeStyle(theme.ink,10,'700'),{flexShrink:0}]}>{title}</Text>
-      {shouldMove&&<Text numberOfLines={1} style={[typeStyle(theme.ink,10,'700'),{flexShrink:0,marginLeft:14}]}>{title}</Text>}
+      {overflows&&<Text numberOfLines={1} style={[typeStyle(theme.ink,10,'700'),{flexShrink:0,marginLeft:14}]}>{title}</Text>}
     </Animated.View>
   </View>;
 }
@@ -473,7 +491,7 @@ function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{t
   return <View style={{position:'relative',borderRadius:7,overflow:'hidden',backgroundColor:theme.bg,height:30,flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:theme.line}}>
     <Pressable accessibilityRole="button" accessibilityLabel={task.title+'を完了'} onPress={onComplete} hitSlop={{top:6,bottom:6,left:5,right:3}}
       style={{width:31,height:28,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint,zIndex:6,borderRightWidth:1,borderColor:theme.line}}>
-      <Text style={typeStyle('#588F77',16,'800')}>✓</Text>
+      <CheckGlyph/>
     </Pressable>
     <View style={{flex:1,minWidth:0,height:28,overflow:'hidden'}}>
       <Animated.View pointerEvents="none" style={[{position:'absolute',right:0,top:0,bottom:0,width:62,backgroundColor:'#B94756',alignItems:'center',justifyContent:'center'},dangerReveal]}><Text style={typeStyle('#FFFFFF',10,'800')}>削除</Text></Animated.View>
@@ -603,7 +621,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
     </View>:<View style={{flex:1,minHeight:0,marginTop:mode==='month'?5:8}}><View style={styles.flexBetween}><Text style={typeStyle(theme.ink,12,'800')}>{focus.getMonth()+1}/{focus.getDate()} の予定</Text><Text style={typeStyle(theme.muted,10)}>{agenda.length}件表示</Text></View>
       <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={agenda.length>5} style={{flex:1,minHeight:0,marginTop:5}} contentContainerStyle={{gap:5,paddingBottom:7}}>{agenda.length?agenda.map(t=><View key={t.id} style={[styles.agendaItem,{backgroundColor:theme.card,borderColor:theme.line,minHeight:28,height:28,paddingVertical:0,paddingHorizontal:4,gap:4,borderRadius:7}]}>
         <View style={{height:17,width:3,borderRadius:2,backgroundColor:COLORS[quadrant(t,prefs)]}}/>
-        {!t.event&&<Pressable accessibilityRole="button" accessibilityLabel={t.title+'を完了'} onPress={()=>onGanttComplete(t)} style={{height:26,width:29,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint,borderRadius:5}}><Text style={typeStyle('#588F77',14,'800')}>✓</Text></Pressable>}
+        {!t.event&&<Pressable accessibilityRole="button" accessibilityLabel={t.title+'を完了'} onPress={()=>onGanttComplete(t)} style={{height:26,width:29,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint,borderRadius:5}}><CheckGlyph/></Pressable>}
         <Pressable onPress={()=>onOpen(t)} style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:4,height:27}}>
           <MarqueeTitle title={t.title} theme={theme}/>
           <Text style={typeStyle(theme.muted,9)}>{t.scheduledStart?.slice(11,16)|| (t.dueDate?t.dueDate.slice(5).replace('-','/'):'―')} · {t.durationMin}m</Text>
