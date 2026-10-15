@@ -1015,7 +1015,14 @@ function workdayKeys(due,leadDays){
 }
 function inTaskWorkWindow(t,day){return !!t.due&&(t.due===day||workdayKeys(t.due,t.leadDays).includes(day))}
 function taskSlots(t){return [...new Set([...(Array.isArray(t.scheduledBlocks)?t.scheduledBlocks:[]),...(t.scheduled?[t.scheduled]:[])])].filter(s=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)).sort()}
-function setTaskSlots(t,slots){const next=[...new Set(slots)].sort();t.scheduledBlocks=next;t.scheduled=next[0]||null}
+function setTaskSlots(t,slots){
+ const next=[...new Set(slots)].sort(),previous=t.scheduledDurations||{};
+ t.scheduledBlocks=next;t.scheduled=next[0]||null;
+ t.scheduledDurations=Object.fromEntries(next.filter(slot=>Number.isInteger(previous[slot])&&previous[slot]>0).map(slot=>[slot,previous[slot]]));
+}
+function slotDuration(t,slot){const value=t.scheduledDurations?.[slot];return Number.isInteger(value)&&value>0?value:t.duration}
+function puzzleSnapshot(t){return {slots:taskSlots(t),durations:{...(t.scheduledDurations||{})}}}
+function restorePuzzleSnapshot(t,snapshot){setTaskSlots(t,snapshot.slots);t.scheduledDurations={...snapshot.durations}}
 function slotOnDay(t,day){return taskSlots(t).find(s=>s.slice(0,10)===day)||null}
 function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><button id="prevDate">‹</button><strong>${calMode==='month'?`${base.getFullYear()}年 ${base.getMonth()+1}月`:calMode==='week'?`${dayName(startWeek(base))} – ${dayName(addDays(startWeek(base),6))}`:`${base.getFullYear()}年 ${base.getMonth()+1}月`}</strong><button id="nextDate">›</button></div>`;let html=nav;if(calMode==='month'){let first=new Date(base.getFullYear(),base.getMonth(),1),start=addDays(first,-first.getDay());html+='<div class="month-box"><div class="week-labels">'+[...'日月火水木金土'].map(x=>`<div>${x}</div>`).join('')+'</div><div class="month-grid">';for(let i=0;i<42;i++){let d=addDays(start,i),k=dateKey(d),dayTasks=tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||!!slotOnDay(t,k)));html+=`<button class="day ${d.getMonth()!==base.getMonth()?'outside':''} ${sameDay(d,base)?'sel':''} ${sameDay(d,new Date())?'today':''}" data-caldate="${k}" aria-label="${k} ${dayTasks.length}件">${d.getDate()}<span class="day-dots">${sorted(dayTasks).slice(0,3).map(t=>`<i class="dot" style="background:${sameDay(d,base)?'#FFFFFF':palette[quadrant(t)]}"></i>`).join('')}</span></button>`}html+='</div></div>'+agendaHtml(base)}else if(calMode==='week'){let start=startWeek(base);html+='<div class="week-cards">';for(let i=0;i<7;i++){let d=addDays(start,i),k=dateKey(d);const count=tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||!!slotOnDay(t,k))).length;html+=`<button class="week-day ${sameDay(d,base)?'active':''}" data-caldate="${k}" aria-label="${k} ${count}件"><span>${'日月火水木金土'[d.getDay()]}</span><b>${d.getDate()}</b><em>${count}件</em></button>`}html+='</div>'+agendaHtml(base)}else{
   const days=new Date(base.getFullYear(),base.getMonth()+1,0).getDate();
@@ -1082,26 +1089,50 @@ function isConflict(start,end,omit){
  return tasks.some(t=>t.id!==omit&&!t.done&&taskSlots(t).some(slot=>{
   if(slot.slice(0,10)!==day)return false;
   const m=(+slot.slice(11,13))*60+(+slot.slice(14,16));
-  return start<m+t.duration&&end>m;
+  return start<m+slotDuration(t,slot)&&end>m;
  }));
 }
-function trySchedule(id,minutes,moveFrom=activePuzzleSlot){
+function resizePuzzleSlot(id,slot,newMinutes){
+ const t=tasks.find(t=>t.id===id);
+ if(!t||t.done||t.event||!taskSlots(t).includes(slot))return;
+ const start=(+slot.slice(11,13))*60+(+slot.slice(14,16));
+ const end=start+(start<14*60?14*60-start:20*60-start);
+ if(newMinutes<30||newMinutes%30!==0||start+newMinutes>end){flash('時間枠内で30分単位にしてください');return}
+ if(isConflict(start,start+newMinutes,id)||taskSlots(t).some(other=>{
+   if(other===slot||other.slice(0,10)!==slot.slice(0,10))return false;
+   const m=(+other.slice(11,13))*60+(+other.slice(14,16));
+   return start<m+slotDuration(t,other)&&start+newMinutes>m;
+ })){flash('ほかの予定と重なっています');return}
+ if(newMinutes===slotDuration(t,slot))return;
+ const before=puzzleSnapshot(t);
+ t.scheduledDurations={...(t.scheduledDurations||{})};
+ if(newMinutes===t.duration)delete t.scheduledDurations[slot];else t.scheduledDurations[slot]=newMinutes;
+ activePuzzle=id;activePuzzleSlot=slot;
+ save();render();haptic();flash('作業時間を変更しました');
+ setUndo('作業時間を変更しました',()=>{restorePuzzleSnapshot(t,before);save();render()});
+}
+function trySchedule(id,minutes,moveFrom=activePuzzleSlot,interaction='tap'){
  const task=tasks.find(t=>t.id===id),day=dateKey(puzzleDay);
  const previous=moveFrom&&taskSlots(task||{}).includes(moveFrom)&&moveFrom.slice(0,10)===day?moveFrom:null;
  if(!task||task.done||task.event||!inTaskWorkWindow(task,day)){flash('この日は納期・LT対象外です');return}
  if(slotOnDay(task,day)&&!previous){flash('配置済みです。タスクをタップして時間を変更してください');return}
- const dur=task.duration;
+ const dur=previous?slotDuration(task,previous):task.duration;
+ if(previous&&interaction==='tap'&&minutes>=((+previous.slice(11,13))*60+(+previous.slice(14,16)))+dur){
+  resizePuzzleSlot(id,previous,minutes+30-((+previous.slice(11,13))*60+(+previous.slice(14,16))));
+  return;
+ }
  if(minutes+dur>(minutes<14*60?14*60:20*60)){flash('ブロックが時間枠に収まりません');return}
  if(isConflict(minutes,minutes+dur,id)||taskSlots(task).some(slot=>{
     if(slot===previous||slot.slice(0,10)!==day)return false;
     const start=(+slot.slice(11,13))*60+(+slot.slice(14,16));
-    return minutes<start+dur&&minutes+dur>start;
+    return minutes<start+slotDuration(task,slot)&&minutes+dur>start;
   })){flash('ほかの予定と重なっています');return}
- const before=taskSlots(task),next=`${day}T${hhmm(minutes)}`;
+ const before=puzzleSnapshot(task),next=`${day}T${hhmm(minutes)}`;
  if(next===previous){activePuzzle=null;activePuzzleSlot=null;renderPuzzle();return}
- setTaskSlots(task,[...before.filter(slot=>slot!==previous),next]);
+ setTaskSlots(task,[...before.slots.filter(slot=>slot!==previous),next]);
+ if(previous&&dur!==task.duration)task.scheduledDurations={...(task.scheduledDurations||{}),[next]:dur};
  activePuzzle=null;activePuzzleSlot=null;save();render();haptic();flash(previous?'時間を変更しました':'予定を配置しました');
- setUndo(previous?'時間を変更しました':'予定を配置しました',()=>{setTaskSlots(task,before);save();render()});
+ setUndo(previous?'時間を変更しました':'予定を配置しました',()=>{restorePuzzleSnapshot(task,before);save();render()});
 }
 function renderPuzzle(){
  const k=dateKey(puzzleDay);
@@ -1117,8 +1148,8 @@ function renderPuzzle(){
    for(const slot of taskSlots(t).filter(x=>x.slice(0,10)===k)){
     const m=(+slot.slice(11,13))*60+(+slot.slice(14,16)),c=m<14*60?0:1;
     if(c!==col)continue;
-    const offset=(m-(c===0?8:14)*60)/360,hi=t.duration/360;
-    html+=`<div class="scheduled-chip ${activePuzzle===t.id&&activePuzzleSlot===slot?'move-selected':''}" style="top:calc(8px + (100% - 14px) * ${offset});height:calc((100% - 14px) * ${Math.min(hi,1-offset)});background:${palette[quadrant(t)]}"><button type="button" class="puzzle-scheduled-title" data-move="${t.id}" data-slot="${slot}" aria-pressed="${String(activePuzzle===t.id&&activePuzzleSlot===slot)}" aria-label="${esc(t.title)}を選択して時間変更"><strong>${esc(t.title)}</strong><small>${hhmm(m)}–${hhmm(m+t.duration)}</small></button>${t.event?'':`<button type="button" class="puzzle-done" data-puzzle-done="${t.id}" aria-label="${esc(t.title)}を完了">✓</button>`}</div>`;
+    const duration=slotDuration(t,slot),offset=(m-(c===0?8:14)*60)/360,hi=duration/360;
+    html+=`<div class="scheduled-chip ${activePuzzle===t.id&&activePuzzleSlot===slot?'move-selected':''}" style="top:calc(8px + (100% - 14px) * ${offset});height:calc((100% - 14px) * ${Math.min(hi,1-offset)});background:${palette[quadrant(t)]}"><button type="button" class="puzzle-scheduled-title" data-move="${t.id}" data-slot="${slot}" aria-pressed="${String(activePuzzle===t.id&&activePuzzleSlot===slot)}" aria-label="${esc(t.title)}を選択して時間変更"><strong>${esc(t.title)}</strong><small>${hhmm(m)}–${hhmm(m+duration)}</small></button>${t.event?'':`<button type="button" class="puzzle-done" data-puzzle-done="${t.id}" aria-label="${esc(t.title)}を完了">✓</button>`}</div>`;
    }
   }
   html+='</div>';
@@ -1137,8 +1168,8 @@ function renderPuzzle(){
  $('#removeSelected')?.addEventListener('click',()=>{
    const t=tasks.find(x=>x.id===activePuzzle),slot=activePuzzleSlot;
    if(!t||!slot)return;
-   const before=taskSlots(t);setTaskSlots(t,before.filter(s=>s!==slot));
-   activePuzzle=null;activePuzzleSlot=null;save();render();setUndo('配置を解除しました',()=>{setTaskSlots(t,before);save();render()});
+   const before=puzzleSnapshot(t);setTaskSlots(t,before.slots.filter(s=>s!==slot));
+   activePuzzle=null;activePuzzleSlot=null;save();render();setUndo('配置を解除しました',()=>{restorePuzzleSnapshot(t,before);save();render()});
  });
  $$('[data-puzzle-done]').forEach(el=>el.onclick=e=>{e.stopPropagation();completeTask(el.dataset.puzzleDone)});
  $('#puzprev').onclick=()=>changeDay(addDays(puzzleDay,-1),true);
@@ -1148,9 +1179,9 @@ function renderPuzzle(){
  $('#clearDay').onclick=()=>{
   const affected=tasks.filter(t=>!t.event&&!t.done&&inFolder(t,currentFolderId)&&!!slotOnDay(t,k));
   if(!affected.length){flash('配置なし');return}
-  const before=affected.map(t=>({t,slots:taskSlots(t)}));
+  const before=affected.map(t=>({t,snapshot:puzzleSnapshot(t)}));
   affected.forEach(t=>setTaskSlots(t,taskSlots(t).filter(x=>x.slice(0,10)!==k)));
-  save();render();setUndo('この日の配置を解除しました',()=>{before.forEach(x=>setTaskSlots(x.t,x.slots));save();render()});
+  save();render();setUndo('この日の配置を解除しました',()=>{before.forEach(x=>restorePuzzleSnapshot(x.t,x.snapshot));save();render()});
  };
 }
 function puzzleSlotAt(x,y){
@@ -1188,7 +1219,7 @@ function setupPuzzleDrag(el,oldSlot=null){
   const moved=dragged,id=oldSlot?el.dataset.move:el.dataset.puzzle,minute=puzzleSlotAt(e.clientX,e.clientY);
   start=null;clear();
   if(moved){ignoreNextClick=true;e.preventDefault();e.stopPropagation();
-   if(minute!==null)trySchedule(id,minute,oldSlot);
+   if(minute!==null)trySchedule(id,minute,oldSlot,'drag');
    else flash('時間枠内に移動してください');
   }
  };
