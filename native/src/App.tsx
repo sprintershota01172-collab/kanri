@@ -49,15 +49,17 @@ function AppInner(){
   const [toast,setToast]=useState('');const toastRef=useRef<ReturnType<typeof setTimeout>|null>(null);
   const [undo,setUndo]=useState<{label:string,fn:()=>void}|null>(null);
   const undoTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
-  const [boardPages,setBoardPages]=useState([0,0,0,0]);
+  const [boardPages,setBoardPages]=useState([0,0,0,0]);const [boardPageMap,setBoardPageMap]=useState<Record<string,number>>({});
+  const [boardViewport,setBoardViewport]=useState(Math.max(420,winHeight-195));
+  const [newTaskFolderId,setNewTaskFolderId]=useState<string|null>(null);
   const [calMode,setCalMode]=useState<Mode>('gantt');const [focus,setFocus]=useState(new Date());const [ganttPage,setGanttPage]=useState(0);
   const [puzzleDate,setPuzzleDate]=useState(new Date());const [selectedBlock,setSelectedBlock]=useState<string|null>(null);const [selectedPuzzleSlot,setSelectedPuzzleSlot]=useState<string|null>(null);const [inboxPage,setInboxPage]=useState(0);
   const groupScrollRef=useRef<ScrollView>(null),groupScrollX=useRef(0);
-  const boardRef=useRef<View>(null);const morningRef=useRef<View>(null);const afternoonRef=useRef<View>(null);const puzzleInboxRef=useRef<View>(null);
+  const boardScrollRef=useRef<ScrollView>(null),boardGridRefs=useRef<Record<string,View|null>>({});const morningRef=useRef<View>(null);const afternoonRef=useRef<View>(null);const puzzleInboxRef=useRef<View>(null);
   const [panelHeight,setPanelHeight]=useState(290);const tasksRef=useRef(tasks);const prefsRef=useRef(prefs);
   tasksRef.current=tasks;prefsRef.current=prefs;
   const theme=prefs.dark?DARK:LIGHT;
-  function addInQuadrant(index:number){setCalendarDraftDate(null);setNewQuadrant(index);setEditor('new')}
+  function addInQuadrant(index:number,folderId:string|null=workspace.folderId){setNewTaskFolderId(folderId);setCalendarDraftDate(null);setNewQuadrant(index);setEditor('new')}
 
   const toastMessage=(s:string)=>{setToast(s);if(toastRef.current)clearTimeout(toastRef.current);toastRef.current=setTimeout(()=>setToast(''),2200)};
   function remember(label:string,fn:()=>void){setUndo({label,fn});if(undoTimer.current)clearTimeout(undoTimer.current);undoTimer.current=setTimeout(()=>setUndo(null),7500)}
@@ -84,7 +86,7 @@ function AppInner(){
   },[db,loaded]);
   useEffect(()=>{if(loaded){void saveWorkspace(db,{...workspace,tab}).catch(e=>console.warn('folder state persistence',e))}},[db,workspace,tab,loaded]);
   function selectTab(next:Tab){setTab(next)}
-  function selectFolder(id:string|null){setWorkspace(p=>({...p,folderId:id,recentFolderIds:id?[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4):p.recentFolderIds}));setBoardPages([0,0,0,0])}
+  function selectFolder(id:string|null){setWorkspace(p=>({...p,folderId:id,recentFolderIds:id?[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4):p.recentFolderIds}));setBoardPages([0,0,0,0]);boardScrollRef.current?.scrollTo({y:0,animated:false})}
   function beginFolderEdit(parentId:string|null,label='子ツリー',renameId?:string){
     const target=renameId?workspace.folders.find(f=>f.id===renameId):undefined;
     setGroupAddOpen(false);setGroupActionsId(null);
@@ -100,7 +102,7 @@ function AppInner(){
       setWorkspace(p=>({...p,folders:p.folders.map(f=>f.id===id?{...f,name:trimmed}:f)}));
     }else{
       const id='folder_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-      setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId}],folderId:id,recentFolderIds:[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4)}));
+      setWorkspace(p=>({...p,folders:[...p.folders,{id,name:trimmed,parentId}],folderId:parentId??id,recentFolderIds:[id,...(p.recentFolderIds||[]).filter(x=>x!==id)].slice(0,4)}));
     }
     setNewFolderOpen(false);setFolderDraft(null);setBoardPages([0,0,0,0]);
   }
@@ -199,23 +201,32 @@ function AppInner(){
     return ()=>sub.remove();
   },[editor,renaming,leadEditor,tab]);
 
-  function moveTask(id:string,q:number){const before=tasksRef.current.find(x=>x.id===id);if(!before)return;
-    const after={...moveToQuadrant(before,q,prefsRef.current),...(prefs.mode==='group'?{folderId:['work','personal','study','other'][q]}:{})};
-    if(quadrant(before,prefsRef.current)===q){
-      const pinned=tasksRef.current.filter(t=>t.pinned&&quadrant(t,prefsRef.current)===q);
+  function moveTask(id:string,q:number,targetFolderId?:string|null){
+    const before=tasksRef.current.find(x=>x.id===id);if(!before)return;
+    const destination=targetFolderId===undefined?workspace.folderId:targetFolderId;
+    const oldFolder=folderForTask(before);
+    const sameArea=quadrant(before,prefsRef.current)===q&&oldFolder===destination;
+    let after={...moveToQuadrant(before,q,prefsRef.current),folderId:destination};
+    if(prefs.mode==='group'&&destination)after={...after,group:folderGroup(workspace.folders,destination)};
+    if(sameArea){
+      const pinned=tasksRef.current.filter(t=>t.pinned&&quadrant(t,prefsRef.current)===q&&folderForTask(t)===destination);
       const best=Math.min(0,...pinned.map(t=>t.manualOrder??0))-1;
-      void updateTask({...before,pinned:true,manualOrder:best});
+      after={...before,pinned:true,manualOrder:best};
       toastMessage('最上位に固定しました');
-    }else{void updateTask(after);toastMessage('エリアを移動しました')}
+    }else toastMessage('エリアを移動しました');
+    void updateTask(after);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     remember('移動しました',()=>{void updateTask(before)});
   }
   function boardDrop(id:string,absX:number,absY:number){
-    boardRef.current?.measureInWindow((x,y,width,height)=>{
-      if(absX<x||absX>x+width||absY<y||absY>y+height)return;
-      const q=(absY-y<height/2?0:2)+(absX-x<width/2?0:1);
-      moveTask(id,q);
-    });
+    for(const folder of boardSectionItems){
+      const key=folder.id??'__unassigned__';
+      boardGridRefs.current[key]?.measureInWindow((x,y,width,height)=>{
+        if(absX<x||absX>x+width||absY<y||absY>y+height)return;
+        const q=(absY-y<height/2?0:2)+(absX-x<width/2?0:1);
+        moveTask(id,q,folder.id);
+      });
+    }
   }
   function topPin(id:string){const t=tasksRef.current.find(t=>t.id===id);if(!t)return;
     const order=Math.min(0,...tasksRef.current.filter(x=>x.pinned).map(x=>x.manualOrder??0))-1;
@@ -325,6 +336,21 @@ function AppInner(){
   }
   for(const f of childFolders.filter(f=>f.parentId!==null))if(!groupEntries.some(g=>g.id===f.id))groupEntries.push({id:f.id,name:f.name});
 
+  const boardSectionItems:{id:string|null,name:string,depth:number}[]=[];
+  const visited=new Set<string>();
+  const appendFolder=(id:string,depth=0)=>{
+    if(visited.has(id)||depth>20)return;
+    const folder=workspace.folders.find(f=>f.id===id);
+    if(!folder)return;
+    visited.add(id);boardSectionItems.push({id,name:folder.name,depth});
+    workspace.folders.filter(f=>f.parentId===id).forEach(f=>appendFolder(f.id,depth+1));
+  };
+  if(workspace.folderId)appendFolder(workspace.folderId);
+  else workspace.folders.filter(f=>f.parentId===null).forEach(f=>appendFolder(f.id));
+  if(!workspace.folderId&&tasks.some(t=>!t.completed&&!t.event&&folderForTask(t)===null))
+    boardSectionItems.unshift({id:null,name:'未分類',depth:0});
+  if(!boardSectionItems.length)boardSectionItems.push({id:null,name:'すべて',depth:0});
+
   if(!loaded)return <View style={[styles.root,{backgroundColor:theme.bg,justifyContent:'center',alignItems:'center'}]}><Text style={typeStyle(theme.ink,28,'800')}>kanri</Text><Text style={typeStyle(theme.muted,12)}>データを準備しています</Text></View>;
   return <View style={[styles.root,{backgroundColor:theme.bg,paddingTop:insets.top}]}>
     <StatusBar barStyle={prefs.dark?'light-content':'dark-content'} backgroundColor={theme.bg}/>
@@ -363,22 +389,55 @@ function AppInner(){
           <Pressable onPress={()=>setGroupAddOpen(true)} accessibilityLabel="グループまたは子ツリーを追加" style={{minHeight:44,minWidth:62,justifyContent:'center',alignItems:'center',paddingHorizontal:5,backgroundColor:theme.tint,borderRadius:10,borderWidth:1,borderColor:theme.line}}><Text style={typeStyle(theme.ink,10,'800')}>＋ 追加</Text></Pressable>
           <Pressable onPress={()=>{setTasks(t=>[...t]);toastMessage('優先順位を再計算しました')}} accessibilityLabel="優先順位を自動整理" style={{minHeight:44,minWidth:34,justifyContent:'center',alignItems:'center',backgroundColor:theme.card,borderRadius:10,borderWidth:1,borderColor:theme.line}}><Text style={typeStyle(theme.ink,17,'800')}>↕</Text></Pressable>
         </View>
-        <View ref={boardRef} style={{flex:1,minHeight:0}}><View style={styles.board}>
-          {[0,1,2,3].map(q=>{
-            const items=sortTasks(tasks.filter(t=>!t.completed&&!t.event&&quadrant(t,prefs)===q&&belongsToFolder(t,workspace.folderId,workspace.folders)));
-            const pageSize=winHeight>=820?8:winHeight>=690?6:4;const count=Math.max(1,Math.ceil(items.length/pageSize));const page=Math.min(boardPages[q],count-1);
-            return <View key={q} style={[styles.quad,winHeight<720&&{padding:7},{backgroundColor:theme.card,borderColor:theme.line,padding:winHeight>=740?12:8}]}>
-              <Pressable accessibilityRole="button" accessibilityLabel={`${prefs.names[q]}にタスクを追加`} onPress={()=>addInQuadrant(q)} style={styles.quadHead}><Text style={typeStyle(theme.ink,11,'800')} numberOfLines={1}>{prefs.names[q]}</Text><Text style={typeStyle(theme.muted,10,'800')}>{pad(items.length)}</Text></Pressable>
-              <View style={{height:3,width:21,borderRadius:2,backgroundColor:COLORS[q],marginTop:5}}/>
-              <View style={{flex:1,minHeight:0,justifyContent:'flex-start',gap:3,marginTop:5}}>
-                <Pressable onPress={()=>addInQuadrant(q)} accessibilityLabel={`${prefs.names[q]}に新しいタスクを追加`} style={StyleSheet.absoluteFill}/>
-                {items.slice(page*pageSize,page*pageSize+pageSize).map(t=><DragTask key={t.id} task={t} theme={theme} onDrop={boardDrop} onOpen={()=>setEditor(t)} onComplete={()=>markCompleted(t)} onPin={()=>topPin(t.id)} onRequestDelete={()=>Alert.alert('タスクを削除',t.title+' を削除しますか？',[{text:'キャンセル',style:'cancel'},{text:'削除',style:'destructive',onPress:()=>void removeTask(t)}])}/>)}
-                {!items.length&&<Pressable onPress={()=>addInQuadrant(q)} style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text style={typeStyle(theme.muted,10)}>＋</Text></Pressable>}
+        <View style={{flex:1,minHeight:0}} onLayout={event=>{
+          const h=event.nativeEvent.layout.height;if(h>100&&Math.abs(boardViewport-h)>1)setBoardViewport(h);
+        }}>
+          <ScrollView ref={boardScrollRef} nestedScrollEnabled showsVerticalScrollIndicator={boardSectionItems.length>1}
+            style={{flex:1,minHeight:0}} contentContainerStyle={{gap:10,paddingBottom:10}}>
+            {boardSectionItems.map(section=><View key={section.id??'__unassigned__'} style={{height:Math.max(320,boardViewport-4),minHeight:320}}>
+              <View style={{height:25,flexDirection:'row',alignItems:'center',paddingHorizontal:7,gap:8}}>
+                <Text numberOfLines={1} style={typeStyle(theme.ink,12,'800')}>{section.name}</Text>
+                <Text style={typeStyle(theme.muted,9)}>{section.depth?'子ツリー':'グループ'}</Text>
               </View>
-              <View style={styles.pager}><Pressable disabled={!page} onPress={()=>setBoardPages(old=>old.map((v,i)=>i===q?v-1:v))}><Text style={typeStyle(theme.muted,16)}>‹</Text></Pressable><Text style={typeStyle(theme.muted,9)}>{page+1}/{count}</Text><Pressable disabled={page>=count-1} onPress={()=>setBoardPages(old=>old.map((v,i)=>i===q?v+1:v))}><Text style={typeStyle(theme.muted,16)}>›</Text></Pressable></View>
-            </View>;
-          })}
-        </View></View>
+              <View ref={element=>{boardGridRefs.current[section.id??'__unassigned__']=element}} collapsable={false}
+                style={[styles.board,{flex:1,minHeight:0,marginTop:0}]}>
+                {[0,1,2,3].map(q=>{
+                  const items=sortTasks(tasks.filter(t=>!t.completed&&!t.event&&quadrant(t,prefs)===q&&folderForTask(t)===section.id));
+                  const pageSize=winHeight>=820?8:winHeight>=690?6:4;
+                  const count=Math.max(1,Math.ceil(items.length/pageSize));
+                  const pageKey=(section.id??'__unassigned__')+':'+q;
+                  const page=Math.min(boardPageMap[pageKey]||0,count-1);
+                  return <View key={q} style={[styles.quad,winHeight<720&&{padding:7},{backgroundColor:theme.card,borderColor:theme.line,padding:winHeight>=740?12:8}]}>
+                    <Pressable accessibilityRole="button" accessibilityLabel={prefs.names[q]+'にタスクを追加'} onPress={()=>addInQuadrant(q,section.id)} style={styles.quadHead}>
+                      <Text style={typeStyle(theme.ink,11,'800')} numberOfLines={1}>{prefs.names[q]}</Text>
+                      <Text style={typeStyle(theme.muted,10,'800')}>{pad(items.length)}</Text>
+                    </Pressable>
+                    <View style={{height:3,width:21,borderRadius:2,backgroundColor:COLORS[q],marginTop:5}}/>
+                    <View style={{flex:1,minHeight:0,justifyContent:'flex-start',gap:3,marginTop:5}}>
+                      <Pressable onPress={()=>addInQuadrant(q,section.id)} accessibilityLabel={prefs.names[q]+'に新しいタスクを追加'} style={StyleSheet.absoluteFill}/>
+                      {items.slice(page*pageSize,page*pageSize+pageSize).map(t=><DragTask key={t.id} task={t} theme={theme}
+                        onDrop={boardDrop} onOpen={()=>setEditor(t)} onComplete={()=>markCompleted(t)}
+                        onPin={()=>topPin(t.id)}
+                        onRequestDelete={()=>Alert.alert('タスクを削除',t.title+' を削除しますか？',[{text:'キャンセル',style:'cancel'},{text:'削除',style:'destructive',onPress:()=>void removeTask(t)}])}/>)}
+                      {!items.length&&<Pressable onPress={()=>addInQuadrant(q,section.id)} style={{flex:1,justifyContent:'center',alignItems:'center'}}>
+                        <Text style={typeStyle(theme.muted,10)}>＋</Text>
+                      </Pressable>}
+                    </View>
+                    <View style={styles.pager}>
+                      <Pressable disabled={!page} onPress={()=>setBoardPageMap(old=>({...old,[pageKey]:Math.max(0,page-1)}))}>
+                        <Text style={typeStyle(theme.muted,16)}>‹</Text>
+                      </Pressable>
+                      <Text style={typeStyle(theme.muted,9)}>{page+1}/{count}</Text>
+                      <Pressable disabled={page>=count-1} onPress={()=>setBoardPageMap(old=>({...old,[pageKey]:Math.min(count-1,page+1)}))}>
+                        <Text style={typeStyle(theme.muted,16)}>›</Text>
+                      </Pressable>
+                    </View>
+                  </View>;
+                })}
+              </View>
+            </View>)}
+          </ScrollView>
+        </View>
         {tasks.some(t=>t.pinned)&&<View style={styles.bottomHint}><View/><Pressable onPress={()=>{tasks.forEach(t=>{if(t.pinned)void updateTask({...t,pinned:false,manualOrder:null})});toastMessage('自動順位に戻しました')}}><Text style={typeStyle('#5578BB',11,'800')}>固定を解除 ↺</Text></Pressable></View>}
       </>}
       {tab==='calendar'&&<>
@@ -508,7 +567,7 @@ function AppInner(){
       </Modal>;
     })()}
     {folderMenuOpen&&<FolderBrowserSheet theme={theme} insetTop={insets.top} folders={workspace.folders} selectedFolderId={workspace.folderId} onClose={()=>setFolderMenuOpen(false)} onSelect={selectFolder} onCreate={()=>beginFolderEdit(workspace.folderId,'子ツリー')} onDelete={deleteFolder}/>}
-    {newFolderOpen&&folderDraft&&<FolderSheet theme={theme} insetTop={insets.top} parentName={folderDraft.parentId?workspace.folders.find(f=>f.id===folderDraft.parentId)?.name||'子ツリー':'最上位グループ'} initialName={folderDraft.name||''} title={folderDraft.renameId?'名前を変更':folderDraft.label+'を追加'} onClose={()=>{setNewFolderOpen(false);setFolderDraft(null)}} onCreate={createFolder}/>}{editor&&<TaskEditor key={editor==='new'?'new':editor.id} entry={editor} initialQuadrant={newQuadrant} initialDueDate={calendarDraftDate} prefs={prefs} folders={workspace.folders} initialFolderId={workspace.folderId} theme={theme} insetTop={insets.top} height={stableEditorHeight.current} onClose={()=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null)}} onSave={data=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null);void updateTask(data);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('保存しました')}} onDelete={t=>{Keyboard.dismiss();setEditor(null);void removeTask(t);remember('タスクを削除しました',()=>{void updateTask(t,null)})}}/>}
+    {newFolderOpen&&folderDraft&&<FolderSheet theme={theme} insetTop={insets.top} parentName={folderDraft.parentId?workspace.folders.find(f=>f.id===folderDraft.parentId)?.name||'子ツリー':'最上位グループ'} initialName={folderDraft.name||''} title={folderDraft.renameId?'名前を変更':folderDraft.label+'を追加'} onClose={()=>{setNewFolderOpen(false);setFolderDraft(null)}} onCreate={createFolder}/>}{editor&&<TaskEditor key={editor==='new'?'new':editor.id} entry={editor} initialQuadrant={newQuadrant} initialDueDate={calendarDraftDate} prefs={prefs} folders={workspace.folders} initialFolderId={editor==='new'?(newTaskFolderId??workspace.folderId):workspace.folderId} theme={theme} insetTop={insets.top} height={stableEditorHeight.current} onClose={()=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null)}} onSave={data=>{Keyboard.dismiss();setEditor(null);setCalendarDraftDate(null);void updateTask(data);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('保存しました')}} onDelete={t=>{Keyboard.dismiss();setEditor(null);void removeTask(t);remember('タスクを削除しました',()=>{void updateTask(t,null)})}}/>}
 
     {eventEditor&&<EventEditor key={eventEditor==='new'?'new':eventEditor.id} entry={eventEditor} theme={theme} insetTop={insets.top} folders={workspace.folders} initialFolderId={workspace.folderId} initialDate={dateKey(focus)} onClose={()=>{Keyboard.dismiss();setEventEditor(null)}} onSave={item=>{Keyboard.dismiss();setEventEditor(null);void updateTask(item);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);toastMessage('予定を保存しました')}} onDelete={item=>{Keyboard.dismiss();setEventEditor(null);void removeTask(item)}}/>}
     {leadEditor&&<LeadTimeSheet theme={theme} insetTop={insets.top} current={prefs.leadMinutes} onClose={()=>{Keyboard.dismiss();setLeadEditor(false)}} onSave={minutes=>{Keyboard.dismiss();setLeadEditor(false);void updatePreferences({...prefs,leadMinutes:minutes})}}/>}
