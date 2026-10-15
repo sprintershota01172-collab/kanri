@@ -206,9 +206,11 @@ function AppInner(){
     const before=tasksRef.current.find(x=>x.id===id);if(!before)return;
     const destination=targetFolderId===undefined?workspace.folderId:targetFolderId;
     const oldFolder=folderForTask(before);
-    const sameArea=quadrant(before,prefsRef.current)===q&&oldFolder===destination;
-    let after={...moveToQuadrant(before,q,prefsRef.current),folderId:destination};
-    if(prefs.mode==='group'&&destination)after={...after,group:folderGroup(workspace.folders,destination)};
+    const insideAncestor=destination!==null&&belongsToFolder(before,destination,workspace.folders);
+    const resolvedFolder=insideAncestor?oldFolder:destination;
+    const sameArea=quadrant(before,prefsRef.current)===q&&oldFolder===resolvedFolder;
+    let after={...moveToQuadrant(before,q,prefsRef.current),folderId:resolvedFolder};
+    if(prefs.mode==='group'&&resolvedFolder)after={...after,group:folderGroup(workspace.folders,resolvedFolder)};
     if(sameArea){
       const pinned=tasksRef.current.filter(t=>t.pinned&&quadrant(t,prefsRef.current)===q&&folderForTask(t)===destination);
       const best=Math.min(0,...pinned.map(t=>t.manualOrder??0))-1;
@@ -394,8 +396,9 @@ function AppInner(){
           const h=event.nativeEvent.layout.height;if(h>100&&Math.abs(boardViewport-h)>1)setBoardViewport(h);
         }}>
           <ScrollView ref={boardScrollRef} nestedScrollEnabled showsVerticalScrollIndicator={boardSectionItems.length>1}
-            style={{flex:1,minHeight:0}} contentContainerStyle={{gap:10,paddingBottom:10}}>
-            {boardSectionItems.map(section=><View key={section.id??'__unassigned__'} style={{height:Math.max(320,boardViewport-4),minHeight:320}}>
+            pagingEnabled decelerationRate="fast" directionalLockEnabled bounces={false}
+            style={{flex:1,minHeight:0}} contentContainerStyle={{paddingBottom:0}}>
+            {boardSectionItems.map(section=><View key={section.id??'__unassigned__'} style={{height:Math.max(320,boardViewport),minHeight:320}}>
               <View style={{height:25,flexDirection:'row',alignItems:'center',paddingHorizontal:7,gap:8}}>
                 <Text numberOfLines={1} style={typeStyle(theme.ink,12,'800')}>{section.name}</Text>
                 <Text style={typeStyle(theme.muted,9)}>{section.depth?'子ツリー':'グループ'}</Text>
@@ -403,7 +406,7 @@ function AppInner(){
               <View ref={element=>{boardGridRefs.current[section.id??'__unassigned__']=element}} collapsable={false}
                 style={[styles.board,{flex:1,minHeight:0,marginTop:0}]}>
                 {[0,1,2,3].map(q=>{
-                  const items=sortTasks(tasks.filter(t=>!t.completed&&!t.event&&quadrant(t,prefs)===q&&folderForTask(t)===section.id));
+                  const items=sortTasks(tasks.filter(t=>!t.completed&&!t.event&&quadrant(t,prefs)===q&&(section.id===null?folderForTask(t)===null:belongsToFolder(t,section.id,workspace.folders))));
                   const pageSize=winHeight>=820?8:winHeight>=690?6:4;
                   const count=Math.max(1,Math.ceil(items.length/pageSize));
                   const pageKey=(section.id??'__unassigned__')+':'+q;
