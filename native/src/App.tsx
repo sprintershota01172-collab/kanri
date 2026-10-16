@@ -804,7 +804,7 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
             <ScrollView ref={ganttDaysRef} nestedScrollEnabled bounces={false} scrollEventThrottle={16} showsVerticalScrollIndicator={ganttItems.length>20} onScroll={e=>syncGanttY('days',e.nativeEvent.contentOffset.y)} style={{flex:1,minHeight:0}}>
             {ganttVisible.map(t=>{
               const lt=t.event?1:Math.max(1,Math.min(90,t.leadDays||1));
-              const filledDates=new Set(t.event?(t.scheduledStart?[t.scheduledStart.slice(0,10)]:[]):workdayKeys(t.dueDate,lt));
+              const filledDates=new Set(t.event?(t.scheduledStart?[t.scheduledStart.slice(0,10)]:[]):workdayKeys(t.dueDate,lt,!!t.weekendWork));
                const left=daysUntil(t.dueDate);
                const fillColor=t.event?COLORS[quadrant(t,prefs)]:left===null?'#66A889':left<0?'#D96B74':left<=2?'#E9C454':'#66A889';
               return <View key={t.id} style={{flexDirection:'row',height:ganttRowHeight}}>
@@ -813,7 +813,8 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
                   const key=dateKey(day);
                   const filled=filledDates.has(key);
                   const isWeekend=day.getDay()===0||day.getDay()===6;
-                  return <Pressable key={key} accessibilityRole="button" accessibilityLabel={`${t.title} ${key} を納期にする`} onPress={()=>onGanttStart(t,key)} style={{width:30,height:ganttRowHeight,backgroundColor:filled?fillColor:isWeekend?(prefs.dark?'#354356':'#D5DCE6'):theme.card,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,alignItems:'flex-end',justifyContent:'flex-start'}}>
+                  const disabled=isWeekend&&!t.weekendWork&&!t.event;
+                  return <Pressable key={key} disabled={disabled} accessibilityRole="button" accessibilityLabel={disabled?`${t.title} ${key} は土日対応がオフのため設定不可`:`${t.title} ${key} を納期にする`} onPress={()=>onGanttStart(t,key)} style={{width:30,height:ganttRowHeight,backgroundColor:filled?fillColor:isWeekend?(prefs.dark?'#354356':'#D5DCE6'):theme.card,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line,alignItems:'flex-end',justifyContent:'flex-start'}}>
                     {key===t.dueDate&&<View style={{position:'absolute',top:0,bottom:0,left:0,right:0,borderWidth:1.5,borderColor:theme.navy}}/>}
                     {key===t.dueDate&&<View style={{width:5,height:5,borderRadius:3,backgroundColor:'#C78086',margin:2}}/>}
                   </Pressable>;
@@ -1019,7 +1020,7 @@ function TaskEditor({entry,initialQuadrant,initialDueDate,prefs,theme,insetTop,h
   const original=entry==='new'?null:entry;
   const [title,setTitle]=useState(original?.title??'');const [important,setImportant]=useState(original?.important??(initialQuadrant===null?true:initialQuadrant<=1));const [urgent,setUrgent]=useState(original?.urgent??(initialQuadrant===null?false:initialQuadrant===0||initialQuadrant===2));
   const [group,setGroup]=useState<Group>(original?.group??(initialQuadrant===null?'プライベート':GROUPS[initialQuadrant]));
-  const [duration,setDuration]=useState(original?.durationMin??60);const [leadDays,setLeadDays]=useState(String(original?.leadDays??1));
+  const [duration,setDuration]=useState(original?.durationMin??60);const [leadDays,setLeadDays]=useState(String(original?.leadDays??1));const [weekendWork,setWeekendWork]=useState(!!original?.weekendWork);
   const [date,setDate]=useState(original?.dueDate??initialDueDate??dateKey(addDays(new Date(),1)));
   const [showDueCalendar,setShowDueCalendar]=useState(false);
   const [pin,setPin]=useState(original?.pinned??false);
@@ -1030,7 +1031,7 @@ function TaskEditor({entry,initialQuadrant,initialDueDate,prefs,theme,insetTop,h
 
   function commit(){const text=title.trim();if(!text){Alert.alert('タスク名を入力してください');return}if(date.trim()&&!parseDateKey(date.trim())){Alert.alert('日付の形式が正しくありません','YYYY-MM-DD で入力してください');return}if(!/^\d+$/.test(leadDays)||+leadDays<1||+leadDays>90){Alert.alert('LT日数は1〜90日で指定してください');return}
     const item=original?{...original}:{...createTask(text,date.trim()||null,duration,important,urgent,group)};
-    Object.assign(item,{title:text,important,urgent,group:selectedFolder?folderGroup(folders,selectedFolder):group,folderId:selectedFolder,durationMin:duration,leadDays:+leadDays,dueDate:date.trim()||null,pinned:pin,manualOrder:pin?(item.manualOrder??-1):null});
+    Object.assign(item,{title:text,important,urgent,group:selectedFolder?folderGroup(folders,selectedFolder):group,folderId:selectedFolder,durationMin:duration,leadDays:+leadDays,weekendWork,dueDate:date.trim()||null,pinned:pin,manualOrder:pin?(item.manualOrder??-1):null});
     onSave(item);
   }
   return <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={onClose}>
@@ -1052,7 +1053,11 @@ function TaskEditor({entry,initialQuadrant,initialDueDate,prefs,theme,insetTop,h
         {folderList.map(f=><Pressable key={f.id} onPress={()=>{setSelectedFolder(f.id);setGroup(folderGroup(folders,f.id))}} style={{minHeight:44,paddingHorizontal:10,justifyContent:'center',borderRadius:10,backgroundColor:selectedFolder===f.id?theme.tint:theme.bg,borderWidth:1,borderColor:selectedFolder===f.id?'#7395D3':theme.line}}><Text numberOfLines={1} style={typeStyle(theme.ink,11,'700')}>{f.name}</Text></Pressable>)}
       </ScrollView>
       <Text style={[styles.formLabel,{color:theme.muted}]}>所要時間</Text><View style={styles.formChoices}>{[30,60,90,120,180].map(n=><Chip key={n} theme={theme} title={`${n}分`} selected={n===duration} onPress={()=>setDuration(n)}/>)}</View>
-      <Text style={[styles.formLabel,{color:theme.muted}]}>ガントチャート LT（稼働日・土日を除く／1〜90）</Text><TextInput value={leadDays} onChangeText={setLeadDays} keyboardType="number-pad" style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
+      <Text style={[styles.formLabel,{color:theme.muted}]}>ガントチャート LT（作業日数／1〜90）</Text><TextInput value={leadDays} onChangeText={setLeadDays} keyboardType="number-pad" style={[styles.input,{backgroundColor:theme.bg,color:theme.ink,borderColor:theme.line}]}/>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{checked:weekendWork}} accessibilityLabel="土日対応。チェックするとガントチャートで土日も作業日に含みます" onPress={()=>setWeekendWork(value=>!value)} style={{flexDirection:'row',alignItems:'center',gap:10,marginTop:10,marginBottom:6,paddingHorizontal:12,paddingVertical:10,borderRadius:10,borderWidth:1,borderColor:weekendWork?'#7395D3':theme.line,backgroundColor:weekendWork?theme.tint:theme.bg}}>
+        <View style={{width:21,height:21,borderWidth:1.5,borderRadius:5,borderColor:weekendWork?'#506FA9':theme.muted,backgroundColor:weekendWork?'#506FA9':theme.card,alignItems:'center',justifyContent:'center'}}>{weekendWork&&<Text style={typeStyle('#FFFFFF',14,'800')}>✓</Text>}</View>
+        <View style={{flex:1}}><Text style={typeStyle(theme.ink,12,'800')}>土日対応</Text><Text style={typeStyle(theme.muted,10,'500')}>チェックすると、このタスクの土日も塗りつぶす</Text></View>
+      </Pressable>
       <Text style={[styles.formLabel,{color:theme.muted}]}>納期</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="納期をカレンダーから選ぶ" onPress={()=>{Keyboard.dismiss();setShowDueCalendar(true)}} style={[styles.input,{backgroundColor:theme.bg,borderColor:theme.line,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}]}><Text style={typeStyle(theme.ink,14,'700')}>{date||'納期なし'}</Text><Text style={typeStyle('#6F91CA',21)}>▦</Text></Pressable>
       <Text style={[styles.formLabel,{color:theme.muted}]}>MANUAL ORDER</Text><View style={styles.formChoices}><Chip theme={theme} title="◆ 手動順位を固定" selected={pin} onPress={()=>setPin(!pin)}/><Chip theme={theme} title="自動に戻す" selected={!pin} onPress={()=>setPin(false)}/></View>
