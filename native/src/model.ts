@@ -25,7 +25,8 @@ export type Task = {
   urgent: boolean;
   group: Group;
   durationMin: number;
-  leadDays?: number; // working days excluding weekends
+  leadDays?: number; // working days in the Gantt chart
+  weekendWork?: boolean; // include Saturdays and Sundays in this task's LT
   ganttStart?: string | null; // manually selected Gantt start date
   dueDate: string | null; // YYYY-MM-DD, local date, deadline 23:59
   scheduledStart: string | null; // first/legacy scheduling slot
@@ -102,17 +103,17 @@ export function timeText(minutes: number) {return `${pad(Math.floor(minutes/60))
 export function parseScheduleMinutes(start: string) {
   return Number(start.slice(11,13))*60 + Number(start.slice(14,16));
 }
-export function workdayKeys(dueDate:string|null,leadDays=1):string[]{
+export function workdayKeys(dueDate:string|null,leadDays=1,weekendWork=false):string[]{
   const due=dueDate?parseDateKey(dueDate):null;if(!due)return [];
   const count=Math.max(1,Math.min(90,Number(leadDays)||1)),keys:string[]=[];
   for(let i=0;keys.length<count&&i<140;i++){
     const date=addDays(due,-i);
-    if(date.getDay()!==0&&date.getDay()!==6)keys.push(dateKey(date));
+    if(weekendWork||(date.getDay()!==0&&date.getDay()!==6))keys.push(dateKey(date));
   }
   return keys;
 }
 export function inTaskWorkWindow(task:Task,day:string):boolean{
-  return !!task.dueDate&&(task.dueDate===day||workdayKeys(task.dueDate,task.leadDays||1).includes(day));
+  return !!task.dueDate&&workdayKeys(task.dueDate,task.leadDays||1,!!task.weekendWork).includes(day);
 }
 export function durationForSlot(task:Task,slot:string):number{
   const override=task.scheduledDurations?.[slot];
@@ -171,10 +172,10 @@ export function dueLabel(date: string|null) {
   return d===null?'期限なし':d<0?`${-d}日超過`:d===0?'今日まで':d===1?'明日まで':`${d}日後`;
 }
 
-/** Paint the LT backwards from the due date, counting working days only. */
+/** Paint each task's LT backwards from the due date, respecting its weekend setting. */
 export function ganttCellFilled(task:Task,day:string):boolean{
   if(task.event)return !!task.scheduledStart&&task.scheduledStart.slice(0,10)===day;
-  return workdayKeys(task.dueDate,task.leadDays||1).includes(day);
+  return workdayKeys(task.dueDate,task.leadDays||1,!!task.weekendWork).includes(day);
 }
 /** Seven days after completion a task leaves the recoverable trash. */
 export const COMPLETED_RETENTION_MS = 7*24*60*60*1000;
