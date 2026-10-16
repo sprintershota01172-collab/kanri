@@ -64,6 +64,19 @@ test('five-day deadline with 2 LT paints fourth and fifth (weekdays)',()=>{
  assert.equal(m.ganttCellFilled(task,'2026-11-05'),true);
  assert.equal(m.ganttCellFilled(task,'2026-11-03'),false);
 });
+test('weekend work is task-specific and only fills weekends within LT',()=>{
+ const due='2026-10-19'; // Monday
+ const weekdayOnly={...base,dueDate:due,leadDays:4,weekendWork:false};
+ const weekendEnabled={...weekdayOnly,weekendWork:true};
+ assert.equal(m.ganttCellFilled(weekdayOnly,'2026-10-18'),false);
+ assert.equal(m.ganttCellFilled(weekendEnabled,'2026-10-18'),true);
+ assert.equal(m.ganttCellFilled(weekendEnabled,'2026-10-17'),true);
+ assert.equal(m.ganttCellFilled(weekendEnabled,'2026-10-16'),true);
+ assert.equal(m.ganttCellFilled(weekendEnabled,'2026-10-15'),false);
+ assert.equal(m.ganttCellFilled(weekdayOnly,'2026-10-15'),true);
+ assert.equal(m.inTaskWorkWindow(weekdayOnly,'2026-10-18'),false);
+ assert.equal(m.inTaskWorkWindow(weekendEnabled,'2026-10-18'),true);
+});
 test('single legacy schedule does not replace due-date Gantt base',()=>{
  const task={...base,dueDate:'2026-10-16',leadDays:2,scheduledStart:'2026-10-14T10:00'};
  assert.equal(m.ganttCellFilled(task,'2026-10-15'),true);
