@@ -1357,8 +1357,8 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
     el.addEventListener('pointerup',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
     el.addEventListener('touchend',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)},{passive:false});
     el.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
-  });$('[data-gantt-done]').forEach(el=>el.onclick=()=>completeTask(el.dataset.ganttDone));
-  $('[data-gantt]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.gantt);if(!t)return;if(t.event){openEdit(t.id);return}const before={due:t.due,ganttStart:t.ganttStart};t.due=el.dataset.day;t.ganttStart=null;save();renderCalendar();haptic();setUndo('納期を変更しました',()=>{Object.assign(t,before);save();renderCalendar()})});if(calMode==='gantt'){const scroll=$('#ganttScroll'),names=$('#ganttNameBody'),days=$('#ganttDayBody');if(scroll&&names&&days){if(ganttScrollX<0){
+  });$$('[data-gantt-done]').forEach(el=>el.onclick=()=>completeTask(el.dataset.ganttDone));
+  $$('[data-gantt]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.gantt);if(!t)return;if(t.event){openEdit(t.id);return}const before={due:t.due,ganttStart:t.ganttStart};t.due=el.dataset.day;t.ganttStart=null;save();renderCalendar();haptic();setUndo('納期を変更しました',()=>{Object.assign(t,before);save();renderCalendar()})});if(calMode==='gantt'){const scroll=$('#ganttScroll'),names=$('#ganttNameBody'),days=$('#ganttDayBody');if(scroll&&names&&days){if(ganttScrollX<0){
  const today=new Date();
  const sameMonth=base.getFullYear()===today.getFullYear()&&base.getMonth()===today.getMonth();
  ganttScrollX=sameMonth?Math.max(0,(today.getDate()-2)*30):0;
