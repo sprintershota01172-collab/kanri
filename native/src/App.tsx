@@ -232,9 +232,15 @@ function AppInner(){
     }
   }
   function topPin(id:string){const t=tasksRef.current.find(t=>t.id===id);if(!t)return;
-    const order=Math.min(0,...tasksRef.current.filter(x=>x.pinned).map(x=>x.manualOrder??0))-1;
-    void updateTask({...t,pinned:true,manualOrder:order});
-    toastMessage('最上位に固定しました');
+    if(t.pinned){
+      void updateTask({...t,pinned:false,manualOrder:null});
+      toastMessage('固定を解除しました');
+    }else{
+      const order=Math.min(0,...tasksRef.current.filter(x=>x.pinned).map(x=>x.manualOrder??0))-1;
+      void updateTask({...t,pinned:true,manualOrder:order});
+      toastMessage('最上位に固定しました');
+    }
+    void Haptics.selectionAsync();
   }
   function resizePuzzleSlot(id:string,slot:string,newDuration:number){
     const task=tasksRef.current.find(t=>t.id===id);
@@ -625,7 +631,7 @@ function CheckGlyph(){
 }
 function FullTitle({title,theme}:{title:string,theme:Theme}){
  return <View style={{flex:1,minWidth:0,height:26,justifyContent:'center'}}>
-   <Text selectable={false} suppressHighlighting numberOfLines={2} ellipsizeMode="tail" style={[typeStyle(theme.ink,title.length>38?7:title.length>18?7.5:8,'700'),{lineHeight:9}]}>{title}</Text>
+   <Text selectable={false} suppressHighlighting numberOfLines={2} ellipsizeMode="tail" style={[typeStyle(theme.ink,10.5,'800'),{lineHeight:12.5}]}>{title}</Text>
  </View>;
 }
 function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{task:Task,theme:Theme,onDrop:(id:string,x:number,y:number)=>void,onOpen:()=>void,onComplete:()=>void,onPin:()=>void,onRequestDelete:()=>void}){
@@ -660,7 +666,7 @@ function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{t
               <Text style={typeStyle(theme.muted,13,'800')}>›</Text>
             </Pressable>
           </View>
-          <Pressable onPress={onPin} accessibilityLabel="最上位に固定" style={{width:17,height:28,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(task.pinned?'#C7A876':theme.muted,10)}>{task.pinned?'◆':'◇'}</Text></Pressable>
+          <Pressable onPress={onPin} accessibilityRole="button" accessibilityLabel={task.pinned?'最上位の固定を解除':'最上位に固定'} accessibilityState={{selected:!!task.pinned}} style={{width:17,height:28,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(task.pinned?'#C7A876':theme.muted,11,'800')}>{task.pinned?'◆':'◇'}</Text></Pressable>
         </Animated.View>
       </GestureDetector>
     </View>
@@ -775,16 +781,16 @@ function CalendarPanel({theme,mode,focus,setFocus,tasks,prefs,ganttPage,setGantt
     })}</View>}
     {mode==='gantt'?<View style={[styles.ganttBox,{backgroundColor:theme.card,borderColor:theme.line,padding:9}]}>
       <View style={{flexDirection:'row',flex:1,minHeight:0,alignSelf:'stretch',borderWidth:1,borderColor:theme.line,borderRadius:9,overflow:'hidden'}}>
-        <View style={{width:148,flexShrink:0,backgroundColor:theme.card,zIndex:2,height:'100%'}}>
+        <View style={{width:160,flexShrink:0,backgroundColor:theme.card,zIndex:2,height:'100%'}}>
           <View style={{height:46,justifyContent:'center',paddingLeft:7,backgroundColor:theme.tint,borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line}}>
-            <Text style={typeStyle(theme.ink,10,'800')}>タスク名　　　　　　　 LT</Text>
+            <Text style={typeStyle(theme.ink,11,'800')}>タスク名　　　　　 LT</Text>
           </View>
           <ScrollView ref={ganttNamesRef} nestedScrollEnabled scrollEventThrottle={16} bounces={false} showsVerticalScrollIndicator={ganttItems.length>20} onScroll={e=>syncGanttY('names',e.nativeEvent.contentOffset.y)} onLayout={e=>{const h=e.nativeEvent.layout.height;if(h>0&&Math.abs(ganttBodyHeight-h)>1)setGanttBodyHeight(h)}} style={{flex:1,minHeight:0}}>
           {ganttVisible.map(t=><View key={t.id} style={{height:ganttRowHeight,flexDirection:'row',alignItems:'stretch',borderRightWidth:1,borderBottomWidth:1,borderColor:theme.line}}>
-            {!t.event&&<Pressable onPress={()=>onGanttComplete(t)} accessibilityRole="button" accessibilityLabel={t.title+'を完了'} style={{width:24,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint}}><Text style={typeStyle('#70A094',14,'800')}>✓</Text></Pressable>}
+            {!t.event&&<Pressable onPress={()=>onGanttComplete(t)} accessibilityRole="button" accessibilityLabel={t.title+'を完了'} style={{width:21,alignItems:'center',justifyContent:'center',backgroundColor:theme.tint}}><Text style={typeStyle('#70A094',14,'800')}>✓</Text></Pressable>}
             <Pressable onPress={()=>onOpen(t)} style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:3,paddingHorizontal:3}}>
-              <Text numberOfLines={2} ellipsizeMode="tail" style={[typeStyle(theme.ink,7.5,'800'),{flex:1,minWidth:0,lineHeight:8.5}]}>{t.title}</Text>
-              <Text numberOfLines={1} style={[typeStyle(theme.muted,7),{width:25,textAlign:'center'}]}>{t.event?'予定':'LT '+(t.leadDays||1)}</Text>
+              <Text numberOfLines={2} ellipsizeMode="tail" style={[typeStyle(theme.ink,9.5,'800'),{flex:1,minWidth:0,lineHeight:10.25}]}>{t.title}</Text>
+              <Text numberOfLines={1} style={[typeStyle(theme.ink,8,'700'),{width:23,textAlign:'center'}]}>{t.event?'予定':'LT '+(t.leadDays||1)}</Text>
             </Pressable>
           </View>)}
           {Array.from({length:ganttBlankCount},(_,i)=><View key={'blank-name-'+i} style={{height:ganttRowHeight,backgroundColor:theme.card,borderBottomWidth:1,borderRightWidth:1,borderColor:theme.line}}/>)}
