@@ -791,6 +791,50 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
   #modal .editor-sheet input,#modal .editor-sheet select{font-size:16px!important}
   #modal .editor-sheet .due-popup{z-index:10;border-radius:17px}
 }
+
+/* v3.8.2: readability without moving text, horizontal text swipe or previews. */
+#board .task-card .static-task-title,
+#board .task-card .static-task-title.title-long,
+#board .task-card .static-task-title.title-extra-long{
+  display:-webkit-box!important; -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;
+  flex:1 1 0%!important; width:0!important; min-width:0!important;
+  height:auto!important;max-height:26px!important;
+  padding:0 1px!important;
+  overflow:hidden!important;white-space:normal!important;
+  overflow-wrap:anywhere;word-break:normal;
+  font-size:10.5px!important;line-height:12px!important;
+  font-weight:800!important;letter-spacing:0!important;
+  color:var(--ink)!important;
+  animation:none!important;transform:none!important;
+}
+#board .task-card .task-line{gap:1px!important;}
+#board .task-card .check{width:24px!important;min-width:24px!important;flex-basis:24px!important;padding:0!important;}
+#board .task-card .tiny-pin{min-width:16px!important;width:16px!important;font-size:12px!important;}
+#board .task-card .task-meta-compact{font-size:9px!important;font-weight:800!important;max-width:30px!important;letter-spacing:-.25px;color:var(--ink)!important;opacity:.82}
+#board .task-card .check .check-icon{width:17px!important;height:17px!important}
+.gantt-excel .gantt-names{width:160px!important;min-width:160px!important;flex:0 0 160px!important}
+.gantt-excel .gantt-label-complete-row .gantt-label-row{gap:2px!important;padding:0 3px!important}
+.gantt-excel .gantt-label-complete-row .gantt-label-row strong{
+  font-size:9.5px!important;line-height:10.25px!important;font-weight:800!important;
+  color:var(--ink)!important;
+  display:-webkit-box!important;-webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;overflow:hidden!important;
+  overflow-wrap:anywhere!important;white-space:normal!important;
+  min-width:0!important;
+}
+.gantt-excel .gantt-label-complete-row .gantt-lt{
+  flex:0 0 23px!important;width:23px!important;max-width:23px!important;
+  font-size:8.5px!important;font-weight:750!important;color:var(--ink)!important;
+}
+.gantt-excel .gantt-one-tap{flex:0 0 21px!important}
+@media(max-width:375px){
+  .gantt-excel .gantt-names{width:155px!important;min-width:155px!important;flex-basis:155px!important}
+  .gantt-excel .gantt-label-complete-row .gantt-label-row strong{font-size:9px!important;line-height:10px!important}
+}
+@media(max-height:700px){
+  .gantt-excel .gantt-label-complete-row .gantt-label-row strong{font-size:9px!important;line-height:10px!important}
+}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="グループまたは子ツリーを追加">＋ 追加</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
@@ -1124,14 +1168,14 @@ for(const [sectionIndex,section] of sections.entries()){
   for(let q=0;q<4;q++){const items=sorted(tasks.filter(t=>!t.done&&!t.event&&quadrant(t)===q&&(section.id===null?taskFolderId(t)===null:inFolder(t,section.id))));const pageSize=window.innerHeight>=820?8:window.innerHeight>=690?6:4;const pages=Math.max(1,Math.ceil(items.length/pageSize));
 const pageKey=(section.id??'__unassigned__')+':'+q;
 boardPageByKey[pageKey]=Math.max(0,Math.min(boardPageByKey[pageKey]||0,pages-1));
-let showing=items.slice(boardPageByKey[pageKey]*pageSize,boardPageByKey[pageKey]*pageSize+pageSize);html+=`<section class="quadrant" data-q="${q}" role="button" tabindex="0" aria-label="${esc(prefs.names[q])} にタスクを追加"><div class="quad-title"><strong>${esc(prefs.names[q])}</strong><span>${items.length.toString().padStart(2,'0')}</span></div><div class="accent" style="background:${palette[q]}"></div><div class="task-area">${showing.length?showing.map(t=>`<div class="task-wrap"><button type="button" class="task-swipe-delete" data-task-trash="${t.id}" aria-label="${esc(t.title)}を削除">削除</button><article class="task-card" data-task="${t.id}" role="button" tabindex="0" aria-label="${esc(t.title)}。タップで編集、長押ししてドラッグで移動"><div class="task-line"><button type="button" aria-label="${esc(t.title)}を完了" title="完了" class="check" data-done="${t.id}"><svg class="check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.35" opacity=".8"/><path d="M6.3 10 9 12.6 13.8 7.7" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span class="static-task-title ${t.title.length>44?'title-extra-long':t.title.length>22?'title-long':''}">${esc(t.title)}</span><span class="task-meta-compact" title="納期：${esc(t.due||'なし')}・所要時間：${t.duration}分">${esc(shortDue(t.due))}</span><button type="button" class="tiny-pin" data-top="${t.id}" aria-label="最上位に固定">${t.pin?'◆':'◇'}</button></div></article></div>`).join(''):'<div class="empty"><span aria-hidden="true">＋</span></div>'}</div><div class="pager"><button data-page-key="${esc(pageKey)}" data-dir="-1" ${boardPageByKey[pageKey]<=0?'disabled':''}>‹</button><span>${boardPageByKey[pageKey]+1}/${pages}</span><button data-page-key="${esc(pageKey)}" data-dir="1" ${boardPageByKey[pageKey]>=pages-1?'disabled':''}>›</button></div></section>`}html+='</div></section>';
+let showing=items.slice(boardPageByKey[pageKey]*pageSize,boardPageByKey[pageKey]*pageSize+pageSize);html+=`<section class="quadrant" data-q="${q}" role="button" tabindex="0" aria-label="${esc(prefs.names[q])} にタスクを追加"><div class="quad-title"><strong>${esc(prefs.names[q])}</strong><span>${items.length.toString().padStart(2,'0')}</span></div><div class="accent" style="background:${palette[q]}"></div><div class="task-area">${showing.length?showing.map(t=>`<div class="task-wrap"><button type="button" class="task-swipe-delete" data-task-trash="${t.id}" aria-label="${esc(t.title)}を削除">削除</button><article class="task-card" data-task="${t.id}" role="button" tabindex="0" aria-label="${esc(t.title)}。タップで編集、長押ししてドラッグで移動"><div class="task-line"><button type="button" aria-label="${esc(t.title)}を完了" title="完了" class="check" data-done="${t.id}"><svg class="check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.35" opacity=".8"/><path d="M6.3 10 9 12.6 13.8 7.7" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span class="static-task-title ${t.title.length>44?'title-extra-long':t.title.length>22?'title-long':''}">${esc(t.title)}</span><span class="task-meta-compact" title="納期：${esc(t.due||'なし')}・所要時間：${t.duration}分">${esc(shortDue(t.due))}</span><button type="button" class="tiny-pin" data-top="${t.id}" aria-label="${t.pin?'固定を解除':'最上位に固定'}" aria-pressed="${!!t.pin}">${t.pin?'◆':'◇'}</button></div></article></div>`).join(''):'<div class="empty"><span aria-hidden="true">＋</span></div>'}</div><div class="pager"><button data-page-key="${esc(pageKey)}" data-dir="-1" ${boardPageByKey[pageKey]<=0?'disabled':''}>‹</button><span>${boardPageByKey[pageKey]+1}/${pages}</span><button data-page-key="${esc(pageKey)}" data-dir="1" ${boardPageByKey[pageKey]>=pages-1?'disabled':''}>›</button></div></section>`}html+='</div></section>';
 }container.classList.add('tree-stack');container.innerHTML=html;container.scrollTop=previousScroll;$('#childQuickAdd').onclick=openGroupAddMenu;$$('[data-page-key]').forEach(el=>el.onclick=()=>{const key=el.dataset.pageKey;boardPageByKey[key]=(boardPageByKey[key]||0)+Number(el.dataset.dir);renderBoard()});$$('.quadrant').forEach(el=>{el.onclick=e=>{if(e.target.closest('button,.task-card'))return;openEdit(null,+el.dataset.q,null,'task',el.closest('[data-board-folder]')?.dataset.boardFolder)};el.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target===el){e.preventDefault();openEdit(null,+el.dataset.q,null,'task',el.closest('[data-board-folder]')?.dataset.boardFolder)}}});$$('.task-card').forEach(setupDrag);$$('[data-task-trash]').forEach(el=>el.onclick=e=>{e.stopPropagation();confirmTaskRemoval(el.dataset.taskTrash)});$$('[data-done]').forEach(el=>{
   el.addEventListener('pointerdown',e=>e.stopPropagation());
   el.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
   el.addEventListener('pointerup',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
   el.addEventListener('touchend',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)},{passive:false});
   el.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
-});$$('[data-top]').forEach(el=>el.addEventListener('pointerdown',e=>e.stopPropagation()));$$('[data-top]').forEach(el=>el.onclick=e=>{e.stopPropagation();const t=tasks.find(t=>t.id===el.dataset.top);if(!t)return;let pinned=tasks.filter(x=>x.pin);t.pin=true;t.rank=Math.min(0,...pinned.map(x=>x.rank??0))-1;save();render();flash('最上位に固定しました')});bindTitlePreviews()}
+});$$('[data-top]').forEach(el=>el.addEventListener('pointerdown',e=>e.stopPropagation()));$('[data-top]').forEach(el=>el.onclick=e=>{e.preventDefault();e.stopPropagation();const t=tasks.find(t=>t.id===el.dataset.top);if(!t)return;if(t.pin){t.pin=false;t.rank=null;save();render();flash('固定を解除しました')}else{const pinned=tasks.filter(x=>x.pin);t.pin=true;t.rank=Math.min(0,...pinned.map(x=>x.rank??0))-1;save();render();flash('最上位に固定しました')}haptic()});bindTitlePreviews()}
 function moveQuadrant(t,q,targetFolderId=undefined){if(prefs.mode==='group'){t.group=['仕事','プライベート','学習','その他'][q];t.folderId=['work','personal','study','other'][q]}else{t.important=q<=1;t.urgent=q===0||q===2}if(targetFolderId!==undefined){
   const destination=targetFolderId==='__unassigned__'?null:targetFolderId;
   // When dropped on an ancestor summary, preserve the specific child tree.
