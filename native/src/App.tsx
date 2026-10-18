@@ -231,17 +231,6 @@ function AppInner(){
       });
     }
   }
-  function topPin(id:string){const t=tasksRef.current.find(t=>t.id===id);if(!t)return;
-    if(t.pinned){
-      void updateTask({...t,pinned:false,manualOrder:null});
-      toastMessage('固定を解除しました');
-    }else{
-      const order=Math.min(0,...tasksRef.current.filter(x=>x.pinned).map(x=>x.manualOrder??0))-1;
-      void updateTask({...t,pinned:true,manualOrder:order});
-      toastMessage('最上位に固定しました');
-    }
-    void Haptics.selectionAsync();
-  }
   function resizePuzzleSlot(id:string,slot:string,newDuration:number){
     const task=tasksRef.current.find(t=>t.id===id);
     if(!task||task.completed||task.event||!taskSlots(task).includes(slot))return;
@@ -466,7 +455,6 @@ function AppInner(){
                       <Pressable onPress={()=>addInQuadrant(q,section.id)} accessibilityLabel={prefs.names[q]+'に新しいタスクを追加'} style={StyleSheet.absoluteFill}/>
                       {items.slice(page*pageSize,page*pageSize+pageSize).map(t=><DragTask key={t.id} task={t} theme={theme}
                         onDrop={boardDrop} onOpen={()=>setEditor(t)} onComplete={()=>markCompleted(t)}
-                        onPin={()=>topPin(t.id)}
                         onRequestDelete={()=>Alert.alert('タスクを削除',t.title+' を削除しますか？',[{text:'キャンセル',style:'cancel'},{text:'削除',style:'destructive',onPress:()=>void removeTask(t)}])}/>)}
                       {!items.length&&<Pressable onPress={()=>addInQuadrant(q,section.id)} style={{flex:1,justifyContent:'center',alignItems:'center'}}>
                         <Text style={typeStyle(theme.muted,10)}>＋</Text>
@@ -634,7 +622,7 @@ function FullTitle({title,theme}:{title:string,theme:Theme}){
    <Text selectable={false} suppressHighlighting numberOfLines={2} ellipsizeMode="tail" style={[typeStyle(theme.ink,10.5,'800'),{lineHeight:12.5}]}>{title}</Text>
  </View>;
 }
-function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{task:Task,theme:Theme,onDrop:(id:string,x:number,y:number)=>void,onOpen:()=>void,onComplete:()=>void,onPin:()=>void,onRequestDelete:()=>void}){
+function DragTask({task,theme,onDrop,onOpen,onComplete,onRequestDelete}:{task:Task,theme:Theme,onDrop:(id:string,x:number,y:number)=>void,onOpen:()=>void,onComplete:()=>void,onRequestDelete:()=>void}){
   const dx=useSharedValue(0),dy=useSharedValue(0),swipeX=useSharedValue(0);
   const gesture=useMemo(()=>{
     const drag=Gesture.Pan().activateAfterLongPress(250).minDistance(6)
@@ -661,12 +649,11 @@ function DragTask({task,theme,onDrop,onOpen,onComplete,onPin,onRequestDelete}:{t
         <Animated.View onTouchStart={e=>e.stopPropagation()} style={[styles.taskTile,{backgroundColor:theme.bg,borderWidth:0,borderRadius:0,width:'100%',height:28,minHeight:28,paddingVertical:0,paddingHorizontal:2,flexDirection:'row',alignItems:'center',gap:3},motion]}>
           <View style={{flex:1,minWidth:0,height:28,flexDirection:'row',alignItems:'center',gap:2}}>
             <FullTitle title={task.title} theme={theme}/>
-            <Text selectable={false} suppressHighlighting numberOfLines={1} style={typeStyle(theme.muted,7)}>{due}</Text>
+            <Text selectable={false} suppressHighlighting numberOfLines={1} style={[typeStyle(theme.muted,6.5,'600'),{maxWidth:25,textAlign:'right',letterSpacing:-0.3,flexShrink:0}]}>{due}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel={task.title+'を編集'} onPress={onOpen} style={{width:21,height:28,justifyContent:'center',alignItems:'center'}}>
               <Text style={typeStyle(theme.muted,13,'800')}>›</Text>
             </Pressable>
           </View>
-          <Pressable onPress={onPin} accessibilityRole="button" accessibilityLabel={task.pinned?'最上位の固定を解除':'最上位に固定'} accessibilityState={{selected:!!task.pinned}} style={{width:17,height:28,alignItems:'center',justifyContent:'center'}}><Text style={typeStyle(task.pinned?'#C7A876':theme.muted,11,'800')}>{task.pinned?'◆':'◇'}</Text></Pressable>
         </Animated.View>
       </GestureDetector>
     </View>
@@ -1066,7 +1053,7 @@ function TaskEditor({entry,initialQuadrant,initialDueDate,prefs,theme,insetTop,h
       </Pressable>
       <Text style={[styles.formLabel,{color:theme.muted}]}>納期</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="納期をカレンダーから選ぶ" onPress={()=>{Keyboard.dismiss();setShowDueCalendar(true)}} style={[styles.input,{backgroundColor:theme.bg,borderColor:theme.line,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}]}><Text style={typeStyle(theme.ink,14,'700')}>{date||'納期なし'}</Text><Text style={typeStyle('#6F91CA',21)}>▦</Text></Pressable>
-      <Text style={[styles.formLabel,{color:theme.muted}]}>MANUAL ORDER</Text><View style={styles.formChoices}><Chip theme={theme} title="◆ 手動順位を固定" selected={pin} onPress={()=>setPin(!pin)}/><Chip theme={theme} title="自動に戻す" selected={!pin} onPress={()=>setPin(false)}/></View>
+      <Text style={[styles.formLabel,{color:theme.muted}]}>MANUAL ORDER</Text><View style={styles.formChoices}><Chip theme={theme} title="手動順位を固定" selected={pin} onPress={()=>setPin(!pin)}/><Chip theme={theme} title="自動に戻す" selected={!pin} onPress={()=>setPin(false)}/></View>
       <View style={{flexDirection:'row',gap:12,marginTop:8,alignItems:'center'}}>{original&&<Pressable onPress={()=>Alert.alert('タスクを削除','このタスクを削除しますか？',[{text:'キャンセル',style:'cancel'},{text:'削除',style:'destructive',onPress:()=>onDelete(original)}])}><Text style={typeStyle('#C98087',12,'700')}>削除</Text></Pressable>}<Pressable onPress={onClose} accessibilityRole='button' accessibilityLabel='キャンセルして戻る' style={{minHeight:44,paddingHorizontal:13,justifyContent:'center',alignItems:'center',borderWidth:1,borderColor:theme.line,borderRadius:13,backgroundColor:theme.bg}}><Text style={typeStyle(theme.ink,12,'800')}>キャンセル</Text></Pressable><Pressable onPress={commit} style={[styles.primaryButton,{backgroundColor:theme.navy,minHeight:44}]}><Text style={typeStyle('#FFFFFF',12,'800')}>{original?'変更を保存':'タスクを作成'}</Text></Pressable></View>
       {showDueCalendar&&<DueCalendarPicker value={date} theme={theme} onSelect={value=>{setDate(value);setShowDueCalendar(false)}} onClose={()=>setShowDueCalendar(false)}/>}
     </Animated.View></View>
