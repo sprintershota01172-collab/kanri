@@ -870,6 +870,39 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
 @media(prefers-reduced-motion:reduce){
   #board .kanri-drag-slot{transition:none}
 }
+
+/* Native-feeling motion: compositor-only opacity and translation, no layout resizing. */
+.main{position:relative;isolation:isolate}
+#app .screen.active{animation:none!important;position:relative;z-index:1}
+#app .screen.kanri-exiting{
+  display:flex;position:absolute;inset:0;min-width:0;
+  z-index:0;pointer-events:none;overflow:hidden;
+}
+#calendarContent,#puzzleContent{position:relative;isolation:isolate}
+.kanri-day-previous{
+  position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;
+  min-height:0;min-width:0;overflow:hidden;pointer-events:none;
+}
+.kanri-day-previous.kanri-agenda-previous{
+  inset:auto 0 0;z-index:3;margin:0;
+}
+.nav-btn[data-tab]{position:relative;transition:color .28s ease}
+.nav-btn[data-tab]:after{
+  content:"";position:absolute;bottom:4px;left:50%;width:18px;height:2px;
+  border-radius:2px;background:var(--blue);
+  transform:translateX(-50%) scaleX(.15);
+  opacity:0;transition:transform .34s cubic-bezier(.16,1,.3,1),opacity .24s ease;
+  pointer-events:none;
+}
+.nav-btn[data-tab].active:after{transform:translateX(-50%) scaleX(1);opacity:1}
+.nav-btn[data-tab] svg{transition:transform .3s cubic-bezier(.16,1,.3,1)}
+.nav-btn[data-tab].active svg{transform:translateY(-2px)}
+.month-grid .day,.week-day{transition:background-color .22s ease,color .22s ease,border-color .22s ease}
+.month-grid .day.sel .dot{background:#fff!important}
+@media(prefers-reduced-motion:reduce){
+  .nav-btn[data-tab],.nav-btn[data-tab]:after,.nav-btn[data-tab] svg,
+  .month-grid .day,.week-day{transition:none!important}
+}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="グループまたは子ツリーを追加">＋ 追加</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
@@ -1036,7 +1069,130 @@ function renderQuickGroups(){
     else if(right>scroll+strip.clientWidth)strip.scrollLeft=right-strip.clientWidth+6;
   }
 }
-function navigateTab(next){const tabs=['board','calendar','puzzle','settings'];if(!tabs.includes(next))return;tab=next;saveView();render()}
+
+/* Motion ownership is explicit so rapid taps never leave ghost pages or stacked animations. */
+const MOTION_CURVE='cubic-bezier(.16,1,.3,1)';
+let viewAnimations=[];
+function reducedViewMotion(){
+  return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+function clearViewMotions(){
+  const previous=viewAnimations.splice(0);
+  previous.forEach(anim=>{try{anim.cancel?.()}catch{}});
+  $$('.screen.kanri-exiting').forEach(el=>el.classList.remove('kanri-exiting'));
+  $$('.kanri-day-previous').forEach(el=>el.remove());
+}
+function playViewMotion(el,frames,duration,onFinish,delay=0){
+  if(!el?.animate||reducedViewMotion()){onFinish?.();return null}
+  const animation=el.animate(frames,{duration,easing:MOTION_CURVE,delay,fill:'both'});
+  viewAnimations.push(animation);
+  const finish=()=>{
+    viewAnimations=viewAnimations.filter(item=>item!==animation);
+    onFinish?.();
+  };
+  animation.addEventListener('finish',finish,{once:true});
+  animation.addEventListener('cancel',finish,{once:true});
+  return animation;
+}
+function navigateTab(next){
+  const tabs=['board','calendar','puzzle','settings'];
+  if(!tabs.includes(next)||next===tab)return;
+  clearViewMotions();
+  const oldScreen=$('#'+tab+'Screen');
+  const direction=tabs.indexOf(next)>tabs.indexOf(tab)?1:-1;
+  const animated=!!oldScreen?.animate&&!reducedViewMotion();
+  if(animated)oldScreen.classList.add('kanri-exiting');
+  tab=next;saveView();render();
+  if(!animated)return;
+  const incoming=$('#'+tab+'Screen');
+  playViewMotion(oldScreen,[
+    {transform:'translate3d(0,0,0) scale(1)',opacity:1},
+    {transform:'translate3d('+(-direction*13)+'px,0,0) scale(.991)',opacity:.12}
+  ],260,()=>oldScreen.classList.remove('kanri-exiting'));
+  playViewMotion(incoming,[
+    {transform:'translate3d('+(direction*20)+'px,0,0) scale(.993)',opacity:.28},
+    {transform:'translate3d(0,0,0) scale(1)',opacity:1}
+  ],350);
+}
+/* Preserve the real outgoing DOM and animate only two GPU layers.
+   Avoid rebuilding shared app chrome on day changes. */
+function transitionDayContent(content,renderNext,direction,kind='calendar'){
+  clearViewMotions();
+  if(!content||reducedViewMotion()||!content.animate){renderNext();return}
+  const previous=document.createElement('div');
+  previous.className='kanri-day-previous';
+  while(content.firstChild)previous.appendChild(content.firstChild);
+  renderNext();
+  content.appendChild(previous);
+  const dx=direction===0?0:direction>0?14:-14;
+  playViewMotion(previous,[
+    {transform:'translate3d(0,0,0)',opacity:1},
+    {transform:'translate3d('+(-dx)+'px,0,0)',opacity:0}
+  ],245,()=>previous.remove());
+  const arriving=Array.from(content.children).filter(el=>el!==previous);
+  arriving.forEach((el,index)=>{
+    // The date label stays in its chrome; only its lettering moves.
+    const node=el.classList.contains('date-nav')?el.querySelector('strong'):el;
+    if(!node)return;
+    playViewMotion(node,[
+      {transform:'translate3d('+dx+'px,0,0)',opacity:.28},
+      {transform:'translate3d(0,0,0)',opacity:1}
+    ],330,null,index>0?12:0);
+  });
+}
+function wireAgendaOnly(agenda){
+  if(!agenda)return;
+  agenda.querySelectorAll('[data-edit]').forEach(el=>el.onclick=()=>openEdit(el.dataset.edit));
+  agenda.querySelectorAll('.agenda-check').forEach(el=>{
+    el.addEventListener('pointerdown',e=>e.stopPropagation());
+    el.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+    el.addEventListener('pointerup',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
+    el.addEventListener('touchend',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)},{passive:false});
+    el.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
+  });
+}
+function updateFocusedAgenda(day){
+  const content=$('#calendarContent'),previous=content?.querySelector(':scope > .agenda');
+  if(!previous)return false;
+  const initial=focusDay;
+  const samePeriod=calMode==='month'
+    ?initial.getFullYear()===day.getFullYear()&&initial.getMonth()===day.getMonth()
+    :calMode==='week'&&dateKey(startWeek(initial))===dateKey(startWeek(day));
+  if(!samePeriod)return false;
+  clearViewMotions();
+  focusDay=day;
+  const template=document.createElement('template');
+  template.innerHTML=agendaHtml(day);
+  const incoming=template.content.firstElementChild;
+  const oldRect=previous.getBoundingClientRect(),parentRect=content.getBoundingClientRect();
+  previous.replaceWith(incoming);
+  wireAgendaOnly(incoming);
+  content.querySelectorAll('[data-caldate]').forEach(el=>{
+    const chosen=el.dataset.caldate===dateKey(day);
+    el.classList.toggle('sel',chosen&&el.classList.contains('day'));
+    el.classList.toggle('active',chosen&&el.classList.contains('week-day'));
+    el.setAttribute('aria-pressed',String(chosen));
+  });
+  if(reducedViewMotion()||!previous.animate)return true;
+  const dx=day>initial?11:-11;
+  previous.classList.add('kanri-day-previous','kanri-agenda-previous');
+  Object.assign(previous.style,{
+    top:(oldRect.top-parentRect.top)+'px',bottom:'auto',
+    left:(oldRect.left-parentRect.left)+'px',right:'auto',
+    width:oldRect.width+'px',height:oldRect.height+'px'
+  });
+  content.appendChild(previous);
+  playViewMotion(previous,[
+    {transform:'translate3d(0,0,0)',opacity:1},
+    {transform:'translate3d('+(-dx)+'px,0,0)',opacity:0}
+  ],200,()=>previous.remove());
+  playViewMotion(incoming,[
+    {transform:'translate3d('+dx+'px,0,0)',opacity:.35},
+    {transform:'translate3d(0,0,0)',opacity:1}
+  ],310);
+  return true;
+}
+
 function read(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}}function save(){localStorage.setItem(KEY,JSON.stringify(tasks))}function savePrefs(){localStorage.setItem(PREF,JSON.stringify(prefs))}function pad(n){return String(n).padStart(2,'0')}function dateKey(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}function parseLocal(s){if(!s)return null;const [y,m,d]=s.split('-').map(Number);if(!y||!m||!d)return null;const result=new Date(y,m-1,d);return dateKey(result)===s?result:null}function sameDay(a,b){return dateKey(a)===dateKey(b)}function diffDays(d){const a=parseLocal(d);if(!a)return 999;const now=new Date();return Math.round((a.getTime()-new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime())/86400000)}function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function dayName(d){return `${d.getMonth()+1}/${d.getDate()}`}function shortDue(d){if(!d)return '―';const n=diffDays(d);return n===0?'今日':n===1?'明日':d.slice(5).replace('-','/')}function dueLabel(d){if(!d)return '期限なし';let left=diffDays(d);return left<0?`${-left}日超過`:left===0?'今日まで':left===1?'明日まで':`${left}日後`}
 function score(t){let d=diffDays(t.due);const U=d<0?1: d===999?0:1/(1+Math.max(0,d)/3);const P=((+t.important)+(+t.urgent))/2;const T=Math.min(t.duration,180)/180;return Math.round(45*U+35*P+20*T+(d<0?20:0))}function quadrant(t){if(prefs.mode==='group')return ['仕事','プライベート','学習','その他'].indexOf(t.group);return t.important?(t.urgent?0:1):(t.urgent?2:3)}function sorted(items){return [...items].sort((a,b)=>{if(a.pin!==b.pin)return a.pin?-1:1;if(a.pin&&b.pin)return (a.rank??999)-(b.rank??999);return score(b)-score(a)||new Date(a.created).getTime()-new Date(b.created).getTime()})}function isDone(t){return !!t.done}function mutate(id,patch){const t=tasks.find(t=>t.id===id);if(!t)return;Object.assign(t,patch);save();renderReordered()}function haptic(){try{navigator.vibrate?.(12)}catch{}}function flash(msg){clearTimeout(toastTimer);$('#toast').textContent=msg;$('#toast').classList.add('show');toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),1800)}function setUndo(label,fn){undoState=fn;$('#undoLabel').textContent=label;$('#undoBar').classList.add('show');clearTimeout(undoTimer);undoTimer=setTimeout(()=>{$('#undoBar').classList.remove('show');undoState=null},7000)}function undo(){if(!undoState){flash('戻せる操作はありません');return}let f=undoState;undoState=null;clearTimeout(undoTimer);$('#undoBar').classList.remove('show');f();flash('元に戻しました')}
 const TRASH_RETENTION_MS=7*24*60*60*1000;
@@ -1576,7 +1732,22 @@ function setupDrag(el){
     e.preventDefault();openEdit(el.dataset.task);
   };
 }
-function changeDay(d,forPuzzle=false){if(forPuzzle){puzzleDay=d;inboxPage=0;activePuzzle=null;activePuzzleSlot=null}else focusDay=d;render()}
+function changeDay(d,forPuzzle=false){
+  if(!d||!Number.isFinite(d.getTime()))return;
+  const previous=forPuzzle?puzzleDay:focusDay;
+  if(dateKey(previous)===dateKey(d))return;
+  if(!forPuzzle&&tab==='calendar'&&(calMode==='month'||calMode==='week')&&updateFocusedAgenda(d))return;
+  const direction=d>previous?1:-1;
+  if(forPuzzle){
+    const update=()=>{puzzleDay=d;inboxPage=0;activePuzzle=null;activePuzzleSlot=null;renderPuzzle()};
+    if(tab==='puzzle')transitionDayContent($('#puzzleContent'),update,direction,'puzzle');
+    else{update();render()}
+  }else{
+    const update=()=>{focusDay=d;renderCalendar()};
+    if(tab==='calendar')transitionDayContent($('#calendarContent'),update,direction);
+    else{update();render()}
+  }
+}
 // Deadline is inclusive. Weekend work is configured separately for each task.
 function workdayKeys(due,leadDays,weekendWork=false){
  let cursor=parseLocal(due);if(!cursor)return [];
@@ -1597,7 +1768,7 @@ function slotDuration(t,slot){const value=t.scheduledDurations?.[slot];return Nu
 function puzzleSnapshot(t){return {slots:taskSlots(t),durations:{...(t.scheduledDurations||{})}}}
 function restorePuzzleSnapshot(t,snapshot){setTaskSlots(t,snapshot.slots);t.scheduledDurations={...snapshot.durations}}
 function slotOnDay(t,day){return taskSlots(t).find(s=>s.slice(0,10)===day)||null}
-function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><button id="prevDate">‹</button><strong>${calMode==='month'?`${base.getFullYear()}年 ${base.getMonth()+1}月`:calMode==='week'?`${dayName(startWeek(base))} – ${dayName(addDays(startWeek(base),6))}`:`${base.getFullYear()}年 ${base.getMonth()+1}月`}</strong><button id="nextDate">›</button></div>`;let html=nav;if(calMode==='month'){let first=new Date(base.getFullYear(),base.getMonth(),1),start=addDays(first,-first.getDay());html+='<div class="month-box"><div class="week-labels">'+[...'日月火水木金土'].map(x=>`<div>${x}</div>`).join('')+'</div><div class="month-grid">';for(let i=0;i<42;i++){let d=addDays(start,i),k=dateKey(d),dayTasks=tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||!!slotOnDay(t,k)));html+=`<button class="day ${d.getMonth()!==base.getMonth()?'outside':''} ${sameDay(d,base)?'sel':''} ${sameDay(d,new Date())?'today':''}" data-caldate="${k}" aria-label="${k} ${dayTasks.length}件">${d.getDate()}<span class="day-dots">${sorted(dayTasks).slice(0,3).map(t=>`<i class="dot" style="background:${sameDay(d,base)?'#FFFFFF':palette[quadrant(t)]}"></i>`).join('')}</span></button>`}html+='</div></div>'+agendaHtml(base)}else if(calMode==='week'){let start=startWeek(base);html+='<div class="week-cards">';for(let i=0;i<7;i++){let d=addDays(start,i),k=dateKey(d);const count=tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||!!slotOnDay(t,k))).length;html+=`<button class="week-day ${sameDay(d,base)?'active':''}" data-caldate="${k}" aria-label="${k} ${count}件"><span>${'日月火水木金土'[d.getDay()]}</span><b>${d.getDate()}</b><em>${count}件</em></button>`}html+='</div>'+agendaHtml(base)}else{
+function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><button id="prevDate">‹</button><strong>${calMode==='month'?`${base.getFullYear()}年 ${base.getMonth()+1}月`:calMode==='week'?`${dayName(startWeek(base))} – ${dayName(addDays(startWeek(base),6))}`:`${base.getFullYear()}年 ${base.getMonth()+1}月`}</strong><button id="nextDate">›</button></div>`;let html=nav;if(calMode==='month'){let first=new Date(base.getFullYear(),base.getMonth(),1),start=addDays(first,-first.getDay());html+='<div class="month-box"><div class="week-labels">'+[...'日月火水木金土'].map(x=>`<div>${x}</div>`).join('')+'</div><div class="month-grid">';for(let i=0;i<42;i++){let d=addDays(start,i),k=dateKey(d),dayTasks=tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||!!slotOnDay(t,k)));html+=`<button class="day ${d.getMonth()!==base.getMonth()?'outside':''} ${sameDay(d,base)?'sel':''} ${sameDay(d,new Date())?'today':''}" data-caldate="${k}" aria-label="${k} ${dayTasks.length}件">${d.getDate()}<span class="day-dots">${sorted(dayTasks).slice(0,3).map(t=>`<i class="dot" style="background:${palette[quadrant(t)]}"></i>`).join('')}</span></button>`}html+='</div></div>'+agendaHtml(base)}else if(calMode==='week'){let start=startWeek(base);html+='<div class="week-cards">';for(let i=0;i<7;i++){let d=addDays(start,i),k=dateKey(d);const count=tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||!!slotOnDay(t,k))).length;html+=`<button class="week-day ${sameDay(d,base)?'active':''}" data-caldate="${k}" aria-label="${k} ${count}件"><span>${'日月火水木金土'[d.getDay()]}</span><b>${d.getDate()}</b><em>${count}件</em></button>`}html+='</div>'+agendaHtml(base)}else{
   const days=new Date(base.getFullYear(),base.getMonth()+1,0).getDate();
   const ganttRoom=$('#calendarContent').clientHeight||window.innerHeight-230;
   const rowCount=20;
@@ -1640,7 +1811,7 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
       <span class="gantt-status-legend"><span><i style="background:#66A889"></i>納期前</span><span><i style="background:#E9C454"></i>残2日以内</span><span><i style="background:#D96B74"></i>期限超過</span></span>
     </div>
   </div>`;
-}$('#calendarContent').innerHTML=html;$('#prevDate').onclick=()=>{ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(base.getFullYear(),base.getMonth()-1,Math.min(base.getDate(),28)):addDays(base,-7))};$('#nextDate').onclick=()=>{ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(base.getFullYear(),base.getMonth()+1,Math.min(base.getDate(),28)):addDays(base,7))};$$('[data-caldate]').forEach(el=>el.onclick=()=>changeDay(parseLocal(el.dataset.caldate)));$$('[data-edit]').forEach(el=>el.onclick=()=>openEdit(el.dataset.edit));
+}$('#calendarContent').innerHTML=html;$('#prevDate').onclick=()=>{const day=focusDay;ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(day.getFullYear(),day.getMonth()-1,Math.min(day.getDate(),28)):addDays(day,-7))};$('#nextDate').onclick=()=>{const day=focusDay;ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(day.getFullYear(),day.getMonth()+1,Math.min(day.getDate(),28)):addDays(day,7))};$$('[data-caldate]').forEach(el=>el.onclick=()=>changeDay(parseLocal(el.dataset.caldate)));$$('[data-edit]').forEach(el=>el.onclick=()=>openEdit(el.dataset.edit));
   $$('.agenda-check').forEach(el=>{
     el.addEventListener('pointerdown',e=>e.stopPropagation());
     el.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
@@ -2039,7 +2210,7 @@ $('.main').addEventListener('pointerup',e=>{
   const idx=tabOrder.indexOf(from.tab),next=idx+(dx<0?1:-1);
   if(next>=0&&next<tabOrder.length){navigateTab(tabOrder[next]);haptic()}
 },{passive:true});
-$('.main').addEventListener('pointercancel',()=>{tabGesture=null},{passive:true});$$('#calModes button').forEach(el=>el.onclick=()=>{calMode=el.dataset.mode;ganttPage=0;ganttScrollX=calMode==='gantt'?-1:0;ganttScrollY=0;$$('#calModes button').forEach(b=>b.classList.toggle('selected',b===el));renderCalendar()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
+$('.main').addEventListener('pointercancel',()=>{tabGesture=null},{passive:true});$$('#calModes button').forEach(el=>el.onclick=()=>{if(calMode===el.dataset.mode)return;const modes=['month','week','gantt'],direction=modes.indexOf(el.dataset.mode)>modes.indexOf(calMode)?1:-1;transitionDayContent($('#calendarContent'),()=>{calMode=el.dataset.mode;ganttPage=0;ganttScrollX=calMode==='gantt'?-1:0;ganttScrollY=0;$$('#calModes button').forEach(b=>b.classList.toggle('selected',b===el));renderCalendar()},direction)});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
   const hadController=!!navigator.serviceWorker.controller;
   let pendingReload=false,reloading=false,lastCheck=0,registration;
   function applyUpdate(){
