@@ -65,6 +65,14 @@ function pointer(el,type,x,y){
   assert.ok(slot,'placeholder appears while finger is down');
   assert.equal(slot.nextElementSibling?.dataset.reorderId,'b','slot opens before target item');
   assert.ok(shifts.some(s=>s.id==='b'&&s.frames[0].transform.includes('translate3d')),'existing item slides away before drop');
+  const count=shifts.length;
+  // Jitter at the 2nd task's midpoint must not repeatedly shift the layout.
+  for(const y of [164,170,165,174,169,172,168,175,167]){
+    pointer(card,'pointermove',70,y);
+    assert.equal(area.querySelector('.kanri-drag-slot')?.nextElementSibling?.dataset.reorderId,
+      'b','a tiny finger tremor must not change the insertion slot');
+  }
+  assert.equal(shifts.length,count,'finger tremor must not restart neighbor animations');
   assert.equal(JSON.parse(dom.window.localStorage.getItem('kanri_v1_tasks')).find(t=>t.id==='c').rank,2,'no save during hover');
   pointer(card,'pointerup',70,157);
   assert.deepEqual(visibleOrder(0),['a','c','b'],'drop persists insertion between neighbors');
