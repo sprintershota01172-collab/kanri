@@ -27,12 +27,12 @@ jobs:
       - name: Install Web UI test dependencies
         working-directory: web
         run: npm install --no-audit --no-fund
-      - name: Test folder UI and gestures
-        working-directory: web
-        run: npm run test:ui
       - name: Verify animated task and Gantt reordering
         working-directory: web
         run: node scripts/test-reorder.cjs
+      - name: Test folder UI and gestures
+        working-directory: web
+        run: npm run test:ui
       - name: Validate generated Excel workbook
         run: node web/scripts/test-export.cjs
       - name: Validate calendar picking and schedule display
