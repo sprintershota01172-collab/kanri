@@ -18,7 +18,8 @@ function click(doc,s){q(doc,s).click()}
 function pointer(win,el,type,x,y){const e=new win.MouseEvent(type,{bubbles:true,clientX:x,clientY:y,button:0});Object.defineProperty(e,'pointerId',{value:1});Object.defineProperty(e,'pointerType',{value:'touch'});if(typeof el['on'+type]==='function'){Object.defineProperty(e,'target',{value:el});el['on'+type](e)}else el.dispatchEvent(e)}
 let dom=start(),d=dom.window.document;
 assert.equal(d.querySelectorAll('.folder-tile').length,0,'folders must not occupy board at rest');
-assert.equal(d.querySelectorAll('.quadrant').length,4,'original four-quadrant board retained');
+assert.ok(d.querySelectorAll('.tree-board-grid').length>=1,'folder-based board renders at least one section');
+assert.ok([...d.querySelectorAll('.tree-board-grid')].every(grid=>grid.querySelectorAll('.quadrant').length===4),'every group and child tree retains four quadrants');
 assert.ok(!d.querySelector('.folder-browser'),'no persistent folder bar');
 click(d,'#folderMenuButton');
 assert.equal(d.querySelectorAll('.folder-tile').length,4,'folder roots in on-demand menu');
