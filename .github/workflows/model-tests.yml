@@ -33,6 +33,9 @@ jobs:
       - name: Verify live drag insertion and neighbor shifting
         working-directory: web
         run: node scripts/test-live-drag.cjs
+      - name: Verify silky tab and day transitions
+        working-directory: web
+        run: node scripts/test-view-motion.cjs
       - name: Test folder UI and gestures
         working-directory: web
         run: npm run test:ui
