@@ -117,7 +117,7 @@ export function inTaskWorkWindow(task:Task,day:string):boolean{
 }
 export function durationForSlot(task:Task,slot:string):number{
   const override=task.scheduledDurations?.[slot];
-  return Number.isInteger(override)&&override>0?override:task.durationMin;
+  return typeof override==='number'&&Number.isInteger(override)&&override>0?override:task.durationMin;
 }
 export function withSlotDuration(task:Task,slot:string,minutes:number):Task{
   const durations={...(task.scheduledDurations||{})};
