@@ -1066,9 +1066,9 @@ function render(){document.getElementById('app').classList.toggle('dark',prefs.d
    the painted elements from their previous positions. No delayed data updates. */
 const REORDER_EASE='cubic-bezier(.22,1,.36,1)',REORDER_MS=420;
 function reorderElements(){
-  if(tab==='board')return $('#board .task-wrap[data-reorder-id]');
+  if(tab==='board')return $$('#board .task-wrap[data-reorder-id]');
   if(tab==='calendar'&&calMode==='gantt')
-    return $('#calendarContent .gantt-label-complete-row[data-reorder-id],#calendarContent .gantt-task-row[data-reorder-id]');
+    return $$('#calendarContent .gantt-label-complete-row[data-reorder-id],#calendarContent .gantt-task-row[data-reorder-id]');
   return [];
 }
 function reorderIdentity(node){
