@@ -1125,6 +1125,7 @@ function animateReorder(before){
     // non-interactive copy travels above the grid instead of teleporting.
     if(next.kind==='board'&&moved&&(old.quadrant!==next.quadrant||old.folder!==next.folder)&&node.animate){
       const flyer=old.node.cloneNode(true);
+      flyer.classList.remove('kanri-task-drag-ghost');
       flyer.style.position='fixed';
       flyer.style.left=old.rect.left+'px';flyer.style.top=old.rect.top+'px';
       flyer.style.width=old.rect.width+'px';flyer.style.height=old.rect.height+'px';
@@ -1383,7 +1384,7 @@ function setupDrag(el){
     wrap.classList.add('drag-origin-hidden');
     wrap.style.display='none';
     preview={area:originArea,index:Array.from(originArea.children).filter(n=>n.classList.contains('task-wrap')&&n!==wrap&&
-      (n.compareDocumentPosition(placeholder)&Node.DOCUMENT_POSITION_PRECEDING)).length};
+      (n.compareDocumentPosition(placeholder)&Node.DOCUMENT_POSITION_FOLLOWING)).length};
   };
   const siblingsIn=area=>Array.from(area.children).filter(n=>n.classList.contains('task-wrap')&&n!==wrap);
   function movePreview(target,y){
