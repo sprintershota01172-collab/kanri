@@ -1079,7 +1079,7 @@ function reducedViewMotion(){
 function clearViewMotions(){
   const previous=viewAnimations.splice(0);
   previous.forEach(anim=>{try{anim.cancel?.()}catch{}});
-  $$('.screen.kanri-exiting').forEach(el=>el.classList.remove('kanri-exiting'));
+  $$('.screen.kanri-exiting').forEach(el=>{el.classList.remove('kanri-exiting');el.inert=false;el.removeAttribute('aria-hidden')});
   $$('.kanri-day-previous').forEach(el=>el.remove());
 }
 function playViewMotion(el,frames,duration,onFinish,delay=0){
@@ -1101,14 +1101,14 @@ function navigateTab(next){
   const oldScreen=$('#'+tab+'Screen');
   const direction=tabs.indexOf(next)>tabs.indexOf(tab)?1:-1;
   const animated=!!oldScreen?.animate&&!reducedViewMotion();
-  if(animated)oldScreen.classList.add('kanri-exiting');
+  if(animated){oldScreen.classList.add('kanri-exiting');oldScreen.inert=true;oldScreen.setAttribute('aria-hidden','true')}
   tab=next;saveView();render();
   if(!animated)return;
   const incoming=$('#'+tab+'Screen');
   playViewMotion(oldScreen,[
     {transform:'translate3d(0,0,0) scale(1)',opacity:1},
     {transform:'translate3d('+(-direction*13)+'px,0,0) scale(.991)',opacity:.12}
-  ],260,()=>oldScreen.classList.remove('kanri-exiting'));
+  ],260,()=>{oldScreen.classList.remove('kanri-exiting');oldScreen.inert=false;oldScreen.removeAttribute('aria-hidden')});
   playViewMotion(incoming,[
     {transform:'translate3d('+(direction*20)+'px,0,0) scale(.993)',opacity:.28},
     {transform:'translate3d(0,0,0) scale(1)',opacity:1}
@@ -1122,6 +1122,10 @@ function transitionDayContent(content,renderNext,direction,kind='calendar'){
   const previous=document.createElement('div');
   previous.className='kanri-day-previous';
   while(content.firstChild)previous.appendChild(content.firstChild);
+  // The outgoing picture is not an interactive second screen. Removing IDs
+  // also prevents duplicate #nextDate / #prevDate targets during rapid taps.
+  previous.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+  previous.inert=true;previous.setAttribute('aria-hidden','true');
   renderNext();
   content.appendChild(previous);
   const dx=direction===0?0:direction>0?14:-14;
@@ -1176,6 +1180,7 @@ function updateFocusedAgenda(day){
   if(reducedViewMotion()||!previous.animate)return true;
   const dx=day>initial?11:-11;
   previous.classList.add('kanri-day-previous','kanri-agenda-previous');
+  previous.inert=true;previous.setAttribute('aria-hidden','true');
   Object.assign(previous.style,{
     top:(oldRect.top-parentRect.top)+'px',bottom:'auto',
     left:(oldRect.left-parentRect.left)+'px',right:'auto',
