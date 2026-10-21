@@ -214,7 +214,7 @@ function AppInner(){
     if(sameArea){
       const pinned=tasksRef.current.filter(t=>t.pinned&&quadrant(t,prefsRef.current)===q&&folderForTask(t)===destination);
       const best=Math.min(0,...pinned.map(t=>t.manualOrder??0))-1;
-      after={...before,pinned:true,manualOrder:best};
+      after={...before,folderId:resolvedFolder,pinned:true,manualOrder:best};
       toastMessage('最上位に固定しました');
     }else toastMessage('エリアを移動しました');
     void updateTask(after);
