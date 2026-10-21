@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; connect-src 'none'">
+<title>データ移行・バックアップ</title><style>body{font:16px/1.65 system-ui,sans-serif;background:#f7f5f0;color:#26303b;margin:0;padding:24px}main{max-width:560px;margin:32px auto}section{background:white;border-radius:20px;padding:24px;box-shadow:0 4px 24px #0001}h1{font-size:24px}button{padding:13px 18px;margin:8px 8px 8px 0;background:#243746;color:white;border:0;border-radius:12px;font-size:15px}button:focus{outline:3px solid #70a0ce}p,small{color:#485565}input{margin-top:12px;max-width:100%}#status{white-space:pre-wrap;overflow-wrap:anywhere}</style></head>
+<body><main><section><h1>データのバックアップと移行</h1><p>このページはブラウザ内の指定データだけを読み書きします。ネットワーク送信しません。移行前の旧URLで保存し、新URLで読み込んでください。</p>
+<button id="export" type="button">JSONバックアップを保存</button>
+<p><label>バックアップを復元する<br><input type="file" id="file" accept=".json,application/json"></label></p>
+<p><small>復元すると対象のローカルデータを上書きします。他のタブでアプリを開かず、復元後にアプリを開いてください。バックアップには個人情報が含まれます。</small></p><p id="status" role="status"></p></section></main>
+<script>
+(()=>{'use strict'; const config={"app":"kanri","keys":["kanri_v1_tasks","kanri_v1_prefs","kanri_v2_folders","kanri_v2_view","kanri_recent_folders"]};
+const status=document.getElementById('status');
+const output=(message)=>{status.textContent=message;};
+document.getElementById('export').onclick=()=>{
+ const records=Object.create(null);
+ for(const key of config.keys){const value=localStorage.getItem(key);if(value!==null)records[key]=value;}
+ if(Object.keys(records).length===0){output('保存されたデータがありません。旧アプリと同じURL・ブラウザで開いてください。');return;}
+ const data={format:1,app:config.app,exportedAt:new Date().toISOString(),records};
+ const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+ const a=document.createElement('a');a.href=url;a.download=config.app+'-backup-'+new Date().toISOString().slice(0,10)+'.json';
+ document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+ output(Object.keys(records).length+'項目を保存しました。ファイルは第三者と共有しないでください。');
+};
+document.getElementById('file').onchange=async event=>{
+ const file=event.target.files?.[0];if(!file)return;
+ try{
+  if(file.size>10*1024*1024)throw Error('バックアップが10MBを超えています。');
+  const data=JSON.parse(await file.text());
+  if(data.format!==1||data.app!==config.app||!data.records||typeof data.records!=='object'||Array.isArray(data.records))throw Error('このアプリのバックアップではありません。');
+  const entries=Object.entries(data.records);
+  if(!entries.length||entries.some(([key,value])=>!config.keys.includes(key)||typeof value!=='string'))throw Error('バックアップ内容が不正です。');
+  if(!confirm('バックアップの'+entries.length+'項目をこの端末へ復元します。現在の該当データは上書きされます。続行しますか？'))return;
+  for(const [key,value]of entries)localStorage.setItem(key,value);
+  output('復元しました。アプリのトップページに戻ってください。');
+ }catch(error){output('復元できません: '+error.message)}
+ finally{event.target.value='';}
+};
+})();
+</script></body></html>
