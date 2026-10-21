@@ -1022,7 +1022,7 @@ function renderQuickGroups(){
 }
 function navigateTab(next){const tabs=['board','calendar','puzzle','settings'];if(!tabs.includes(next))return;tab=next;saveView();render()}
 function read(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}}function save(){localStorage.setItem(KEY,JSON.stringify(tasks))}function savePrefs(){localStorage.setItem(PREF,JSON.stringify(prefs))}function pad(n){return String(n).padStart(2,'0')}function dateKey(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}function parseLocal(s){if(!s)return null;const [y,m,d]=s.split('-').map(Number);if(!y||!m||!d)return null;const result=new Date(y,m-1,d);return dateKey(result)===s?result:null}function sameDay(a,b){return dateKey(a)===dateKey(b)}function diffDays(d){const a=parseLocal(d);if(!a)return 999;const now=new Date();return Math.round((a.getTime()-new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime())/86400000)}function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function dayName(d){return `${d.getMonth()+1}/${d.getDate()}`}function shortDue(d){if(!d)return '―';const n=diffDays(d);return n===0?'今日':n===1?'明日':d.slice(5).replace('-','/')}function dueLabel(d){if(!d)return '期限なし';let left=diffDays(d);return left<0?`${-left}日超過`:left===0?'今日まで':left===1?'明日まで':`${left}日後`}
-function score(t){let d=diffDays(t.due);const U=d<0?1: d===999?0:1/(1+Math.max(0,d)/3);const P=((+t.important)+(+t.urgent))/2;const T=Math.min(t.duration,180)/180;return Math.round(45*U+35*P+20*T+(d<0?20:0))}function quadrant(t){if(prefs.mode==='group')return ['仕事','プライベート','学習','その他'].indexOf(t.group);return t.important?(t.urgent?0:1):(t.urgent?2:3)}function sorted(items){return [...items].sort((a,b)=>{if(a.pin!==b.pin)return a.pin?-1:1;if(a.pin&&b.pin)return (a.rank??999)-(b.rank??999);return score(b)-score(a)||new Date(a.created).getTime()-new Date(b.created).getTime()})}function isDone(t){return !!t.done}function mutate(id,patch){const t=tasks.find(t=>t.id===id);if(!t)return;Object.assign(t,patch);save();render()}function haptic(){try{navigator.vibrate?.(12)}catch{}}function flash(msg){clearTimeout(toastTimer);$('#toast').textContent=msg;$('#toast').classList.add('show');toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),1800)}function setUndo(label,fn){undoState=fn;$('#undoLabel').textContent=label;$('#undoBar').classList.add('show');clearTimeout(undoTimer);undoTimer=setTimeout(()=>{$('#undoBar').classList.remove('show');undoState=null},7000)}function undo(){if(!undoState){flash('戻せる操作はありません');return}let f=undoState;undoState=null;clearTimeout(undoTimer);$('#undoBar').classList.remove('show');f();flash('元に戻しました')}
+function score(t){let d=diffDays(t.due);const U=d<0?1: d===999?0:1/(1+Math.max(0,d)/3);const P=((+t.important)+(+t.urgent))/2;const T=Math.min(t.duration,180)/180;return Math.round(45*U+35*P+20*T+(d<0?20:0))}function quadrant(t){if(prefs.mode==='group')return ['仕事','プライベート','学習','その他'].indexOf(t.group);return t.important?(t.urgent?0:1):(t.urgent?2:3)}function sorted(items){return [...items].sort((a,b)=>{if(a.pin!==b.pin)return a.pin?-1:1;if(a.pin&&b.pin)return (a.rank??999)-(b.rank??999);return score(b)-score(a)||new Date(a.created).getTime()-new Date(b.created).getTime()})}function isDone(t){return !!t.done}function mutate(id,patch){const t=tasks.find(t=>t.id===id);if(!t)return;Object.assign(t,patch);save();renderReordered()}function haptic(){try{navigator.vibrate?.(12)}catch{}}function flash(msg){clearTimeout(toastTimer);$('#toast').textContent=msg;$('#toast').classList.add('show');toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),1800)}function setUndo(label,fn){undoState=fn;$('#undoLabel').textContent=label;$('#undoBar').classList.add('show');clearTimeout(undoTimer);undoTimer=setTimeout(()=>{$('#undoBar').classList.remove('show');undoState=null},7000)}function undo(){if(!undoState){flash('戻せる操作はありません');return}let f=undoState;undoState=null;clearTimeout(undoTimer);$('#undoBar').classList.remove('show');f();flash('元に戻しました')}
 const TRASH_RETENTION_MS=7*24*60*60*1000;
 function expireCompletedTasks(){
   const now=Date.now();let changed=false;
@@ -1059,6 +1059,88 @@ function openTrash(){
   $$('[data-remove-forever]').forEach(el=>el.onclick=()=>{const id=el.dataset.removeForever;const item=tasks.find(t=>t.id===id);if(!item)return;closeModal();confirmAction('完全に削除',item.title+' を完全に削除しますか？ この操作は取り消せません。',()=>{tasks=tasks.filter(t=>t.id!==id);save();render();flash('完全に削除しました')})});
 }
 function render(){document.getElementById('app').classList.toggle('dark',prefs.dark);let n=new Date();$('#todayText').textContent=`${n.getMonth()+1}/${n.getDate()} ${'日月火水木金土'[n.getDay()]}`; $$('.nav-btn[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.screen').forEach(el=>el.classList.toggle('active',el.id===tab+'Screen'));if(tab==='board')renderBoard();if(tab==='calendar')renderCalendar();if(tab==='puzzle')renderPuzzle();if(tab==='settings')renderSettings()}
+
+
+/* Preserve visual continuity when priority/due changes rebuild sorted rows.
+   FLIP: record old bounds, render the real new order immediately, then animate
+   the painted elements from their previous positions. No delayed data updates. */
+const REORDER_EASE='cubic-bezier(.22,1,.36,1)',REORDER_MS=420;
+function reorderElements(){
+  if(tab==='board')return $('#board .task-wrap[data-reorder-id]');
+  if(tab==='calendar'&&calMode==='gantt')
+    return $('#calendarContent .gantt-label-complete-row[data-reorder-id],#calendarContent .gantt-task-row[data-reorder-id]');
+  return [];
+}
+function reorderIdentity(node){
+  const id=node.dataset.reorderId||'';
+  const kind=tab==='board'?'board':node.classList.contains('gantt-task-row')?'dates':'names';
+  const folder=tab==='board'?(node.closest('[data-board-folder]')?.dataset.boardFolder||''):'';
+  const quadrant=tab==='board'?(node.closest('.quadrant')?.dataset.q||''):'';
+  return {id,kind,folder,quadrant,key:kind+'|'+folder+'|'+quadrant+'|'+id};
+}
+function captureReorder(){
+  const nodes=reorderElements();
+  if(!nodes.length)return null;
+  return {view:tab+'/'+calMode,items:nodes.map(node=>{
+    const rect=node.getBoundingClientRect();
+    return {...reorderIdentity(node),node,rect:{left:rect.left,top:rect.top,width:rect.width,height:rect.height},due:node.dataset.reorderDue||''};
+  })};
+}
+function animateReorder(before){
+  if(!before||before.view!==tab+'/'+calMode||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+  const after=reorderElements();
+  if(!after.length)return;
+  const byKey=new Map(before.items.map(item=>[item.key,item]));
+  for(const node of after){
+    const next=reorderIdentity(node);
+    const to=node.getBoundingClientRect();
+    let old=byKey.get(next.key);
+    if(!old){
+      const alternatives=before.items.filter(item=>item.id===next.id&&item.kind===next.kind);
+      alternatives.sort((a,b)=>
+        Math.hypot(a.rect.left-to.left,a.rect.top-to.top)-Math.hypot(b.rect.left-to.left,b.rect.top-to.top));
+      old=alternatives[0];
+    }
+    if(!old)continue;
+    const dx=old.rect.left-to.left,dy=old.rect.top-to.top;
+    const moved=Math.hypot(dx,dy)>1.5,changed=old.due!==(node.dataset.reorderDue||'');
+    if(!moved&&!changed)continue;
+    // Moving between quadrants would be clipped by the grid. A temporary,
+    // non-interactive copy travels above the grid instead of teleporting.
+    if(next.kind==='board'&&moved&&(old.quadrant!==next.quadrant||old.folder!==next.folder)&&node.animate){
+      const flyer=old.node.cloneNode(true);
+      flyer.style.position='fixed';
+      flyer.style.left=old.rect.left+'px';flyer.style.top=old.rect.top+'px';
+      flyer.style.width=old.rect.width+'px';flyer.style.height=old.rect.height+'px';
+      flyer.style.margin='0';flyer.style.zIndex='1100';flyer.style.pointerEvents='none';
+      flyer.style.transform='none';flyer.style.opacity='1';
+      $('#app').appendChild(flyer);
+      node.style.opacity='0';
+      const cleanup=()=>{flyer.remove();if(node.isConnected)node.style.opacity='';};
+      const flight=flyer.animate([
+        {transform:'translate3d(0,0,0)',opacity:1},
+        {transform:'translate3d('+(to.left-old.rect.left)+'px,'+(to.top-old.rect.top)+'px,0)',opacity:.92}
+      ],{duration:REORDER_MS,easing:REORDER_EASE});
+      flight.addEventListener('finish',cleanup,{once:true});
+      flight.addEventListener('cancel',cleanup,{once:true});
+      continue;
+    }
+    if(!node.animate)continue;
+    node.style.willChange='transform';
+    const movement=node.animate([
+      {transform:'translate3d('+dx+'px,'+dy+'px,0)',opacity:changed?.86:1},
+      {transform:'translate3d(0,0,0)',opacity:1}
+    ],{duration:moved?REORDER_MS:260,easing:REORDER_EASE});
+    const cleanup=()=>{if(node.isConnected)node.style.willChange='';};
+    movement.addEventListener('finish',cleanup,{once:true});
+    movement.addEventListener('cancel',cleanup,{once:true});
+  }
+}
+function renderReordered(){
+  const previous=captureReorder();
+  render();
+  animateReorder(previous);
+}
 
 function closeSwipeItems(except=null){$$('.task-wrap,.folder-wrap').forEach(w=>{if(w===except)return;const card=w.querySelector('.task-card,.folder-tile');if(card){card.style.transform='';w.classList.remove('revealed','swiping')}})}
 function confirmAction(title,message,onConfirm){
@@ -1187,7 +1269,7 @@ for(const [sectionIndex,section] of sections.entries()){
   for(let q=0;q<4;q++){const items=sorted(tasks.filter(t=>!t.done&&!t.event&&quadrant(t)===q&&(section.id===null?taskFolderId(t)===null:inFolder(t,section.id))));const pageSize=window.innerHeight>=820?8:window.innerHeight>=690?6:4;const pages=Math.max(1,Math.ceil(items.length/pageSize));
 const pageKey=(section.id??'__unassigned__')+':'+q;
 boardPageByKey[pageKey]=Math.max(0,Math.min(boardPageByKey[pageKey]||0,pages-1));
-let showing=items.slice(boardPageByKey[pageKey]*pageSize,boardPageByKey[pageKey]*pageSize+pageSize);html+=`<section class="quadrant" data-q="${q}" role="button" tabindex="0" aria-label="${esc(prefs.names[q])} にタスクを追加"><div class="quad-title"><strong>${esc(prefs.names[q])}</strong><span>${items.length.toString().padStart(2,'0')}</span></div><div class="accent" style="background:${palette[q]}"></div><div class="task-area">${showing.length?showing.map(t=>`<div class="task-wrap"><button type="button" class="task-swipe-delete" data-task-trash="${t.id}" aria-label="${esc(t.title)}を削除">削除</button><article class="task-card" data-task="${t.id}" role="button" tabindex="0" aria-label="${esc(t.title)}。タップで編集、長押ししてドラッグで移動"><div class="task-line"><button type="button" aria-label="${esc(t.title)}を完了" title="完了" class="check" data-done="${t.id}"><svg class="check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.35" opacity=".8"/><path d="M6.3 10 9 12.6 13.8 7.7" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span class="static-task-title ${t.title.length>44?'title-extra-long':t.title.length>22?'title-long':''}">${esc(t.title)}</span><span class="task-meta-compact" title="納期：${esc(t.due||'なし')}・所要時間：${t.duration}分">${esc(shortDue(t.due))}</span></div></article></div>`).join(''):'<div class="empty"><span aria-hidden="true">＋</span></div>'}</div><div class="pager"><button data-page-key="${esc(pageKey)}" data-dir="-1" ${boardPageByKey[pageKey]<=0?'disabled':''}>‹</button><span>${boardPageByKey[pageKey]+1}/${pages}</span><button data-page-key="${esc(pageKey)}" data-dir="1" ${boardPageByKey[pageKey]>=pages-1?'disabled':''}>›</button></div></section>`}html+='</div></section>';
+let showing=items.slice(boardPageByKey[pageKey]*pageSize,boardPageByKey[pageKey]*pageSize+pageSize);html+=`<section class="quadrant" data-q="${q}" role="button" tabindex="0" aria-label="${esc(prefs.names[q])} にタスクを追加"><div class="quad-title"><strong>${esc(prefs.names[q])}</strong><span>${items.length.toString().padStart(2,'0')}</span></div><div class="accent" style="background:${palette[q]}"></div><div class="task-area">${showing.length?showing.map(t=>`<div class="task-wrap" data-reorder-id="${esc(t.id)}" data-reorder-due="${esc(t.due||'')}"><button type="button" class="task-swipe-delete" data-task-trash="${t.id}" aria-label="${esc(t.title)}を削除">削除</button><article class="task-card" data-task="${t.id}" role="button" tabindex="0" aria-label="${esc(t.title)}。タップで編集、長押ししてドラッグで移動"><div class="task-line"><button type="button" aria-label="${esc(t.title)}を完了" title="完了" class="check" data-done="${t.id}"><svg class="check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.35" opacity=".8"/><path d="M6.3 10 9 12.6 13.8 7.7" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span class="static-task-title ${t.title.length>44?'title-extra-long':t.title.length>22?'title-long':''}">${esc(t.title)}</span><span class="task-meta-compact" title="納期：${esc(t.due||'なし')}・所要時間：${t.duration}分">${esc(shortDue(t.due))}</span></div></article></div>`).join(''):'<div class="empty"><span aria-hidden="true">＋</span></div>'}</div><div class="pager"><button data-page-key="${esc(pageKey)}" data-dir="-1" ${boardPageByKey[pageKey]<=0?'disabled':''}>‹</button><span>${boardPageByKey[pageKey]+1}/${pages}</span><button data-page-key="${esc(pageKey)}" data-dir="1" ${boardPageByKey[pageKey]>=pages-1?'disabled':''}>›</button></div></section>`}html+='</div></section>';
 }container.classList.add('tree-stack');container.innerHTML=html;container.scrollTop=previousScroll;$('#childQuickAdd').onclick=openGroupAddMenu;$$('[data-page-key]').forEach(el=>el.onclick=()=>{const key=el.dataset.pageKey;boardPageByKey[key]=(boardPageByKey[key]||0)+Number(el.dataset.dir);renderBoard()});$$('.quadrant').forEach(el=>{el.onclick=e=>{if(e.target.closest('button,.task-card'))return;openEdit(null,+el.dataset.q,null,'task',el.closest('[data-board-folder]')?.dataset.boardFolder)};el.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target===el){e.preventDefault();openEdit(null,+el.dataset.q,null,'task',el.closest('[data-board-folder]')?.dataset.boardFolder)}}});$$('.task-card').forEach(setupDrag);$$('[data-task-trash]').forEach(el=>el.onclick=e=>{e.stopPropagation();confirmTaskRemoval(el.dataset.taskTrash)});$$('[data-done]').forEach(el=>{
   el.addEventListener('pointerdown',e=>e.stopPropagation());
   el.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
@@ -1201,7 +1283,7 @@ function moveQuadrant(t,q,targetFolderId=undefined){if(prefs.mode==='group'){t.g
   if(destination===null||!inFolder(t,destination))t.folderId=destination;
   if(t.folderId)t.group=rootCategory(t.folderId);
 }
-t.pin=false;t.rank=null;save();render();haptic();flash('エリアを移動しました')}
+t.pin=false;t.rank=null;save();renderReordered();haptic();flash('エリアを移動しました')}
 function setupDrag(el){
  const wrap=el.closest('.task-wrap');
  let gesture=null,ghost=null,suppressClick=false,mousePointer=null;
@@ -1284,7 +1366,7 @@ function setupDrag(el){
        const folder=target.closest('[data-board-folder]')?.dataset.boardFolder;
        if(quadrant(task)===+target.dataset.q&&(folder==='__unassigned__'?taskFolderId(task)===null:inFolder(task,folder))){
          task.pin=true;task.rank=Math.min(0,...tasks.filter(t=>t.pin).map(t=>t.rank??0))-1;
-         save();render();flash('最上位に固定しました');
+         save();renderReordered();flash('最上位に固定しました');
        }else moveQuadrant(task,+target.dataset.q,folder);
        setUndo('エリアを移動しました',()=>mutate(task.id,old));
      }
@@ -1387,8 +1469,8 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
     const workdays=new Set(t.event?(t.scheduled?[t.scheduled.slice(0,10)]:[]):workdayKeys(t.due,lt,!!t.weekendWork));
     const daysLeft=t.due===null?999:diffDays(t.due);
     const fillColor=t.event?palette[quadrant(t)]:daysLeft<0?'#D96B74':daysLeft<=2?'#E9C454':'#66A889';
-    names+=`<div class="gantt-label-complete-row">${t.event?'':`<button type="button" class="gantt-one-tap" data-gantt-done="${t.id}" aria-label="${esc(t.title)}を完了">✓</button>`}<button type="button" class="gantt-label-row" data-edit="${t.id}" title="${esc(t.title)}"><strong>${esc(t.title)}</strong><small class="gantt-lt">${t.event?'予定':'LT '+lt}</small></button></div>`;
-    rows+=`<div class="gantt-grid-row gantt-task-row" style="--days:${days}">`;
+    names+=`<div class="gantt-label-complete-row" data-reorder-id="${esc(t.id)}" data-reorder-due="${esc(t.due||'')}">${t.event?'':`<button type="button" class="gantt-one-tap" data-gantt-done="${t.id}" aria-label="${esc(t.title)}を完了">✓</button>`}<button type="button" class="gantt-label-row" data-edit="${t.id}" title="${esc(t.title)}"><strong>${esc(t.title)}</strong><small class="gantt-lt">${t.event?'予定':'LT '+lt}</small></button></div>`;
+    rows+=`<div class="gantt-grid-row gantt-task-row" data-reorder-id="${esc(t.id)}" data-reorder-due="${esc(t.due||'')}" style="--days:${days}">`;
     for(let i=0;i<days;i++){
       const day=new Date(base.getFullYear(),base.getMonth(),i+1),key=dateKey(day);
       const filled=workdays.has(key);
@@ -1421,7 +1503,7 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
     el.addEventListener('touchend',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)},{passive:false});
     el.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();completeTask(el.dataset.done)});
   });$$('[data-gantt-done]').forEach(el=>el.onclick=()=>completeTask(el.dataset.ganttDone));
-  $$('[data-gantt]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.gantt);if(!t)return;if(t.event){openEdit(t.id);return}const before={due:t.due,ganttStart:t.ganttStart};t.due=el.dataset.day;t.ganttStart=null;save();renderCalendar();haptic();setUndo('納期を変更しました',()=>{Object.assign(t,before);save();renderCalendar()})});if(calMode==='gantt'){const scroll=$('#ganttScroll'),names=$('#ganttNameBody'),days=$('#ganttDayBody');if(scroll&&names&&days){if(ganttScrollX<0){
+  $$('[data-gantt]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.gantt);if(!t)return;if(t.event){openEdit(t.id);return}const before={due:t.due,ganttStart:t.ganttStart};t.due=el.dataset.day;t.ganttStart=null;save();renderReordered();haptic();setUndo('納期を変更しました',()=>{Object.assign(t,before);save();renderReordered()})});if(calMode==='gantt'){const scroll=$('#ganttScroll'),names=$('#ganttNameBody'),days=$('#ganttDayBody');if(scroll&&names&&days){if(ganttScrollX<0){
  const today=new Date();
  const sameMonth=base.getFullYear()===today.getFullYear()&&base.getMonth()===today.getMonth();
  ganttScrollX=sameMonth?Math.max(0,(today.getDate()-2)*30):0;
@@ -1716,7 +1798,7 @@ function openEventEdit(original=null,selectedDue=null){
     const value={title,event:true,scheduled:date+'T'+time,duration,folderId:folder,group:folder?rootCategory(folder):'その他',due:null,ganttStart:null,leadDays:1,important:false,urgent:false};
     if(original)Object.assign(original,value);
     else tasks.push({...value,id:typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),pin:false,rank:null,done:false,created:new Date().toISOString()});
-    save();closeModal();render();haptic();flash('予定を保存しました');
+    save();closeModal();renderReordered();haptic();flash('予定を保存しました');
   };
   $('#eventSave').onclick=commit;$('#eventSaveTop').onclick=commit;
   $('#eventDelete')?.addEventListener('click',()=>{closeModal();confirmTaskRemoval(original.id)});
@@ -1724,7 +1806,7 @@ function openEventEdit(original=null,selectedDue=null){
 function openEdit(id,area=null,selectedDue=null,kind='task',scopeFolderId=undefined){
   const existing=tasks.find(t=>t.id===id);
   if(kind==='event'||existing?.event){openEventEdit(existing||null,selectedDue);return}
-const t=tasks.find(t=>t.id===id);let data=t?{...t}:{title:'',important:area===null?true:area<=1,urgent:area===null?false:(area===0||area===2),group:area===null?'プライベート':['仕事','プライベート','学習','その他'][area],duration:60,due:selectedDue||dateKey(addDays(new Date(),1)),scheduled:null,leadDays:1,weekendWork:false,ganttStart:null};data.folderId=t?taskFolderId(t):(scopeFolderId!==undefined?(scopeFolderId==='__unassigned__'?null:scopeFolderId):(currentFolderId||([({0:'work',1:'personal',2:'study',3:'other'}[area]||'personal'),...folders.filter(f=>f.parentId===null).map(f=>f.id)].find(x=>!!getFolder(x))||null)));let deleteBtn=t?`<button class="danger" id="deleteTask">削除</button>`:'';$('#sheet').innerHTML=`<div class="sheet-head"><div class="sheet-head-main"><button type="button" class="sheet-dismiss" id="closeTask" aria-label="保存せず戻る">×</button><strong>${t?'タスクを編集':'タスクを追加'}</strong></div><button type="button" id="saveTop">保存 ✓</button></div><div class="field"><label>TASK NAME</label><input id="fTitle" maxlength="70" placeholder="何をする？" value="${esc(data.title)}" autocomplete="off"></div><div class="field"><label>重要度・緊急度（4分類から1つ選択）</label><div class="priority-choices">${['重要・緊急','重要・余裕あり','緊急・軽め','優先度低め'].map((label,i)=>`<button type="button" data-priority="${i}" class="${(data.important?(data.urgent?0:1):(data.urgent?2:3))===i?'sel':''}" aria-pressed="${String((data.important?(data.urgent?0:1):(data.urgent?2:3))===i)}">${label}</button>`).join('')}</div></div><div class="field"><label>フォルダ</label><select id="fFolder" aria-label="保存先フォルダ"><option value="">すべてのフォルダ</option>${flattenFolders().map(f=>`<option value="${esc(f.id)}" ${data.folderId===f.id?'selected':''}>${'　'.repeat(f.depth)}${esc(f.name)}</option>`).join('')}</select></div><div class="field"><label>所要時間</label><div class="choice-row">${[30,60,90,120].map(n=>`<button data-duration="${n}" class="${data.duration===n?'sel':''}">${n}分</button>`).join('')}</div></div><div class="field"><label>納期</label><input id="fDue" type="hidden" value="${esc(data.due||'')}"><button type="button" class="due-picker-control" id="fDueButton" aria-label="納期をカレンダーから選ぶ"><strong id="fDueText">${esc(data.due||"納期なし")}</strong><span aria-hidden="true">▦</span></button></div><div class="field"><label>ガント LT（作業日数）</label><input id="fLeadDays" type="number" inputmode="numeric" min="1" max="90" step="1" value="${Math.max(1,Number(data.leadDays)||1)}" aria-label="LT日数（1〜90日）"></div><div class="field"><label class="gantt-weekend-option"><input type="checkbox" id="fWeekendWork" ${data.weekendWork?'checked':''}><span><strong>土日対応</strong><small>チェックすると、このタスクの土日もLTに含めて塗りつぶします</small></span></label></div><div class="field"><label>PIN</label><div class="choice-row"><button id="fPin" class="${data.pin?'sel':''}">手動順位を固定</button><button id="fAuto">自動順位</button></div></div><div class="sheet-actions">${deleteBtn}<button type="button" class="sheet-cancel" id="cancelTask">キャンセル</button><button type="button" class="primary" id="saveTask">${t?'変更を保存':'タスクを作成'}</button></div>`;openModal();$('#closeTask').onclick=closeModal;$('#cancelTask').onclick=closeModal;$('#fDueButton').onclick=()=>{const input=$('#fDue');if(input)openDuePicker(input.value,next=>{input.value=next;$('#fDueText').textContent=next||'納期なし'})};const mark=id=>$('#'+id).classList.toggle('sel');$$('[data-priority]').forEach(el=>el.onclick=()=>{const q=+el.dataset.priority;data.important=q<=1;data.urgent=q===0||q===2;$$('[data-priority]').forEach(x=>{const chosen=x===el;x.classList.toggle('sel',chosen);x.setAttribute('aria-pressed',String(chosen))})});$$('[data-group]').forEach(el=>el.onclick=()=>{data.group=el.dataset.group;data.folderId=({'仕事':'work','プライベート':'personal','学習':'study','その他':'other'})[data.group]||null;$('#fFolder').value=data.folderId||'';$$('[data-group]').forEach(x=>x.classList.toggle('sel',x===el))});$('#fFolder').onchange=()=>{data.folderId=$('#fFolder').value||null;if(data.folderId)data.group=rootCategory(data.folderId);$$('[data-group]').forEach(x=>x.classList.toggle('sel',x.dataset.group===data.group))};$$('[data-duration]').forEach(el=>el.onclick=()=>{data.duration=+el.dataset.duration;$$('[data-duration]').forEach(x=>x.classList.toggle('sel',x===el))});$('#fPin').onclick=()=>{data.pin=!data.pin;data.rank=data.pin?0:null;mark('fPin')};$('#fAuto').onclick=()=>{data.pin=false;data.rank=null;$('#fPin').classList.remove('sel')};const commit=()=>{const title=$('#fTitle').value.trim(),due=$('#fDue').value.trim(),leadDays=Number($('#fLeadDays').value);if(!title){flash('タスク名が必要です');return}if(!Number.isInteger(leadDays)||leadDays<1||leadDays>90){flash('LTは1〜90日で入力');return}data.leadDays=leadDays;data.weekendWork=$('#fWeekendWork').checked;if(data.folderId)data.group=rootCategory(data.folderId);if(due&&!parseLocal(due)){flash('日付は YYYY-MM-DD で入力');return}if(t){Object.assign(t,data,{title,due});if(t.scheduled&&t.due&&t.scheduled.slice(0,10)>t.due)flash('予定日が納期を超えています')}else tasks.push({...data,id:typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),title,due,pin:false,rank:null,done:false,created:new Date().toISOString()});save();closeModal();render();haptic();flash(t?'変更を保存しました':'タスクを追加しました')};$('#saveTop').onclick=commit;$('#saveTask').onclick=commit;$('#deleteTask')?.addEventListener('click',()=>{closeModal();confirmTaskRemoval(t.id)})}
+const t=tasks.find(t=>t.id===id);let data=t?{...t}:{title:'',important:area===null?true:area<=1,urgent:area===null?false:(area===0||area===2),group:area===null?'プライベート':['仕事','プライベート','学習','その他'][area],duration:60,due:selectedDue||dateKey(addDays(new Date(),1)),scheduled:null,leadDays:1,weekendWork:false,ganttStart:null};data.folderId=t?taskFolderId(t):(scopeFolderId!==undefined?(scopeFolderId==='__unassigned__'?null:scopeFolderId):(currentFolderId||([({0:'work',1:'personal',2:'study',3:'other'}[area]||'personal'),...folders.filter(f=>f.parentId===null).map(f=>f.id)].find(x=>!!getFolder(x))||null)));let deleteBtn=t?`<button class="danger" id="deleteTask">削除</button>`:'';$('#sheet').innerHTML=`<div class="sheet-head"><div class="sheet-head-main"><button type="button" class="sheet-dismiss" id="closeTask" aria-label="保存せず戻る">×</button><strong>${t?'タスクを編集':'タスクを追加'}</strong></div><button type="button" id="saveTop">保存 ✓</button></div><div class="field"><label>TASK NAME</label><input id="fTitle" maxlength="70" placeholder="何をする？" value="${esc(data.title)}" autocomplete="off"></div><div class="field"><label>重要度・緊急度（4分類から1つ選択）</label><div class="priority-choices">${['重要・緊急','重要・余裕あり','緊急・軽め','優先度低め'].map((label,i)=>`<button type="button" data-priority="${i}" class="${(data.important?(data.urgent?0:1):(data.urgent?2:3))===i?'sel':''}" aria-pressed="${String((data.important?(data.urgent?0:1):(data.urgent?2:3))===i)}">${label}</button>`).join('')}</div></div><div class="field"><label>フォルダ</label><select id="fFolder" aria-label="保存先フォルダ"><option value="">すべてのフォルダ</option>${flattenFolders().map(f=>`<option value="${esc(f.id)}" ${data.folderId===f.id?'selected':''}>${'　'.repeat(f.depth)}${esc(f.name)}</option>`).join('')}</select></div><div class="field"><label>所要時間</label><div class="choice-row">${[30,60,90,120].map(n=>`<button data-duration="${n}" class="${data.duration===n?'sel':''}">${n}分</button>`).join('')}</div></div><div class="field"><label>納期</label><input id="fDue" type="hidden" value="${esc(data.due||'')}"><button type="button" class="due-picker-control" id="fDueButton" aria-label="納期をカレンダーから選ぶ"><strong id="fDueText">${esc(data.due||"納期なし")}</strong><span aria-hidden="true">▦</span></button></div><div class="field"><label>ガント LT（作業日数）</label><input id="fLeadDays" type="number" inputmode="numeric" min="1" max="90" step="1" value="${Math.max(1,Number(data.leadDays)||1)}" aria-label="LT日数（1〜90日）"></div><div class="field"><label class="gantt-weekend-option"><input type="checkbox" id="fWeekendWork" ${data.weekendWork?'checked':''}><span><strong>土日対応</strong><small>チェックすると、このタスクの土日もLTに含めて塗りつぶします</small></span></label></div><div class="field"><label>PIN</label><div class="choice-row"><button id="fPin" class="${data.pin?'sel':''}">手動順位を固定</button><button id="fAuto">自動順位</button></div></div><div class="sheet-actions">${deleteBtn}<button type="button" class="sheet-cancel" id="cancelTask">キャンセル</button><button type="button" class="primary" id="saveTask">${t?'変更を保存':'タスクを作成'}</button></div>`;openModal();$('#closeTask').onclick=closeModal;$('#cancelTask').onclick=closeModal;$('#fDueButton').onclick=()=>{const input=$('#fDue');if(input)openDuePicker(input.value,next=>{input.value=next;$('#fDueText').textContent=next||'納期なし'})};const mark=id=>$('#'+id).classList.toggle('sel');$$('[data-priority]').forEach(el=>el.onclick=()=>{const q=+el.dataset.priority;data.important=q<=1;data.urgent=q===0||q===2;$$('[data-priority]').forEach(x=>{const chosen=x===el;x.classList.toggle('sel',chosen);x.setAttribute('aria-pressed',String(chosen))})});$$('[data-group]').forEach(el=>el.onclick=()=>{data.group=el.dataset.group;data.folderId=({'仕事':'work','プライベート':'personal','学習':'study','その他':'other'})[data.group]||null;$('#fFolder').value=data.folderId||'';$$('[data-group]').forEach(x=>x.classList.toggle('sel',x===el))});$('#fFolder').onchange=()=>{data.folderId=$('#fFolder').value||null;if(data.folderId)data.group=rootCategory(data.folderId);$$('[data-group]').forEach(x=>x.classList.toggle('sel',x.dataset.group===data.group))};$$('[data-duration]').forEach(el=>el.onclick=()=>{data.duration=+el.dataset.duration;$$('[data-duration]').forEach(x=>x.classList.toggle('sel',x===el))});$('#fPin').onclick=()=>{data.pin=!data.pin;data.rank=data.pin?0:null;mark('fPin')};$('#fAuto').onclick=()=>{data.pin=false;data.rank=null;$('#fPin').classList.remove('sel')};const commit=()=>{const title=$('#fTitle').value.trim(),due=$('#fDue').value.trim(),leadDays=Number($('#fLeadDays').value);if(!title){flash('タスク名が必要です');return}if(!Number.isInteger(leadDays)||leadDays<1||leadDays>90){flash('LTは1〜90日で入力');return}data.leadDays=leadDays;data.weekendWork=$('#fWeekendWork').checked;if(data.folderId)data.group=rootCategory(data.folderId);if(due&&!parseLocal(due)){flash('日付は YYYY-MM-DD で入力');return}if(t){Object.assign(t,data,{title,due});if(t.scheduled&&t.due&&t.scheduled.slice(0,10)>t.due)flash('予定日が納期を超えています')}else tasks.push({...data,id:typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),title,due,pin:false,rank:null,done:false,created:new Date().toISOString()});save();closeModal();renderReordered();haptic();flash(t?'変更を保存しました':'タスクを追加しました')};$('#saveTop').onclick=commit;$('#saveTask').onclick=commit;$('#deleteTask')?.addEventListener('click',()=>{closeModal();confirmTaskRemoval(t.id)})}
 function openModal(){
   const height=Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue('--vh'),10)||window.innerHeight;
   if(height>0)document.documentElement.style.setProperty('--kanri-modal-height',height+'px');
@@ -1772,7 +1854,7 @@ function closeModal(){
   $('#modal').classList.remove('open');
   sheet.classList.remove('editor-sheet');
   sheet.innerHTML='';
-}$('#modal').addEventListener('pointerdown',e=>{if(e.target===$('#modal'))closeModal()});$('#addButton').onclick=()=>openEdit();$('#addEventTop').onclick=()=>openEdit(null,null,dateKey(focusDay),'event');$('#trashCalendar').onclick=openTrash;$('#themeQuick').onclick=()=>{prefs.dark=!prefs.dark;savePrefs();render()};$('#undoBtn').onclick=undo;$('#undoTop').onclick=undo;$('#sortButton').onclick=()=>{let candidates=sorted(tasks.filter(t=>!t.done));let index=0;candidates.forEach(t=>{if(!t.pin){t.rank=null}else t.rank=index++});save();render();flash('優先順位を更新しました')};$('#resetRank').onclick=()=>{tasks.forEach(t=>{t.pin=false;t.rank=null});save();render();flash('すべて自動順位に戻しました')};$$('.nav-btn[data-tab]').forEach(el=>el.onclick=()=>navigateTab(el.dataset.tab));
+}$('#modal').addEventListener('pointerdown',e=>{if(e.target===$('#modal'))closeModal()});$('#addButton').onclick=()=>openEdit();$('#addEventTop').onclick=()=>openEdit(null,null,dateKey(focusDay),'event');$('#trashCalendar').onclick=openTrash;$('#themeQuick').onclick=()=>{prefs.dark=!prefs.dark;savePrefs();render()};$('#undoBtn').onclick=undo;$('#undoTop').onclick=undo;$('#sortButton').onclick=()=>{let candidates=sorted(tasks.filter(t=>!t.done));let index=0;candidates.forEach(t=>{if(!t.pin){t.rank=null}else t.rank=index++});save();renderReordered();flash('優先順位を更新しました')};$('#resetRank').onclick=()=>{tasks.forEach(t=>{t.pin=false;t.rank=null});save();renderReordered();flash('すべて自動順位に戻しました')};$$('.nav-btn[data-tab]').forEach(el=>el.onclick=()=>navigateTab(el.dataset.tab));
 
 
 let boardTouchSwipe=null;
