@@ -30,6 +30,9 @@ jobs:
       - name: Verify animated task and Gantt reordering
         working-directory: web
         run: node scripts/test-reorder.cjs
+      - name: Verify live drag insertion and neighbor shifting
+        working-directory: web
+        run: node scripts/test-live-drag.cjs
       - name: Test folder UI and gestures
         working-directory: web
         run: npm run test:ui
