@@ -51,6 +51,7 @@ function pointer(el,type,x,y){
   const event=new dom.window.MouseEvent(type,{bubbles:true,button:0,clientX:x,clientY:y});
   Object.defineProperty(event,'pointerId',{value:8});
   Object.defineProperty(event,'pointerType',{value:'mouse'});
+  Object.defineProperty(event,'target',{value:el});
   el['on'+type](event);
 }
 (async()=>{
