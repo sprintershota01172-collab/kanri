@@ -1343,6 +1343,8 @@ function placeDraggedTask(task,target,position){
 function setupDrag(el){
   const wrap=el.closest('.task-wrap'),originArea=wrap.closest('.task-area');
   let gesture=null,ghost=null,placeholder=null,preview=null,suppressClick=false,mousePointer=null;
+  let layoutAnchors=new WeakMap();
+  const INSERTION_HYSTERESIS=10; // Finger must clear a boundary before neighboring tasks move.
   const controls='button,.check,.tiny-pin,.task-swipe-delete';
   const isControl=target=>!!target.closest(controls);
   const clearTimer=()=>{if(gesture?.timer){clearTimeout(gesture.timer);gesture.timer=null}};
@@ -1392,34 +1394,53 @@ function setupDrag(el){
     const area=target.querySelector('.task-area');
     if(!area)return;
     const siblings=siblingsIn(area);
-    const gap=parseFloat(getComputedStyle(area).rowGap||getComputedStyle(area).gap)||0;
-    const space=placeholder.getBoundingClientRect().height+gap;
-    // Compare against positions with the current gap subtracted, avoiding
-    // jitter when the finger crosses an item that is being pushed down.
-    let index=siblings.length;
-    for(let i=0;i<siblings.length;i++){
-      const sibling=siblings[i],box=sibling.getBoundingClientRect();
-      const afterGap=placeholder.parentElement===area&&
-        !!(placeholder.compareDocumentPosition(sibling)&Node.DOCUMENT_POSITION_FOLLOWING);
-      const center=box.top+box.height/2-(afterGap?space:0);
-      if(y<center){index=i;break}
+    const areaRect=area.getBoundingClientRect();
+    // Fixed per-gesture coordinates. Reading animated row positions on every
+    // pointermove previously made the destination jump between adjacent slots.
+    let anchor=layoutAnchors.get(area);
+    if(!anchor||anchor.nodes.length!==siblings.length||anchor.nodes.some((n,i)=>n!==siblings[i])){
+      const gap=parseFloat(getComputedStyle(area).rowGap||getComputedStyle(area).gap)||0;
+      const slotSize=placeholder.getBoundingClientRect().height+gap;
+      anchor={
+        nodes:[...siblings],
+        centers:siblings.map(sibling=>{
+          const box=sibling.getBoundingClientRect();
+          const afterGap=placeholder.parentElement===area&&
+            !!(placeholder.compareDocumentPosition(sibling)&Node.DOCUMENT_POSITION_FOLLOWING);
+          // Remove the slot's displacement to recover the original, stable
+          // row center, regardless of where the slot is currently located.
+          return box.top+box.height/2-areaRect.top-(afterGap?slotSize:0);
+        })
+      };
+      layoutAnchors.set(area,anchor);
     }
-    if(preview?.area===area&&preview.index===index)return;
+    const localY=y-areaRect.top;
+    let index=anchor.centers.findIndex(center=>localY<center);
+    if(index<0)index=siblings.length;
+    const sameArea=preview?.area===area;
+    if(sameArea){
+      const current=preview.index;
+      if(index===current)return;
+      // A 10px dead band prevents back-and-forth swapping near a midpoint.
+      // The same thresholds are used before and after each DOM rearrangement.
+      if(index>current&&localY<anchor.centers[index-1]+INSERTION_HYSTERESIS)return;
+      if(index<current&&localY>anchor.centers[index]-INSERTION_HYSTERESIS)return;
+    }
     const affected=new Set([preview?.area,area].filter(Boolean));
     const oldRects=new Map();
     for(const region of affected)for(const item of siblingsIn(region))
       oldRects.set(item,item.getBoundingClientRect());
-    // Only the placeholder is reordered during a gesture. Task data and
-    // touch handlers stay untouched until the drop is committed.
+    // Only move the slot, never the cards, during drag. Reorder data on drop.
     area.insertBefore(placeholder,siblings[index]||area.querySelector(':scope > .empty')||null);
     preview={area,index};
     if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
     for(const [item,old] of oldRects){
       if(!item.isConnected)continue;
+      // Cancel any previous FLIP before reading the new layout, then animate
+      // from the currently visible position to the stable destination.
+      (item.getAnimations?.()||[]).forEach(anim=>anim.cancel());
       const rect=item.getBoundingClientRect(),dy=old.top-rect.top;
       if(Math.abs(dy)<1)continue;
-      const playing=item.getAnimations?.()||[];
-      playing.forEach(anim=>anim.cancel());
       item.animate?.([
         {transform:'translate3d(0,'+dy+'px,0)'},
         {transform:'translate3d(0,0,0)'}
@@ -1428,6 +1449,7 @@ function setupDrag(el){
   }
   const begin=(x,y)=>{
     resetVisual();
+    layoutAnchors=new WeakMap();
     gesture={x,y,lastX:x,lastY:y,armed:false,dragged:false,swipe:false,aborted:false,timer:null,baseRect:null};
     gesture.timer=setTimeout(()=>{
       if(!gesture||gesture.swipe||gesture.aborted)return;
