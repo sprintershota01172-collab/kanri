@@ -854,6 +854,22 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
   color:var(--muted)!important;
   opacity:.85;
 }
+
+/* Live insertion preview: neighboring cards slide into the open slot. */
+#board .kanri-drag-slot{
+  position:relative;flex:none;box-sizing:border-box;
+  border:1px dashed color-mix(in srgb,var(--blue) 65%,transparent);
+  border-radius:10px;background:color-mix(in srgb,var(--blue) 9%,var(--card));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--blue) 13%,transparent);
+  pointer-events:none;
+}
+#board .kanri-drag-slot:after{
+  content:"ここに移動";position:absolute;inset:0;display:grid;place-items:center;
+  color:var(--blue);font-size:9px;font-weight:800;opacity:.7;
+}
+@media(prefers-reduced-motion:reduce){
+  #board .kanri-drag-slot{transition:none}
+}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="グループまたは子ツリーを追加">＋ 追加</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
@@ -1284,152 +1300,258 @@ function moveQuadrant(t,q,targetFolderId=undefined){if(prefs.mode==='group'){t.g
   if(t.folderId)t.group=rootCategory(t.folderId);
 }
 t.pin=false;t.rank=null;save();renderReordered();haptic();flash('エリアを移動しました')}
+
+function placeDraggedTask(task,target,position){
+  const q=Number(target.dataset.q);
+  const folder=target.closest('[data-board-folder]')?.dataset.boardFolder;
+  const before=tasks.map(t=>({id:t.id,pin:t.pin,rank:t.rank,important:t.important,urgent:t.urgent,group:t.group,folderId:t.folderId}));
+  // Preserve existing child-tree ownership when dropping on its parent summary.
+  if(prefs.mode==='group'){
+    task.group=['仕事','プライベート','学習','その他'][q];
+    task.folderId=['work','personal','study','other'][q];
+  }else{
+    task.important=q<=1;task.urgent=q===0||q===2;
+  }
+  if(folder!==undefined){
+    const destination=folder==='__unassigned__'?null:folder;
+    if(destination===null||!inFolder(task,destination))task.folderId=destination;
+    if(task.folderId)task.group=rootCategory(task.folderId);
+  }
+  const members=sorted(tasks.filter(t=>t.id!==task.id&&!t.done&&!t.event&&quadrant(t)===q&&
+    (folder==='__unassigned__'?taskFolderId(t)===null:inFolder(t,folder))));
+  const pageKey=(folder??'__unassigned__')+':'+q;
+  const pageSize=window.innerHeight>=820?8:window.innerHeight>=690?6:4;
+  const at=Math.max(0,Math.min(members.length,(boardPageByKey[pageKey]||0)*pageSize+position));
+  members.splice(at,0,task);
+  // A manual insertion pins only the necessary prefix; tasks after the last
+  // existing pin retain automatic deadline sorting.
+  const lastPin=Math.max(at,...members.map((t,i)=>t.pin?i:-1));
+  members.forEach((t,i)=>{
+    if(i<=lastPin){t.pin=true;t.rank=i}
+    else{t.pin=false;t.rank=null}
+  });
+  save();
+  return ()=>{
+    before.forEach(old=>{
+      const item=tasks.find(t=>t.id===old.id);
+      if(item)Object.assign(item,{pin:old.pin,rank:old.rank,important:old.important,urgent:old.urgent,group:old.group,folderId:old.folderId});
+    });
+    save();renderReordered();
+  };
+}
 function setupDrag(el){
- const wrap=el.closest('.task-wrap');
- let gesture=null,ghost=null,suppressClick=false,mousePointer=null;
- const controls='button,.check,.tiny-pin,.task-swipe-delete';
- const isControl=target=>!!target.closest(controls);
- const clearTimer=()=>{if(gesture?.timer){clearTimeout(gesture.timer);gesture.timer=null}};
- const removeGhost=()=>{ghost?.remove();ghost=null};
- const clearTargets=()=>$$('.quadrant.over').forEach(q=>q.classList.remove('over'));
- const resetVisual=()=>{
-   clearTimer();removeGhost();clearTargets();
-   el.classList.remove('drag-active','drag-armed');wrap.classList.remove('swiping');
-   el.style.transform='';el.style.opacity='';
- };
- const findTarget=(x,y)=>$$('.quadrant').find(q=>{
-   const r=q.getBoundingClientRect();
-   return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;
- });
- const makeGhost=()=>{
-   if(ghost)return;
-   const box=el.getBoundingClientRect();
-   ghost=document.createElement('div');
-   ghost.className='kanri-task-drag-ghost';
-   ghost.textContent=tasks.find(t=>t.id===el.dataset.task)?.title||'タスク';
-   Object.assign(ghost.style,{
-     top:box.top+'px',left:box.left+'px',width:box.width+'px',
-     height:box.height+'px',display:'flex',alignItems:'center',
-     padding:'0 10px',borderRadius:'8px',fontSize:'11px',fontWeight:'800',
-     color:getComputedStyle(el).color,background:getComputedStyle(el).backgroundColor,
-     whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'
-   });
-   document.body.appendChild(ghost);
- };
- const begin=(x,y)=>{
-   gesture={x,y,lastX:x,lastY:y,armed:false,dragged:false,swipe:false,aborted:false,timer:null};
-   gesture.timer=setTimeout(()=>{
-     if(!gesture||gesture.swipe||gesture.aborted)return;
-     gesture.armed=true;el.classList.add('drag-armed');haptic();
-   },250);
- };
- const move=(x,y)=>{
-   if(!gesture)return false;
-   const dx=x-gesture.x,dy=y-gesture.y;
-   gesture.lastX=x;gesture.lastY=y;
-   if(!gesture.armed){
-     if(dx< -16&&Math.abs(dx)>Math.abs(dy)*1.25){
-       clearTimer();gesture.swipe=true;
-     }else if(Math.abs(dy)>9||dx>12||Math.abs(dx)>13){
-       clearTimer();gesture.aborted=true;
-     }
-   }
-   if(gesture.swipe){
-     closeSwipeItems(wrap);
-     wrap.classList.add('swiping');
-     el.style.transform='translateX('+Math.max(-64,Math.min(0,dx))+'px)';
-     return true;
-   }
-   if(!gesture.armed)return false;
-   if(Math.hypot(dx,dy)<7)return true;
-   gesture.dragged=true;el.classList.add('drag-active');el.classList.remove('drag-armed');
-   makeGhost();
-   ghost.style.left=el.getBoundingClientRect().left+dx+'px';
-   ghost.style.top=el.getBoundingClientRect().top+dy+'px';
-   const hit=findTarget(x,y);$$('.quadrant').forEach(q=>q.classList.toggle('over',q===hit));
-   return true;
- };
- const complete=(x,y)=>{
-   if(!gesture)return;
-   const state=gesture;clearTimer();gesture=null;
-   if(state.swipe){
-     const reveal=x-state.x< -42;
-     resetVisual();closeSwipeItems(wrap);wrap.classList.toggle('revealed',reveal);
-     el.style.transform=reveal?'translateX(-64px)':'';
-     suppressClick=true;return;
-   }
-   if(state.dragged){
-     const target=findTarget(x,y),task=tasks.find(t=>t.id===el.dataset.task);
-     resetVisual();suppressClick=true;
-     if(task&&target){
-       const old={important:task.important,urgent:task.urgent,group:task.group,pin:task.pin,rank:task.rank,folderId:task.folderId};
-       const folder=target.closest('[data-board-folder]')?.dataset.boardFolder;
-       if(quadrant(task)===+target.dataset.q&&(folder==='__unassigned__'?taskFolderId(task)===null:inFolder(task,folder))){
-         task.pin=true;task.rank=Math.min(0,...tasks.filter(t=>t.pin).map(t=>t.rank??0))-1;
-         save();renderReordered();flash('最上位に固定しました');
-       }else moveQuadrant(task,+target.dataset.q,folder);
-       setUndo('エリアを移動しました',()=>mutate(task.id,old));
-     }
-     return;
-   }
-   const wasArmed=state.armed,wasAborted=state.aborted;
-   resetVisual();
-   if(wasArmed||wasAborted){suppressClick=true;return}
-   if(wrap.classList.contains('revealed')){closeSwipeItems();suppressClick=true;return}
-   suppressClick=true;openEdit(el.dataset.task);
- };
- const cancel=()=>{
-   clearTimer();gesture=null;resetVisual();
-   if(wrap.classList.contains('revealed'))el.style.transform='translateX(-64px)';
- };
- // Touch events use a non-passive move listener: once the long press is armed,
- // stop Safari from scrolling and invoking native text selection while dragging.
- el.addEventListener('touchstart',e=>{
-   if(isControl(e.target)||e.touches.length!==1)return;
-   const t=e.touches[0];begin(t.clientX,t.clientY);
- },{passive:true});
- el.addEventListener('touchmove',e=>{
-   if(!gesture||e.touches.length!==1)return;
-   const t=e.touches[0],handled=move(t.clientX,t.clientY);
-   if(handled){if(e.cancelable)e.preventDefault();e.stopPropagation()}
- },{passive:false});
- el.addEventListener('touchend',e=>{
-   if(!gesture)return;
-   const t=e.changedTouches[0],handled=gesture.armed||gesture.swipe||gesture.dragged;
-   complete(t?.clientX??0,t?.clientY??0);
-   if(handled){if(e.cancelable)e.preventDefault();e.stopPropagation()}
- },{passive:false});
- el.addEventListener('touchcancel',cancel,{passive:true});
- // Mouse/trackpad/pen keep the same gesture semantics without double-handling touch.
- el.onpointerdown=e=>{
-   if(e.pointerType==='touch'||e.button!==0||isControl(e.target))return;
-   begin(e.clientX,e.clientY);mousePointer=e.pointerId;
-   try{el.setPointerCapture(e.pointerId)}catch{}
- };
- el.onpointermove=e=>{
-   if(e.pointerType==='touch'||mousePointer!==e.pointerId)return;
-   move(e.clientX,e.clientY);
- };
- el.onpointerup=e=>{
-   if(e.pointerType==='touch'||mousePointer!==e.pointerId)return;
-   mousePointer=null;complete(e.clientX,e.clientY);
- };
- el.onpointercancel=e=>{if(e.pointerType==='touch')return;mousePointer=null;cancel()};
- el.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation()});
- el.addEventListener('selectstart',e=>e.preventDefault());
- el.addEventListener('dragstart',e=>e.preventDefault());
- el.addEventListener('click',e=>{
-   if(!suppressClick)return;
-   suppressClick=false;
-   // A previous touchend may prevent Safari from firing a synthetic click.
-   // Never swallow a later completion or pin-button tap.
-   if(isControl(e.target))return;
-   e.preventDefault();e.stopImmediatePropagation();
- },true);
- el.onkeydown=e=>{
-   if(e.target!==el||!['Enter',' '].includes(e.key))return;
-   e.preventDefault();openEdit(el.dataset.task);
- };
+  const wrap=el.closest('.task-wrap'),originArea=wrap.closest('.task-area');
+  let gesture=null,ghost=null,placeholder=null,preview=null,suppressClick=false,mousePointer=null;
+  const controls='button,.check,.tiny-pin,.task-swipe-delete';
+  const isControl=target=>!!target.closest(controls);
+  const clearTimer=()=>{if(gesture?.timer){clearTimeout(gesture.timer);gesture.timer=null}};
+  const removeGhost=()=>{ghost?.remove();ghost=null};
+  const clearTargets=()=>$$('.quadrant.over').forEach(q=>q.classList.remove('over'));
+  const clearPreview=()=>{
+    placeholder?.remove();placeholder=null;preview=null;
+    wrap.style.display='';wrap.classList.remove('drag-origin-hidden');
+  };
+  const resetVisual=()=>{
+    clearTimer();removeGhost();clearTargets();clearPreview();
+    el.classList.remove('drag-active','drag-armed');
+    wrap.classList.remove('swiping');
+    el.style.transform='';el.style.opacity='';
+  };
+  const findTarget=(x,y)=>$$('.quadrant').find(q=>{
+    const r=q.getBoundingClientRect();
+    return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;
+  });
+  const makeGhost=()=>{
+    if(ghost)return;
+    const rect=el.getBoundingClientRect(),slot=wrap.getBoundingClientRect();
+    gesture.baseRect=rect;
+    ghost=document.createElement('div');
+    ghost.className='kanri-task-drag-ghost';
+    ghost.textContent=tasks.find(t=>t.id===el.dataset.task)?.title||'タスク';
+    Object.assign(ghost.style,{
+      top:rect.top+'px',left:rect.left+'px',width:rect.width+'px',
+      height:rect.height+'px',display:'flex',alignItems:'center',
+      padding:'0 10px',borderRadius:'8px',fontSize:'11px',fontWeight:'800',
+      color:getComputedStyle(el).color,background:getComputedStyle(el).backgroundColor,
+      whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'
+    });
+    document.body.appendChild(ghost);
+    placeholder=document.createElement('div');
+    placeholder.className='kanri-drag-slot';
+    placeholder.style.height=slot.height+'px';
+    originArea.insertBefore(placeholder,wrap);
+    wrap.classList.add('drag-origin-hidden');
+    wrap.style.display='none';
+    preview={area:originArea,index:Array.from(originArea.children).filter(n=>n.classList.contains('task-wrap')&&n!==wrap&&
+      (n.compareDocumentPosition(placeholder)&Node.DOCUMENT_POSITION_PRECEDING)).length};
+  };
+  const siblingsIn=area=>Array.from(area.children).filter(n=>n.classList.contains('task-wrap')&&n!==wrap);
+  function movePreview(target,y){
+    if(!placeholder||!target)return;
+    const area=target.querySelector('.task-area');
+    if(!area)return;
+    const siblings=siblingsIn(area);
+    const gap=parseFloat(getComputedStyle(area).rowGap||getComputedStyle(area).gap)||0;
+    const space=placeholder.getBoundingClientRect().height+gap;
+    // Compare against positions with the current gap subtracted, avoiding
+    // jitter when the finger crosses an item that is being pushed down.
+    let index=siblings.length;
+    for(let i=0;i<siblings.length;i++){
+      const sibling=siblings[i],box=sibling.getBoundingClientRect();
+      const afterGap=placeholder.parentElement===area&&
+        !!(placeholder.compareDocumentPosition(sibling)&Node.DOCUMENT_POSITION_FOLLOWING);
+      const center=box.top+box.height/2-(afterGap?space:0);
+      if(y<center){index=i;break}
+    }
+    if(preview?.area===area&&preview.index===index)return;
+    const affected=new Set([preview?.area,area].filter(Boolean));
+    const oldRects=new Map();
+    for(const region of affected)for(const item of siblingsIn(region))
+      oldRects.set(item,item.getBoundingClientRect());
+    // Only the placeholder is reordered during a gesture. Task data and
+    // touch handlers stay untouched until the drop is committed.
+    area.insertBefore(placeholder,siblings[index]||null);
+    preview={area,index};
+    if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+    for(const [item,old] of oldRects){
+      if(!item.isConnected)continue;
+      const rect=item.getBoundingClientRect(),dy=old.top-rect.top;
+      if(Math.abs(dy)<1)continue;
+      const playing=item.getAnimations?.()||[];
+      playing.forEach(anim=>anim.cancel());
+      item.animate?.([
+        {transform:'translate3d(0,'+dy+'px,0)'},
+        {transform:'translate3d(0,0,0)'}
+      ],{duration:220,easing:REORDER_EASE});
+    }
+  }
+  const begin=(x,y)=>{
+    resetVisual();
+    gesture={x,y,lastX:x,lastY:y,armed:false,dragged:false,swipe:false,aborted:false,timer:null,baseRect:null};
+    gesture.timer=setTimeout(()=>{
+      if(!gesture||gesture.swipe||gesture.aborted)return;
+      gesture.armed=true;el.classList.add('drag-armed');haptic();
+    },250);
+  };
+  const move=(x,y)=>{
+    if(!gesture)return false;
+    const dx=x-gesture.x,dy=y-gesture.y;
+    gesture.lastX=x;gesture.lastY=y;
+    if(!gesture.armed){
+      if(dx< -16&&Math.abs(dx)>Math.abs(dy)*1.25){
+        clearTimer();gesture.swipe=true;
+      }else if(Math.abs(dy)>9||dx>12||Math.abs(dx)>13){
+        clearTimer();gesture.aborted=true;
+      }
+    }
+    if(gesture.swipe){
+      closeSwipeItems(wrap);
+      wrap.classList.add('swiping');
+      el.style.transform='translateX('+Math.max(-64,Math.min(0,dx))+'px)';
+      return true;
+    }
+    if(!gesture.armed)return false;
+    if(Math.hypot(dx,dy)<7)return true;
+    gesture.dragged=true;el.classList.add('drag-active');el.classList.remove('drag-armed');
+    makeGhost();
+    ghost.style.left=gesture.baseRect.left+dx+'px';
+    ghost.style.top=gesture.baseRect.top+dy+'px';
+    const hit=findTarget(x,y);
+    $$('.quadrant').forEach(q=>q.classList.toggle('over',q===hit));
+    movePreview(hit,y);
+    return true;
+  };
+  const complete=(x,y)=>{
+    if(!gesture)return;
+    const state=gesture;clearTimer();
+    if(state.swipe){
+      const reveal=x-state.x< -42;
+      gesture=null;resetVisual();closeSwipeItems(wrap);
+      wrap.classList.toggle('revealed',reveal);
+      el.style.transform=reveal?'translateX(-64px)':'';
+      suppressClick=true;return;
+    }
+    if(state.dragged){
+      const target=findTarget(x,y),task=tasks.find(t=>t.id===el.dataset.task);
+      if(target)movePreview(target,y);
+      suppressClick=true;
+      if(task&&target&&preview?.area===target.querySelector('.task-area')){
+        // Capture the currently open gap as the old layout; only the floating
+        // card travels to it, while displaced cards settle in place.
+        const before=captureReorder();
+        if(before&&ghost){
+          const item=before.items.find(item=>item.id===task.id&&item.kind==='board');
+          if(item){item.rect=ghost.getBoundingClientRect();item.node=ghost}
+        }
+        const undo=placeDraggedTask(task,target,preview.index);
+        gesture=null;
+        clearPreview();clearTargets();
+        render();animateReorder(before);removeGhost();haptic();
+        setUndo('並び順を変更しました',undo);
+        flash('並び順を変更しました');
+      }else{
+        const before=captureReorder();
+        gesture=null;resetVisual();
+        animateReorder(before);
+      }
+      return;
+    }
+    const wasArmed=state.armed,wasAborted=state.aborted;
+    gesture=null;resetVisual();
+    if(wasArmed||wasAborted){suppressClick=true;return}
+    if(wrap.classList.contains('revealed')){closeSwipeItems();suppressClick=true;return}
+    suppressClick=true;openEdit(el.dataset.task);
+  };
+  const cancel=()=>{
+    const before=placeholder?captureReorder():null;
+    gesture=null;resetVisual();
+    if(before)animateReorder(before);
+    if(wrap.classList.contains('revealed'))el.style.transform='translateX(-64px)';
+  };
+  // Keep the native scroll gesture until a real long press is established.
+  el.addEventListener('touchstart',e=>{
+    if(isControl(e.target)||e.touches.length!==1)return;
+    const t=e.touches[0];begin(t.clientX,t.clientY);
+  },{passive:true});
+  el.addEventListener('touchmove',e=>{
+    if(!gesture||e.touches.length!==1)return;
+    const t=e.touches[0],handled=move(t.clientX,t.clientY);
+    if(handled){if(e.cancelable)e.preventDefault();e.stopPropagation()}
+  },{passive:false});
+  el.addEventListener('touchend',e=>{
+    if(!gesture)return;
+    const t=e.changedTouches[0],handled=gesture.armed||gesture.swipe||gesture.dragged;
+    complete(t?.clientX??0,t?.clientY??0);
+    if(handled){if(e.cancelable)e.preventDefault();e.stopPropagation()}
+  },{passive:false});
+  el.addEventListener('touchcancel',cancel,{passive:true});
+  el.onpointerdown=e=>{
+    if(e.pointerType==='touch'||e.button!==0||isControl(e.target))return;
+    begin(e.clientX,e.clientY);mousePointer=e.pointerId;
+    try{el.setPointerCapture(e.pointerId)}catch{}
+  };
+  el.onpointermove=e=>{
+    if(e.pointerType==='touch'||mousePointer!==e.pointerId)return;
+    move(e.clientX,e.clientY);
+  };
+  el.onpointerup=e=>{
+    if(e.pointerType==='touch'||mousePointer!==e.pointerId)return;
+    mousePointer=null;complete(e.clientX,e.clientY);
+  };
+  el.onpointercancel=e=>{if(e.pointerType==='touch')return;mousePointer=null;cancel()};
+  el.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation()});
+  el.addEventListener('selectstart',e=>e.preventDefault());
+  el.addEventListener('dragstart',e=>e.preventDefault());
+  el.addEventListener('click',e=>{
+    if(!suppressClick)return;
+    suppressClick=false;
+    if(isControl(e.target))return;
+    e.preventDefault();e.stopImmediatePropagation();
+  },true);
+  el.onkeydown=e=>{
+    if(e.target!==el||!['Enter',' '].includes(e.key))return;
+    e.preventDefault();openEdit(el.dataset.task);
+  };
 }
 function changeDay(d,forPuzzle=false){if(forPuzzle){puzzleDay=d;inboxPage=0;activePuzzle=null;activePuzzleSlot=null}else focusDay=d;render()}
 // Deadline is inclusive. Weekend work is configured separately for each task.
