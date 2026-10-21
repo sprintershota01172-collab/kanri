@@ -1411,7 +1411,7 @@ function setupDrag(el){
       oldRects.set(item,item.getBoundingClientRect());
     // Only the placeholder is reordered during a gesture. Task data and
     // touch handlers stay untouched until the drop is committed.
-    area.insertBefore(placeholder,siblings[index]||null);
+    area.insertBefore(placeholder,siblings[index]||area.querySelector(':scope > .empty')||null);
     preview={area,index};
     if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
     for(const [item,old] of oldRects){
