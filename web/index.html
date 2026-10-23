@@ -1292,7 +1292,23 @@ function openTrash(){
   $$('[data-restore]').forEach(el=>el.onclick=()=>{const id=el.dataset.restore;closeModal();restoreTask(id)});
   $$('[data-remove-forever]').forEach(el=>el.onclick=()=>{const id=el.dataset.removeForever;const item=tasks.find(t=>t.id===id);if(!item)return;closeModal();confirmAction('完全に削除',item.title+' を完全に削除しますか？ この操作は取り消せません。',()=>{tasks=tasks.filter(t=>t.id!==id);save();render();flash('完全に削除しました')})});
 }
-function render(){document.getElementById('app').classList.toggle('dark',prefs.dark);let n=new Date();$('#todayText').textContent=`${n.getMonth()+1}/${n.getDate()} ${'日月火水木金土'[n.getDay()]}`; $$('.nav-btn[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.screen').forEach(el=>el.classList.toggle('active',el.id===tab+'Screen'));if(tab==='board')renderBoard();if(tab==='calendar')renderCalendar();if(tab==='puzzle')renderPuzzle();if(tab==='settings')renderSettings()}
+
+function fontStep(){return Math.max(1,Math.min(10,Math.round(Number(prefs.fontStep)||5)))}
+function applyFontStep(){
+  prefs.fontStep=fontStep();
+  // 1→76%, 5→100%, 10→130%; adjust text, not touch target coordinates.
+  $('#app').style.setProperty('--kanri-text-scale',(0.7+prefs.fontStep*0.06).toFixed(2));
+}
+function setFontStep(value){
+  prefs.fontStep=Math.max(1,Math.min(10,Math.round(Number(value)||5)));
+  savePrefs();applyFontStep();
+  const range=$('#fontStepRange'),label=$('#fontStepValue');
+  if(range)range.value=String(prefs.fontStep);
+  if(label)label.textContent=prefs.fontStep+' / 10';
+  if($('#fontDecrease'))$('#fontDecrease').disabled=prefs.fontStep===1;
+  if($('#fontIncrease'))$('#fontIncrease').disabled=prefs.fontStep===10;
+}
+function render(){applyFontStep();document.getElementById('app').classList.toggle('dark',prefs.dark);let n=new Date();$('#todayText').textContent=`${n.getMonth()+1}/${n.getDate()} ${'日月火水木金土'[n.getDay()]}`; $$('.nav-btn[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.screen').forEach(el=>el.classList.toggle('active',el.id===tab+'Screen'));if(tab==='board')renderBoard();if(tab==='calendar')renderCalendar();if(tab==='puzzle')renderPuzzle();if(tab==='settings')renderSettings()}
 
 
 /* Preserve visual continuity when priority/due changes rebuild sorted rows.
@@ -2119,8 +2135,12 @@ document.addEventListener('click',e=>{
   // a stale puzzle over a different view or day.
   if(tab==='puzzle')renderPuzzle();
 });
-function renderSettings(){let html=`<div class="s-card"><div class="s-row"><span>分類方法</span><button id="modeSelect">${prefs.mode==='priority'?'優先度（4象限）':'グループ（4分類）'} ⌄</button></div><div class="s-row"><span>エリア名を編集</span><button id="rename">編集する ›</button></div><div class="s-row"><span>ダークモード</span><button class="toggle ${prefs.dark?'on':''}" id="darkToggle" aria-label="ダークモード切り替え"></button></div></div><div class="s-card"><div class="s-row"><span>通知</span><span class="settings-status">アプリ版のみ</span></div><div class="s-row"><span>納期前・開始時刻</span><span class="settings-status">端末内通知</span></div></div><div class="s-card"><div class="s-row"><span>完了・削除一覧</span><button id="openTrash">一覧を開く（${tasks.filter(t=>t.done).length}件） ›</button></div></div><div class="s-card"><div class="s-row"><span>データ出力</span><button id="exportExcel" aria-label="タスクをExcel形式で出力">Excel出力 ↗</button></div></div><div class="progress-stat"><strong>${tasks.filter(t=>t.done).length}<span>/ ${tasks.length} タスク完了</span></strong></div>`;$('#settingsContent').innerHTML=html;
-$('#openTrash').onclick=openTrash;$('#exportExcel').onclick=()=>{
+function renderSettings(){let html=`<div class="s-card"><div class="s-row"><span>分類方法</span><button id="modeSelect">${prefs.mode==='priority'?'優先度（4象限）':'グループ（4分類）'} ⌄</button></div><div class="s-row"><span>エリア名を編集</span><button id="rename">編集する ›</button></div><div class="s-row"><span>ダークモード</span><button class="toggle ${prefs.dark?'on':''}" id="darkToggle" aria-label="ダークモード切り替え"></button></div><div class="s-row kanri-font-row"><div class="kanri-font-row-head"><span>文字サイズ</span><strong id="fontStepValue">${fontStep()} / 10</strong></div><div class="kanri-font-row-controls"><button type="button" class="kanri-font-step-button" id="fontDecrease" aria-label="文字を小さく">−</button><input type="range" min="1" max="10" step="1" id="fontStepRange" value="${fontStep()}" aria-label="文字サイズ10段階"><button type="button" class="kanri-font-step-button" id="fontIncrease" aria-label="文字を大きく">＋</button></div><span class="kanri-font-sample">あいうえお ABC 123 · 表示サンプル</span></div></div><div class="s-card"><div class="s-row"><span>通知</span><span class="settings-status">アプリ版のみ</span></div><div class="s-row"><span>納期前・開始時刻</span><span class="settings-status">端末内通知</span></div></div><div class="s-card"><div class="s-row"><span>完了・削除一覧</span><button id="openTrash">一覧を開く（${tasks.filter(t=>t.done).length}件） ›</button></div></div><div class="s-card"><div class="s-row"><span>データ出力</span><button id="exportExcel" aria-label="タスクをExcel形式で出力">Excel出力 ↗</button></div></div><div class="progress-stat"><strong>${tasks.filter(t=>t.done).length}<span>/ ${tasks.length} タスク完了</span></strong></div>`;$('#settingsContent').innerHTML=html;
+$('#fontStepRange').oninput=e=>setFontStep(e.target.value);
+ $('#fontDecrease').onclick=()=>setFontStep(fontStep()-1);
+ $('#fontIncrease').onclick=()=>setFontStep(fontStep()+1);
+ $('#fontDecrease').disabled=fontStep()===1;$('#fontIncrease').disabled=fontStep()===10;
+ $('#openTrash').onclick=openTrash;$('#exportExcel').onclick=()=>{
   try{
     if(!window.kanriXlsx)throw new Error('Excel exporter is unavailable');
     const filename=window.kanriXlsx.exportExcel({tasks,folders,month:focusDay});
