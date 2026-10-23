@@ -960,6 +960,87 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
  width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
  font-size:calc(10px * var(--kanri-text-scale));font-weight:700;color:var(--ink);
 }
+
+/* One native vertical scroll surface for Gantt names and dates. */
+#app .gantt-unified .gantt-sheet{
+ flex:1 1 0!important;min-height:0!important;max-height:none!important;
+ display:flex!important;flex-direction:column!important;overflow:hidden!important;
+ --gantt-row-size:22px;--gantt-label-width:160px
+}
+@media(max-width:375px){#app .gantt-unified .gantt-sheet{--gantt-label-width:155px}}
+#app .gantt-unified .gantt-top-row{
+ display:flex;height:35px!important;min-height:35px;flex:0 0 35px!important;
+ min-width:0;overflow:hidden;background:var(--tint)
+}
+#app .gantt-unified .gantt-top-row>.gantt-label-head{
+ flex:0 0 var(--gantt-label-width)!important;width:var(--gantt-label-width)!important;
+ min-width:var(--gantt-label-width)!important;height:35px!important;
+ padding:0 7px!important;align-items:center!important;justify-content:space-between!important
+}
+#app .gantt-unified .gantt-heading-viewport{flex:1;min-width:0;overflow:hidden;height:35px}
+#app .gantt-unified .gantt-heading-track{width:max-content;height:35px;transform:translate3d(0,0,0)}
+#app .gantt-unified .gantt-heading-track .gantt-days-header{
+ height:35px!important;min-height:35px!important;max-height:35px!important;
+ display:grid;flex:none!important
+}
+#app .gantt-unified .gantt-heading-track .gantt-date-cell{
+ height:35px!important;min-height:35px!important;display:flex;
+ justify-content:center;align-items:center;gap:1px
+}
+#app .gantt-unified .gantt-y-scroll{
+ flex:1 1 0!important;min-width:0;min-height:0;
+ overflow-y:auto!important;overflow-x:hidden!important;
+ touch-action:pan-y;overscroll-behavior-y:contain;
+ -webkit-overflow-scrolling:touch;scrollbar-width:none;overflow-anchor:none
+}
+#app .gantt-unified .gantt-y-scroll::-webkit-scrollbar{display:none}
+#app .gantt-unified .gantt-row-pair{
+ display:flex;align-items:stretch;min-width:0;min-height:100%;height:max-content
+}
+#app .gantt-unified .gantt-name-body{
+ display:block!important;flex:0 0 var(--gantt-label-width)!important;
+ width:var(--gantt-label-width)!important;min-width:var(--gantt-label-width)!important;
+ height:auto!important;min-height:0!important;overflow:visible!important
+}
+#app .gantt-unified .gantt-scroll{
+ flex:1 1 0!important;min-width:0;min-height:0;height:auto!important;
+ align-self:stretch;overflow-x:auto!important;overflow-y:hidden!important;
+ touch-action:auto!important;overscroll-behavior-x:contain;
+ -webkit-overflow-scrolling:touch
+}
+#app .gantt-unified .gantt-scroll-table{
+ display:block!important;height:auto!important;min-height:100%;
+ width:max-content;max-width:none!important
+}
+#app .gantt-unified .gantt-day-body{
+ display:block!important;height:auto!important;min-height:100%;
+ overflow:visible!important;touch-action:auto!important
+}
+#app .gantt-unified .gantt-name-body>.gantt-label-complete-row,
+#app .gantt-unified .gantt-name-body>.gantt-label-row,
+#app .gantt-unified .gantt-day-body>.gantt-task-row{
+ height:var(--gantt-row-size)!important;min-height:var(--gantt-row-size)!important;
+ max-height:var(--gantt-row-size)!important;flex:none!important;
+ box-sizing:border-box!important;overflow:hidden;align-items:center
+}
+#app .gantt-unified .gantt-name-body>.gantt-label-complete-row{display:flex!important}
+#app .gantt-unified .gantt-name-body .gantt-label-row{
+ height:100%!important;min-height:0!important;max-height:100%!important;
+ padding:0 3px!important;display:flex!important;
+ align-items:center!important;justify-content:flex-start!important
+}
+#app .gantt-unified .gantt-day-body>.gantt-task-row{
+ display:grid!important;grid-template-columns:repeat(var(--days),30px)
+}
+#app .gantt-unified .gantt-square{height:100%!important;touch-action:manipulation!important}
+#app .gantt-unified .gantt-label-complete-row .gantt-label-row strong{
+ display:block!important;white-space:nowrap!important;line-height:1.2!important;
+ overflow:hidden!important;text-overflow:ellipsis!important;
+ -webkit-line-clamp:unset!important;min-width:0
+}
+#app .gantt-unified .gantt-label-complete-row .gantt-lt{
+ display:flex;align-items:center;justify-content:center;height:100%
+}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="グループまたは子ツリーを追加">＋ 追加</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
@@ -1906,17 +1987,25 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
     names+='<div class="gantt-label-row gantt-blank" aria-hidden="true"></div>';
     rows+=`<div class="gantt-grid-row gantt-task-row gantt-blank-row" style="--days:${days}" aria-hidden="true">${Array.from({length:days},(_,i)=>{const d=new Date(base.getFullYear(),base.getMonth(),i+1);return `<div class="gantt-square gantt-empty-square ${d.getDay()===0?'sun':d.getDay()===6?'sat':''}"></div>`}).join('')}</div>`;
   }
-  html+=`<div class="gantt gantt-excel" style="--display-rows:${rowCount}">
-    <div class="gantt-sheet">
-      <div class="gantt-names"><div class="gantt-label-head">タスク名 <span class="gantt-head-lt">LT</span></div><div class="gantt-name-body" id="ganttNameBody">${names}</div></div>
-      <div class="gantt-scroll" id="ganttScroll" role="region" aria-label="ガント日付" tabindex="0">
-        <div class="gantt-scroll-table" style="width:${days*30}px;--days:${days}">${header}<div class="gantt-day-body" id="ganttDayBody">${rows}</div></div>
-      </div>
-    </div>
-    <div class="gantt-controls"><span class="gantt-count">${list.length}件</span><span class="gantt-weekend-hint">タスク編集で「土日対応」をチェック</span>
-      <span class="gantt-status-legend"><span><i style="background:#66A889"></i>納期前</span><span><i style="background:#E9C454"></i>残2日以内</span><span><i style="background:#D96B74"></i>期限超過</span></span>
-    </div>
-  </div>`;
+  html+=`<div class="gantt gantt-excel gantt-unified" style="--display-rows:${rowCount}">
+<div class="gantt-sheet">
+ <div class="gantt-top-row">
+  <div class="gantt-label-head">タスク名 <span class="gantt-head-lt">LT</span></div>
+  <div class="gantt-heading-viewport" aria-hidden="true"><div class="gantt-heading-track" id="ganttDateHeader">${header}</div></div>
+ </div>
+ <div class="gantt-y-scroll" id="ganttVertical" role="region" aria-label="ガントタスクと日付" tabindex="0">
+  <div class="gantt-row-pair">
+   <div class="gantt-name-body" id="ganttNameBody">${names}</div>
+   <div class="gantt-scroll" id="ganttScroll" role="region" aria-label="日付を横スクロール" tabindex="0">
+    <div class="gantt-scroll-table" style="width:${days*30}px;--days:${days}"><div class="gantt-day-body" id="ganttDayBody">${rows}</div></div>
+   </div>
+  </div>
+ </div>
+</div>
+<div class="gantt-controls"><span class="gantt-count">${list.length}件</span><span class="gantt-weekend-hint">タスク編集で「土日対応」をチェック</span>
+ <span class="gantt-status-legend"><span><i style="background:#66A889"></i>納期前</span><span><i style="background:#E9C454"></i>残2日以内</span><span><i style="background:#D96B74"></i>期限超過</span></span>
+</div>
+</div>`;
 }$('#calendarContent').innerHTML=html;$('#prevDate').onclick=()=>{const day=focusDay;ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(day.getFullYear(),day.getMonth()-1,Math.min(day.getDate(),28)):addDays(day,-7))};$('#nextDate').onclick=()=>{const day=focusDay;ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(day.getFullYear(),day.getMonth()+1,Math.min(day.getDate(),28)):addDays(day,7))};$$('[data-caldate]').forEach(el=>el.onclick=()=>changeDay(parseLocal(el.dataset.caldate)));$$('[data-edit]').forEach(el=>el.onclick=()=>openEdit(el.dataset.edit));
   $$('.agenda-check').forEach(el=>{
     el.addEventListener('pointerdown',e=>e.stopPropagation());
@@ -1931,7 +2020,17 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
  ganttScrollX=sameMonth?Math.max(0,(today.getDate()-2)*30):0;
  }
  scroll.scrollLeft=ganttScrollX;
- const initialY=Math.max(0,Math.min(ganttScrollY,Math.max(0,names.scrollHeight-names.clientHeight)));names.scrollTop=initialY;days.scrollTop=initialY;const sync=(source,target)=>{if(Math.abs(target.scrollTop-source.scrollTop)>1)target.scrollTop=source.scrollTop;ganttScrollY=source.scrollTop};names.addEventListener('scroll',()=>sync(names,days),{passive:true});days.addEventListener('scroll',()=>sync(days,names),{passive:true});scroll.addEventListener('scroll',()=>{ganttScrollX=scroll.scrollLeft},{passive:true})}}bindTitlePreviews();}
+ const vertical=$('#ganttVertical'),head=$('#ganttDateHeader'),sheet=$('.gantt-unified .gantt-sheet');
+ const setRowSize=()=>{if(vertical.isConnected)sheet.style.setProperty('--gantt-row-size',vertical.clientHeight/20+'px')};
+ setRowSize();
+ vertical.scrollTop=Math.max(0,ganttScrollY);
+ vertical.addEventListener('scroll',()=>{ganttScrollY=vertical.scrollTop},{passive:true});
+ const syncHead=()=>{ganttScrollX=scroll.scrollLeft;head.style.transform='translate3d('+(-ganttScrollX)+'px,0,0)'};
+ syncHead();scroll.addEventListener('scroll',syncHead,{passive:true});
+ if(window.ResizeObserver){
+  const observer=new ResizeObserver(setRowSize);
+  observer.observe(vertical);vertical._ganttResizeObserver=observer;
+ }}}bindTitlePreviews();}
 function agendaHtml(day){
  const k=dateKey(day),items=sorted(tasks.filter(t=>!t.done&&inFolder(t,currentFolderId)&&(t.due===k||!!slotOnDay(t,k)))).sort((a,b)=>Number(!!b.event)-Number(!!a.event)||(slotOnDay(a,k)||'').localeCompare(slotOnDay(b,k)||''));
  return `<div class="agenda"><div class="agenda-head"><strong style="font-size:12px">${dayName(day)} の予定</strong><span class="sub">${items.length}件を表示</span></div><div class="agenda-list">${items.length?items.map(t=>`<div class="agenda-task ${t.event?'event-entry':''}"><span class="line" style="background:${palette[quadrant(t)]}"></span>${t.event?'':`<button type="button" class="agenda-check" data-done="${t.id}" aria-label="${esc(t.title)}を完了"><svg class="check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.35" opacity=".8"/><path d="M6.3 10 9 12.6 13.8 7.7" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`}<button type="button" class="agenda-open" data-edit="${t.id}" aria-label="${esc(t.title)}を編集"><span class="static-task-title">${esc(t.title)}</span><span class="agenda-meta">${slotOnDay(t,k)?.slice(11,16)||(t.event?'予定':shortDue(t.due))} · ${slotOnDay(t,k)?slotDuration(t,slotOnDay(t,k)):t.duration}m</span><span class="agenda-chevron">›</span></button></div>`).join(''):'<div class="agenda-none">予定なし</div>'}</div></div>`;
