@@ -1041,6 +1041,97 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
 #app .gantt-unified .gantt-label-complete-row .gantt-lt{
  display:flex;align-items:center;justify-content:center;height:100%
 }
+
+/* Shared 10-step typography. Keep controls fixed; scale glyphs only.
+   Vertical optical alignment is consistent across FOCUS, PLAN, PUZZLE, SETUP. */
+#app .today,#app .hint,#app .sub,#app .settings-status,
+#app .hero-label,#app .hero-sub,#app .hero-main,#app .progress-stat span,
+#app .s-row>span,#app .s-row>button,#app .screen-head button:not(.check),
+#app .focus-head-left .folder-heading,#app .folder-caret,
+#app .month-box .week-labels,#app .agenda-head .sub,
+#app .agenda-list .agenda-none,#app .agenda-list .agenda-chevron,
+#app .date-nav button,#app .gantt-controls span,
+#app .gantt-controls .gantt-count,#app .gantt-head-lt,
+#app .gantt-one-tap,#app .gantt-label-head,
+#app .puzzle-tophead,#app .puzzle-tophead span,
+#app .puzzle-day button,#app .puzzle-foot .hint,
+#app .puzzle-foot button,#app .puzzle-content .time-label,
+#app .puzzle-content .puzzle-top .pager,
+#app .field label,#app .field input,#app .field select,
+#app .field button,#app .choice-row button,
+#app .sheet-head strong,#app .sheet-head button,
+#app .sheet .primary,#app .sheet .sheet-cancel,
+#app .modal-layer .folder-tile,#app .modal-layer .folder-crumb,
+#app .modal-layer .trash-details strong,#app .modal-layer .trash-details small,
+#app .undo,#app .toast{
+  font-size:calc(var(--kanri-base-font,10px) * var(--kanri-text-scale))!important;
+  line-height:1.22!important;
+}
+/* Explicit base sizes override the common typography rule above. */
+#app .hero-main{--kanri-base-font:18px}
+#app .screen-head button:not(.check),#app .focus-head-left .folder-heading{--kanri-base-font:12px}
+#app .s-row>span,#app .s-row>button,#app .hero-sub{--kanri-base-font:11px}
+#app .gantt-label-head{--kanri-base-font:10px}
+#app .gantt-head-lt,#app .gantt-controls span,#app .gantt-controls .gantt-count{--kanri-base-font:9px}
+#app .gantt-one-tap{--kanri-base-font:12px}
+#app .date-nav button{--kanri-base-font:19px}
+#app .sheet-head strong{--kanri-base-font:16px}
+#app .field input,#app .field select{--kanri-base-font:13px}
+#app .puzzle-tophead,#app .puzzle-day button{--kanri-base-font:11px}
+#app .puzzle-content .time-label{--kanri-base-font:8px}
+#app .today{--kanri-base-font:10px}
+#app .gantt-date-cell b{font-size:calc(12px * var(--kanri-text-scale))!important;line-height:1.1!important}
+#app .gantt-date-cell small{font-size:calc(9px * var(--kanri-text-scale))!important;line-height:1.1!important}
+#app .gantt-label-complete-row .gantt-lt{
+  font-size:calc(8.5px * var(--kanri-text-scale))!important;line-height:1.1!important;
+}
+#app .gantt-unified .gantt-label-complete-row .gantt-label-row strong{
+  font-size:calc(9.5px * var(--kanri-text-scale))!important;
+  line-height:1.2!important;
+}
+#app #board .static-task-title,
+#app #board .static-task-title.title-long,
+#app #board .static-task-title.title-extra-long{
+  font-size:calc(10px * var(--kanri-text-scale))!important;
+  line-height:1.15!important;
+  max-height:100%!important;
+  display:block!important;white-space:nowrap!important;
+  overflow:hidden!important;text-overflow:ellipsis!important;
+  width:0;min-width:0;
+  align-self:center!important;
+}
+#app #board .task-card .task-line,
+#app #board .task-card .task-meta-compact,
+#app #board .task-card .check{
+  align-items:center!important;align-self:center!important;vertical-align:middle!important;
+}
+#app #board .task-card .task-line{height:100%!important;justify-content:flex-start!important}
+#app #board .task-card .task-meta-compact{font-size:calc(7px * var(--kanri-text-scale))!important;line-height:1.2!important}
+#app .tree-board-name,#app .quad-title,#app .screen-head,
+#app .puzzle-day,#app .puzzle-tophead,#app .puzzle-foot,
+#app .agenda-head,#app .agenda-task,#app .agenda-open,
+#app .s-row,#app .date-nav,#app .gantt-controls,
+#app .gantt-one-tap,#app .gantt-label-head,
+#app .gantt-top-row,#app .gantt-label-complete-row,
+#app .gantt-label-complete-row .gantt-label-row,
+#app .gantt-date-cell,#app .puzzle-chip,#app .scheduled-chip{
+  align-items:center!important;
+}
+#app .puzzle-tophead,#app .puzzle-foot,#app .s-row,
+#app .date-nav,#app .agenda-head{
+  justify-content:space-between;
+}
+#app .agenda-open .static-task-title,#app .agenda-meta,
+#app .puzzle-chip strong,#app .puzzle-chip span,
+#app .scheduled-chip strong,#app .scheduled-chip small,
+#app .s-row>span,#app .s-row>button,#app .gantt-label-row small,
+#app .gantt-label-row strong{align-self:center;vertical-align:middle}
+#app .nav-btn[data-tab] span:not(.add-main){
+  line-height:1.15!important;display:flex;justify-content:center;align-items:center;
+}
+#app .settings-content .kanri-font-row .kanri-font-step-button{font-size:19px!important}
+/* A standard row stays symmetric across text-size steps. */
+#app .gantt-unified .gantt-name-body>.gantt-label-row{display:flex;align-items:center}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="グループまたは子ツリーを追加">＋ 追加</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
@@ -2006,7 +2097,7 @@ function renderCalendar(){let base=focusDay;let nav=`<div class="date-nav"><butt
  <span class="gantt-status-legend"><span><i style="background:#66A889"></i>納期前</span><span><i style="background:#E9C454"></i>残2日以内</span><span><i style="background:#D96B74"></i>期限超過</span></span>
 </div>
 </div>`;
-}$('#calendarContent').innerHTML=html;$('#prevDate').onclick=()=>{const day=focusDay;ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(day.getFullYear(),day.getMonth()-1,Math.min(day.getDate(),28)):addDays(day,-7))};$('#nextDate').onclick=()=>{const day=focusDay;ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(day.getFullYear(),day.getMonth()+1,Math.min(day.getDate(),28)):addDays(day,7))};$$('[data-caldate]').forEach(el=>el.onclick=()=>changeDay(parseLocal(el.dataset.caldate)));$$('[data-edit]').forEach(el=>el.onclick=()=>openEdit(el.dataset.edit));
+}$('#ganttVertical')?._ganttResizeObserver?.disconnect();$('#calendarContent').innerHTML=html;$('#prevDate').onclick=()=>{const day=focusDay;ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(day.getFullYear(),day.getMonth()-1,Math.min(day.getDate(),28)):addDays(day,-7))};$('#nextDate').onclick=()=>{const day=focusDay;ganttScrollX=0;ganttScrollY=0;changeDay(calMode!=='week'?new Date(day.getFullYear(),day.getMonth()+1,Math.min(day.getDate(),28)):addDays(day,7))};$$('[data-caldate]').forEach(el=>el.onclick=()=>changeDay(parseLocal(el.dataset.caldate)));$$('[data-edit]').forEach(el=>el.onclick=()=>openEdit(el.dataset.edit));
   $$('.agenda-check').forEach(el=>{
     el.addEventListener('pointerdown',e=>e.stopPropagation());
     el.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
