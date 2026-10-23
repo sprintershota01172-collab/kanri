@@ -45,6 +45,9 @@ jobs:
       - name: Verify scrollable quadrant lists and font controls on iPhone
         working-directory: web
         run: node scripts/test-board-scroll.cjs
+      - name: Verify frameless synchronized Gantt swiping
+        working-directory: web
+        run: node scripts/test-gantt-swipe.cjs
       - name: Test folder UI and gestures
         working-directory: web
         run: npm run test:ui
