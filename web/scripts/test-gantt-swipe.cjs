@@ -94,6 +94,10 @@ const sample=Array.from({length:44},(_,i)=>({
   assert.ok(Math.abs(header.v-after.top)<1,'horizontal swipe does not disturb vertical position');
   assert.equal(header.border,'0px');
   assert.equal(header.outline,'none');
+  const cell=page.locator('.gantt-unified .gantt-square[data-gantt]').first();
+  await cell.focus();
+  assert.equal(await cell.evaluate(el=>getComputedStyle(el).outlineStyle),'none',
+    'touch-optimized Gantt cells never show an extra focus rectangle');
   assert.deepEqual(errors,[]);
   await ctx.close();
  }finally{await browser.close()}
