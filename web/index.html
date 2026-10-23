@@ -1163,6 +1163,21 @@ button.static-task-title{height:100%;padding:0 2px;color:var(--ink)}
 #app .gantt-unified .gantt-y-scroll::-webkit-scrollbar,
 #app .gantt-unified .gantt-scroll::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
 #app .gantt-unified .gantt-scroll{scrollbar-width:none!important}
+
+/* Touch swipes must not briefly select individual Gantt cells or label buttons.
+   Keyboard focus styling on desktop remains available. */
+@media (pointer:coarse){
+ #app .gantt-unified .gantt-square:focus,
+ #app .gantt-unified .gantt-square:focus-visible,
+ #app .gantt-unified .gantt-square:active,
+ #app .gantt-unified .gantt-label-row:focus,
+ #app .gantt-unified .gantt-label-row:focus-visible,
+ #app .gantt-unified .gantt-one-tap:focus,
+ #app .gantt-unified .gantt-one-tap:focus-visible{
+  outline:none!important;outline-offset:0!important;
+  box-shadow:none!important;-webkit-tap-highlight-color:transparent!important;
+ }
+}
 </style></head>
 <body><div class="device" id="app"><header class="top"><div class="header"><div><div class="brand">kanr<i>i</i><span style="color:#8aa6e0;font-size:10px;vertical-align:top;margin-left:5px">◢</span></div></div><div class="header-actions"><div class="today" id="todayText"></div><button class="small-btn" id="themeQuick" aria-label="テーマ切替">◐</button></div></div></header><main class="main">
 <section class="screen active" id="boardScreen"><div class="screen-head focus-head"><div class="focus-head-left"><button type="button" id="folderMenuButton" class="folder-heading" aria-label="フォルダを開く">TODO <span id="currentFolderLabel" class="folder-selected-name" hidden></span><span class="folder-caret">⌄</span></button><div id="groupQuickSwitch" class="group-quick-switch" aria-label="グループを切り替える"></div><button type="button" id="childQuickAdd" class="tree-quick-add" aria-label="グループまたは子ツリーを追加">＋ 追加</button></div><button class="small-btn" id="sortButton" style="font-size:16px;font-weight:800" aria-label="優先順位を自動整理" title="自動整理">↕</button></div><div class="board" id="board"></div><div class="board-foot"><span></span><button class="link" id="resetRank">固定を解除 ↺</button></div></section>
