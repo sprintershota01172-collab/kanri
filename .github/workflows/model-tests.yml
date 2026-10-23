@@ -42,6 +42,9 @@ jobs:
       - name: Verify smooth iPhone browser transitions
         working-directory: web
         run: node scripts/test-view-browser.cjs
+      - name: Verify scrollable quadrant lists and font controls on iPhone
+        working-directory: web
+        run: node scripts/test-board-scroll.cjs
       - name: Test folder UI and gestures
         working-directory: web
         run: npm run test:ui
